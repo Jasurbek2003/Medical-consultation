@@ -1,0 +1,39 @@
+# Django
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+db.sqlite3
+db.sqlite3-journal
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+
+# Media files
+media/
+
+# Static files (agar collect qilingan bo'lsa)
+staticfiles/
+
+# Logs
+logs/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+.directory
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
