@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tibbiy Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .chat-container { max-width: 800px; margin: 0 auto; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .user-message { background: #e3f2fd; text-align: right; }
+        .ai-message { background: #f1f8e9; }
+        .input-area { margin-top: 20px; }
+        input { width: 70%; padding: 10px; }
+        button { padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>🏥 Tibbiy Konsultatsiya Chat</h1>
+        <div id="messages"></div>
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Sizning muammoingizni yozing..." maxlength="500">
+            <button onclick="sendMessage()">Yuborish</button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+
+        function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // User xabarini ko\'rsatish
+            addMessage(message, "user");
+            input.value = "";
+
+            // AI ga yuborish
+            fetch("/api/chat/message/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: sessionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    sessionId = data.session_id;
+                    addMessage(data.ai_response.content, "ai");
+                } else {
+                    addMessage("Xatolik: " + data.error, "ai");
+                }
+            })
+            .catch(error => {
+                addMessage("Internet xatolik: " + error, "ai");
+            });
+        }
+
+        function addMessage(content, sender) {
+            const messages = document.getElementById("messages");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.innerHTML = content.replace(/\n/g, "<br>");
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Enter tugmasi bosilganda xabar yuborish
+        document.getElementById("messageInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+
+        // Boshlang\'ich xabar
+        addMessage("Salom! Men sizning tibbiy yordamchingizman. Qanday muammo bor?", "ai");
+    </script>
+</body>
+</html>
