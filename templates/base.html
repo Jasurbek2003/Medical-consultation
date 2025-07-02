@@ -3,42 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shifokorlar</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .doctor-card { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
-        .doctor-name { font-size: 18px; font-weight: bold; color: #1976d2; }
-        .doctor-info { margin: 5px 0; }
-        .rating { color: #ff9800; }
-    </style>
-</head>
-<body>
-    <h1>🏥 Shifokorlar Ro\'yxati</h1>
-
-    {% for doctor in doctors %}
-    <div class="doctor-card">
-        <div class="doctor-name">Dr. {{ doctor.get_full_name }}</div>
-        <div class="doctor-info">📋 {{ doctor.get_specialty_display }}</div>
-        <div class="doctor-info">🎓 Tajriba: {{ doctor.experience }} yil</div>
-        <div class="doctor-info">⭐ Reyting: {{ doctor.rating }}/5 ({{ doctor.total_reviews }} sharh)</div>
-        <div class="doctor-info">💰 Narx: {{ doctor.consultation_price|floatformat:0 }} so\'m</div>
-        <div class="doctor-info">🏢 {{ doctor.workplace }}</div>
-        <div class="doctor-info">📞 {{ doctor.phone }}</div>
-        <div class="doctor-info">📍 {{ doctor.region }}, {{ doctor.district }}</div>
-    </div>
-    {% endfor %}
-
-    {% if not doctors %}
-    <p>Hozircha shifokorlar mavjud emas.</p>
-    {% endif %}
-</body>
-</html>' > templates/doctors/doctor_list.html
-
-echo '<!DOCTYPE html>
-<html lang="uz">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tibbiy Konsultatsiya</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }

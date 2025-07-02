@@ -107,7 +107,7 @@ class ChatInterfaceView(TemplateView):
 # API Views
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatMessageView(TemplateView):
-    """Chat xabar yuborish API"""
+    """Yaxshilangan Chat xabar yuborish API"""
 
     def post(self, request, *args, **kwargs):
         try:
@@ -138,55 +138,36 @@ class ChatMessageView(TemplateView):
                 content=user_message
             )
 
-            # AI tahlili
-            gemini_service = GeminiService()
+            # Xabar turini aniqlash
+            message_type = self._analyze_message_type(user_message, session)
 
-            # 1. Tibbiy muammoni klassifikatsiya qilish
-            classification_result = gemini_service.classify_medical_issue(
-                user_message,
-                user_context=self._get_user_context(request)
-            )
+            if message_type == 'greeting':
+                # Oddiy salomlashish
+                ai_response = self._get_greeting_response()
 
-            # Session ma'lumotlarini yangilash
-            session.detected_specialty = classification_result.get('specialty')
-            session.confidence_score = classification_result.get('confidence', 0.5)
-            session.save()
+            elif message_type == 'general_question':
+                # Umumiy savol - qo'shimcha ma'lumot so'rash
+                ai_response = self._get_clarification_response()
 
-            # 2. Mos shifokorlarni topish
-            recommended_doctors = self._get_recommended_doctors(
-                classification_result.get('specialty'),
-                user_context=self._get_user_context(request)
-            )
+            elif message_type == 'medical_complaint':
+                # Tibbiy shikoyat - to'liq tahlil qilish
+                ai_response = self._process_medical_complaint(user_message, session, request)
 
-            # 3. Tibbiy maslahat olish
-            advice_result = gemini_service.get_medical_advice(
-                user_message,
-                classification_result.get('specialty'),
-                classification_result.get('symptoms_analysis', {}).get('detected_symptoms', [])
-            )
+            else:
+                # Noma'lum tur
+                ai_response = self._get_help_response()
 
-            # AI javob xabarini formatlash va saqlash
-            ai_response_content = self._format_ai_response(
-                classification_result,
-                recommended_doctors,
-                advice_result.get('advice', '')
-            )
-
+            # AI javob xabarini saqlash
             ai_chat_message = ChatMessage.objects.create(
                 session=session,
                 sender_type='ai',
-                message_type='doctor_recommendation',
-                content=ai_response_content,
-                ai_model_used=classification_result.get('model_used', 'gemini-pro'),
-                ai_response_time=advice_result.get('processing_time', 0),
-                metadata={
-                    'classification': classification_result,
-                    'doctors': recommended_doctors,
-                    'advice': advice_result
-                }
+                message_type='text',
+                content=ai_response['content'],
+                ai_model_used=ai_response.get('model_used', 'rule-based'),
+                ai_response_time=ai_response.get('processing_time', 0.1),
+                metadata=ai_response.get('metadata', {})
             )
 
-            # Javobni qaytarish
             return JsonResponse({
                 'success': True,
                 'session_id': str(session.id),
@@ -197,20 +178,11 @@ class ChatMessageView(TemplateView):
                 },
                 'ai_response': {
                     'id': ai_chat_message.id,
-                    'content': ai_response_content,
+                    'content': ai_response['content'],
                     'timestamp': ai_chat_message.created_at.isoformat(),
-                    'metadata': ai_chat_message.metadata
+                    'metadata': ai_response.get('metadata', {})
                 },
-                'classification': {
-                    'specialty': classification_result.get('specialty'),
-                    'specialty_display': dict(Doctor.SPECIALTIES).get(
-                        classification_result.get('specialty'), ''
-                    ),
-                    'confidence': classification_result.get('confidence'),
-                    'explanation': classification_result.get('explanation'),
-                    'urgency_level': classification_result.get('urgency_assessment', {}).get('urgency_level')
-                },
-                'recommended_doctors': recommended_doctors,
+                'message_type': message_type,
                 'ai_available': AI_AVAILABLE
             })
 
@@ -222,6 +194,203 @@ class ChatMessageView(TemplateView):
                 'error_details': str(e) if settings.DEBUG else None
             })
 
+    def _analyze_message_type(self, message, session):
+        """Xabar turini aniqlash"""
+        message_lower = message.lower().strip()
+
+        # Salomlashish so'zlari
+        greeting_words = ['salom', 'assalomu alaykum', 'alik', 'hello', 'hi', 'hey']
+        if any(word in message_lower for word in greeting_words) and len(message.split()) <= 3:
+            return 'greeting'
+
+        # Tibbiy kalit so'zlar
+        medical_keywords = [
+            'og\'riq', 'og\'riyapti', 'kasallik', 'bemor', 'shifokor', 'dori',
+            'tish', 'bosh', 'qorin', 'yurak', 'siydik', 'harorat', 'yo\'tal',
+            'teri', 'ko\'z', 'quloq', 'allergiya', 'stress', 'charchoq'
+        ]
+
+        if any(keyword in message_lower for keyword in medical_keywords):
+            return 'medical_complaint'
+
+        # Umumiy savollar
+        if len(message.split()) <= 5 and '?' not in message:
+            return 'general_question'
+
+        # Aniq tibbiy shikoyat (uzunroq matn)
+        if len(message.split()) > 5:
+            return 'medical_complaint'
+
+        return 'general_question'
+
+    def _get_greeting_response(self):
+        """Salomlashish javobi"""
+        return {
+            'content': """Salom! Men sizning tibbiy yordamchingizman. 🏥
+
+Men sizga to'g'ri shifokorni topishda yordam beraman.
+
+Iltimos, qaysi muammongiz bor bo'lsa, batafsil aytib bering:
+• Qanday belgilar yoki og'riqlar bor?
+• Qachondan beri sezayapsiz?
+• Qaysi joyda og'riq bor?
+
+Masalan:
+"Ikki kundan beri boshim og'riyapti"
+"Tishim juda og'riyapti, yeyolmayapman" 
+"Qon bosimim yuqori ko'tarilgan"
+
+Sizning ma'lumotlaringiz asosida eng mos mutaxassisni tavsiya qilaman! 👨‍⚕️""",
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'greeting'}
+        }
+
+    def _get_clarification_response(self):
+        """Qo'shimcha ma'lumot so'rash"""
+        return {
+            'content': """Sizga yordam berish uchun muammoingizni batafsil aytib bering.
+
+Quyidagilarni ma'lum qiling:
+🔍 **Aniq qanday belgilar bor?**
+⏰ **Qachondan beri sezayapsiz?** 
+📍 **Qaysi joyda og'riq yoki noqulaylik?**
+📊 **Og'riq darajasi qanday (1-10)?**
+
+Masalan:
+• "3 kundan beri ko'kragimda og'riq bor, yurishda kuchayadi"
+• "Bugun ertalabdan beri oshqozonim og'riyapti, qayt qilish ham bor"
+• "Bir haftadan beri ko'z qichiyapti va ko'z yoshi chiqyapti"
+
+Bu ma'lumotlar bilan sizga eng to'g'ri shifokorni tavsiya qila olaman! 🎯""",
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'clarification'}
+        }
+
+    def _get_help_response(self):
+        """Yordam javobi"""
+        return {
+            'content': """Men sizga tibbiy masalalar bo'yicha to'g'ri shifokorni topishda yordam beraman.
+
+**Men qila olaman:**
+• Simptomlaringizni tahlil qilish
+• Mos mutaxassisni tavsiya qilish  
+• Shifokorlar ro'yxatini ko'rsatish
+• Umumiy tibbiy maslahat berish
+
+**Foydalanish:**
+Shunchaki muammoingizni oddiy tilada yozing, masalan:
+"Boshim og'riyapti", "Tish og'rig'i bor", "Yurak tez uradi"
+
+Buyurtma bering! 😊""",
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'help'}
+        }
+
+    def _process_medical_complaint(self, user_message, session, request):
+        """Tibbiy shikoyatni qayta ishlash"""
+        # AI tahlili
+        gemini_service = GeminiService()
+
+        # Tibbiy muammoni klassifikatsiya qilish
+        classification_result = gemini_service.classify_medical_issue(
+            user_message,
+            user_context=self._get_user_context(request)
+        )
+
+        # Session ma'lumotlarini yangilash
+        session.detected_specialty = classification_result.get('specialty')
+        session.confidence_score = classification_result.get('confidence', 0.5)
+        session.save()
+
+        # Mos shifokorlarni topish
+        recommended_doctors = self._get_recommended_doctors(
+            classification_result.get('specialty'),
+            user_context=self._get_user_context(request)
+        )
+
+        # Tibbiy maslahat olish
+        advice_result = gemini_service.get_medical_advice(
+            user_message,
+            classification_result.get('specialty'),
+            classification_result.get('symptoms_analysis', {}).get('detected_symptoms', [])
+        )
+
+        # Shifokor tavsiyasini saqlash
+        if recommended_doctors:
+            DoctorRecommendation.objects.create(
+                session=session,
+                recommended_doctors=recommended_doctors,
+                specialty=classification_result.get('specialty'),
+                reason=classification_result.get('explanation', '')
+            )
+
+        # AI javobini formatlash
+        ai_response_content = self._format_medical_response(
+            classification_result,
+            recommended_doctors,
+            advice_result.get('advice', '')
+        )
+
+        return {
+            'content': ai_response_content,
+            'model_used': classification_result.get('model_used', 'gemini-pro'),
+            'processing_time': advice_result.get('processing_time', 0),
+            'metadata': {
+                'classification': classification_result,
+                'doctors': recommended_doctors,
+                'advice': advice_result,
+                'response_type': 'medical_analysis'
+            }
+        }
+
+    def _format_medical_response(self, classification, doctors, advice):
+        """Tibbiy javobni formatlash"""
+        specialty_display = dict(Doctor.SPECIALTIES).get(
+            classification.get('specialty'), classification.get('specialty', '')
+        )
+
+        response = f"""**Sizning muammoingizni tahlil qildim.**
+
+🔍 **Tavsiya etilgan mutaxassis:** {specialty_display}
+📊 **Ishonch darajasi:** {classification.get('confidence', 0.5) * 100:.0f}%
+💡 **Sabab:** {classification.get('explanation', '')}
+
+"""
+
+        if classification.get('urgency_assessment', {}).get('urgency_level') == 'emergency':
+            response += """⚠️ **DIQQAT: Bu shoshilinch holat bo'lishi mumkin!**
+Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
+
+"""
+
+        if doctors:
+            response += f"""**🏥 {specialty_display} mutaxassislari:**
+
+"""
+            for i, doctor in enumerate(doctors[:3], 1):
+                response += f"""{i}. **{doctor['name']}**
+   - Tajriba: {doctor['experience']} yil
+   - Reyting: {doctor['rating']}/5 ⭐ ({doctor['total_reviews']} sharh)
+   - Narx: {doctor['consultation_price']:,.0f} so'm
+   - Ish joyi: {doctor['workplace']}
+   - Telefon: {doctor['phone']}
+
+"""
+
+        if advice:
+            response += f"""**💊 Umumiy maslahat:**
+{advice}
+
+"""
+
+        response += """**❗ Muhim eslatma:** Bu faqat umumiy ma'lumot. Aniq tashxis va davolash uchun albatta shifokor bilan maslahatlashing."""
+
+        return response
+
+    # Qolgan metodlar bir xil...
     def _create_session(self, request):
         """Yangi chat session yaratish"""
         return ChatSession.objects.create(
@@ -278,7 +447,7 @@ class ChatMessageView(TemplateView):
                     'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}",
                     'photo_url': doctor.photo.url if doctor.photo else None,
                     'bio': doctor.bio or '',
-                    'detail_url': f'/doctors/{doctor.id}/'
+                    'detail_url': f'/doctors/detail/{doctor.id}/'
                 })
 
             return doctors_data
@@ -286,50 +455,6 @@ class ChatMessageView(TemplateView):
         except Exception as e:
             logger.error(f"Error getting recommended doctors: {e}")
             return []
-
-    def _format_ai_response(self, classification, doctors, advice):
-        """AI javobini formatlash"""
-        specialty_display = dict(Doctor.SPECIALTIES).get(
-            classification.get('specialty'), classification.get('specialty', '')
-        )
-
-        response = f"""**Sizning muammoingizni tahlil qildim.**
-
-🔍 **Tavsiya etilgan mutaxassis:** {specialty_display}
-📊 **Ishonch darajasi:** {classification.get('confidence', 0.5) * 100:.0f}%
-💡 **Sabab:** {classification.get('explanation', '')}
-
-"""
-
-        if classification.get('urgency_assessment', {}).get('urgency_level') == 'emergency':
-            response += """⚠️ **DIQQAT: Bu shoshilinch holat bo'lishi mumkin!**
-Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
-
-"""
-
-        if doctors:
-            response += f"""**🏥 {specialty_display} mutaxassislari:**
-
-"""
-            for i, doctor in enumerate(doctors[:3], 1):
-                response += f"""{i}. **{doctor['name']}**
-   - Tajriba: {doctor['experience']} yil
-   - Reyting: {doctor['rating']}/5 ⭐ ({doctor['total_reviews']} sharh)
-   - Narx: {doctor['consultation_price']:,.0f} so'm
-   - Ish joyi: {doctor['workplace']}
-   - Telefon: {doctor['phone']}
-
-"""
-
-        if advice:
-            response += f"""**💊 Umumiy maslahat:**
-{advice}
-
-"""
-
-        response += """**❗ Muhim eslatma:** Bu faqat umumiy ma'lumot. Aniq tashxis va davolash uchun albatta shifokor bilan maslahatlashing."""
-
-        return response
 
 
 @api_view(['POST'])
