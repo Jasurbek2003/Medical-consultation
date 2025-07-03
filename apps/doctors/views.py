@@ -125,6 +125,15 @@ class DoctorViewSet(viewsets.ModelViewSet):
         return DoctorSerializer
 
     @action(detail=False, methods=['get'])
+    def all(self, request):
+        doctors = self.get_queryset()
+        serializer = self.get_serializer(doctors, many=True)
+        return Response({
+            'count': doctors.count(),
+            'doctors': serializer.data
+        })
+
+    @action(detail=False, methods=['get'])
     def by_specialty(self, request):
         """Mutaxassislik bo'yicha shifokorlar"""
         specialty = request.query_params.get('specialty')

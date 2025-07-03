@@ -7,7 +7,7 @@ class Doctor(models.Model):
     """Shifokorlar modeli"""
 
     SPECIALTIES = [
-        ('terapevt', 'Terapevt'),
+        ('specialty', 'Terapevt'),
         ('stomatolog', 'Stomatolog'),
         ('kardiolog', 'Kardiolog'),
         ('urolog', 'Urolog'),

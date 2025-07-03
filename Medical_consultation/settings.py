@@ -27,6 +27,7 @@ THIRD_PARTY_APPS = [
     'rest_framework',
     'corsheaders',
     'channels',
+    'django_filters',
 ]
 
 LOCAL_APPS = [
