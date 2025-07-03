@@ -124,7 +124,7 @@ USE_TZ = True
 
 # O'zbek va Ingliz tillarini qo'llash
 LANGUAGES = [
-    ('uz', 'O\'zbek'),
+    ('uz', "O'zbek"),
     ('en', 'English'),
 ]
 

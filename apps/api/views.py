@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, Q
 from django.utils import timezone
 from datetime import date, timedelta
 
@@ -262,10 +262,10 @@ def quick_search_doctors(request):
 
     # Shifokor ismi yoki ish joyi bo'yicha qidirish
     doctors = Doctor.objects.filter(
-        models.Q(first_name__icontains=query) |
-        models.Q(last_name__icontains=query) |
-        models.Q(workplace__icontains=query) |
-        models.Q(bio__icontains=query),
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(workplace__icontains=query) |
+        Q(bio__icontains=query),
         is_available=True
     ).order_by('-rating')[:20]
 
