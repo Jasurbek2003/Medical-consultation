@@ -1,17 +1,299 @@
+# pyproject.toml - UV va Python 3.13 uchun
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "medical-consultation"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "AI-powered medical consultation platform"
+readme = "README.md"
+#license = {file = "LICENSE"}
+authors = [
+    {name = "Medical Consultation Team", email = "jasurbek2030615@gmail.com"}
+]
+keywords = ["django", "medical", "ai", "consultation", "healthcare"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
 requires-python = ">=3.13"
+
 dependencies = [
-    "channels>=4.2.2",
-    "channels-redis>=4.2.1",
+    # Django Framework
     "django>=5.2.3",
+    "djangorestframework>=3.16.0",
     "django-cors-headers>=4.7.0",
     "django-filter>=25.1",
-    "djangorestframework>=3.16.0",
+    
+    # Database
+    "psycopg[binary]>=3.1.0",  # PostgreSQL adapter (yangi versiya)
+    
+    # WebSocket Support
+    "channels>=4.2.2",
+    "channels-redis>=4.2.1",
+    
+    # AI Integration
     "google-generativeai>=0.8.5",
+    
+    # File Handling
     "pillow>=11.3.0",
-    "python-decouple>=3.8",
     "whitenoise>=6.9.0",
+    
+    # Configuration
+    "python-decouple>=3.8",
+    
+    # Production Server
+    "gunicorn>=21.2.0",
+    
+    # Redis
+    "redis>=5.0.0",
+    
+    # Security
+    "cryptography>=42.0.0",
+    
+    # Utilities
+    "httpx>=0.27.0",  # Modern requests alternative
+    "celery>=5.3.0",
+    
+    # Time/Date
+    "pytz>=2024.1",
+    
+    # JSON handling
+    "orjson>=3.9.0",  # Fastest JSON library
+    
+    # Monitoring (optional)
+    "sentry-sdk[django]>=1.40.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.0.0",
+    "pytest-django>=4.8.0",
+    "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.5.0",  # Parallel testing
+    "coverage[toml]>=7.4.0",
+    "factory-boy>=3.3.0",
+    "faker>=22.0.0",
+    
+    # Code Quality
+    "ruff>=0.1.0",  # Super fast linter (flake8 + black replacement)
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+    
+    # Django Extensions
+    "django-extensions>=3.2.3",
+    "django-debug-toolbar>=4.2.0",
+    "django-silk>=5.0.4",  # Performance monitoring
+    
+    # Development Tools
+    "ipython>=8.20.0",
+    "rich>=13.7.0",  # Beautiful terminal output
+    "httpie>=3.2.0",  # API testing
+    
+    # Documentation
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    
+    # API Documentation
+    "drf-spectacular>=0.27.0",
+    
+    # Load Testing
+    "locust>=2.20.0",
+    
+]
+
+prod = [
+    # Production Database
+    "psycopg[c]>=3.1.0",  # C extension for better performance
+    
+    # Production Monitoring
+    "newrelic>=9.4.0",
+    "datadog>=0.48.0",
+    
+    # Production Caching
+    "django-redis>=5.4.0",
+    
+    # Production Security
+    "django-csp>=3.7",
+    "django-permissions-policy>=4.18.0",
+    
+    # Production Storage (cloud)
+    "django-storages[s3]>=1.14.0",
+    
+    # Production Email
+    "sendgrid>=6.11.0",
+    
+    # Production Analytics
+    "google-analytics-data>=0.18.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Jasurbek2003/Medical-consultation"
+Documentation = "https://medical-consultation.readthedocs.io/"
+Repository = "https://github.com/Jasurbek2003/Medical-consultation.git"
+Issues = "https://github.com/Jasurbek2003/Medical-consultation/issues"
+
+[project.scripts]
+medical-manage = "manage:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.github",
+    "/docs",
+    "/tests",
+]
+
+# ==========================================
+# RUFF Configuration (flake8 + black replacement)
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "DJ",  # flake8-django
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "migrations",
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/{tests,docs,tools}/*" = ["E402"]
+
+[tool.ruff.mccabe]
+max-complexity = 10
+
+[tool.ruff.isort]
+known-first-party = ["apps", "Medical_consultation"]
+
+# ==========================================
+# MYPY Configuration
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "*.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "apps.*.tests.*"
+ignore_errors = true
+
+# ==========================================
+# PYTEST Configuration
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "Medical_consultation.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = [
+    "--reuse-db",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--cov=apps",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+testpaths = ["tests", "apps"]
+
+# ==========================================
+# COVERAGE Configuration
+[tool.coverage.run]
+source = ["apps"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/venv/*",
+    "*/env/*",
+    "manage.py",
+    "*/settings/*",
+    "*/wsgi.py",
+    "*/asgi.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# ==========================================
+# DJANGO Configuration
+[tool.django-stubs]
+django_settings_module = "Medical_consultation.settings"
