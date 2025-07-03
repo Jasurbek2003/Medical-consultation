@@ -157,7 +157,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -278,7 +278,7 @@ ADMIN_URL = 'admin/'  # Admin panel URL'ini o'zgartirish mumkin
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ADMIN CUSTOMIZATION
-ADMIN_MEDIA_PREFIX = '/static/admin/'
+# ADMIN_MEDIA_PREFIX = '/static/admin/'
 
 # Admin site customization
 ADMIN_SITE_HEADER = "🏥 Tibbiy Konsultatsiya Admin"
@@ -286,4 +286,4 @@ ADMIN_SITE_TITLE = "Tibbiy Admin"
 ADMIN_INDEX_TITLE = "Boshqaruv Paneli"
 
 # Context processors ga qo'shish
-TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.api.context_processors.admin_stats')
+# TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.api.context_processors.admin_stats')

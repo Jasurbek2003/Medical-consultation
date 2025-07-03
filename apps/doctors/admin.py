@@ -7,8 +7,8 @@ from .models import Doctor, DoctorSchedule, DoctorSpecialization
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
     list_display = [
-        'get_photo_thumbnail', 'get_full_name_with_emoji', 'specialty_badge',
-        'experience_years', 'rating_stars', 'consultation_price_formatted',
+        'get_photo_thumbnail', 'get_full_name_with_emoji', 'specialty_badge', "rating_stars",
+        'experience_years', 'consultation_price_formatted',
         'availability_status', 'total_reviews', 'region_info'
     ]
     list_filter = [
@@ -27,7 +27,7 @@ class DoctorAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('👤 Shaxsiy Ma\'lumotlar', {
-            'fields': ('get_photo_preview', 'photo', 'first_name', 'last_name', 'middle_name'),
+            'fields': ('photo', 'first_name', 'last_name', 'middle_name'),
             'classes': ('wide',),
             'description': 'Shifokorning shaxsiy ma\'lumotlari'
         }),
@@ -182,13 +182,14 @@ class DoctorAdmin(admin.ModelAdmin):
 
         rating_color = '#ffc107' if obj.rating >= 4.0 else '#17a2b8' if obj.rating >= 3.0 else '#6c757d'
 
-        return format_html(
-            '<div style="display: flex; flex-direction: column; align-items: center;">'
-            '<span style="font-size: 16px; letter-spacing: 1px;" title="{}/5">{}</span>'
-            '<small style="color: {}; font-weight: 600; margin-top: 2px;">{:.1f}/5</small>'
-            '</div>',
-            obj.rating, stars_html, rating_color, obj.rating
-        )
+        return obj.rating
+        # return format_html(
+        #     '<div style="display: flex; flex-direction: column; align-items: center;">'
+        #     '<span style="font-size: 16px; letter-spacing: 1px;" title="{}/5">{}</span>'
+        #     '<small style="color: {}; font-weight: 600; margin-top: 2px;">{:.1f}/5</small>'
+        #     '</div>',
+        #     obj.rating, stars_html, rating_color, obj.rating
+        # )
 
     rating_stars.short_description = '⭐ Reyting'
 
@@ -201,13 +202,14 @@ class DoctorAdmin(admin.ModelAdmin):
         else:
             display_price = str(price)
 
-        return format_html(
-            '<div style="text-align: center;">'
-            '<span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span>'
-            '<br><small style="color: #666; font-size: 11px;">{:,} so\'m</small>'
-            '</div>',
-            display_price, price
-        )
+        return display_price
+        # format_html(
+        #     '<div style="text-align: center;">'
+        #     '<span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span>'
+        #     '<br><small style="color: #666; font-size: 11px;">{:,} so\'m</small>'
+        #     '</div>',
+        #     display_price, price
+        # )
 
     consultation_price_formatted.short_description = '💰 Narx'
 
