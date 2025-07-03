@@ -53,6 +53,6 @@ if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # Admin panel sozlamalari
-admin.site.site_header = "🏥 Tibbiy Konsultatsiya Admin"
-admin.site.site_title = "Tibbiy Konsultatsiya"
-admin.site.index_title = "Boshqaruv Paneli"
+admin.site.site_header = settings.ADMIN_SITE_HEADER
+admin.site.site_title = settings.ADMIN_SITE_TITLE
+admin.site.index_title = settings.ADMIN_INDEX_TITLE

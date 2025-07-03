@@ -283,3 +283,6 @@ ADMIN_MEDIA_PREFIX = '/static/admin/'
 ADMIN_SITE_HEADER = "🏥 Tibbiy Konsultatsiya Admin"
 ADMIN_SITE_TITLE = "Tibbiy Admin"
 ADMIN_INDEX_TITLE = "Boshqaruv Paneli"
+
+# Context processors ga qo'shish
+TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.api.context_processors.admin_stats')
