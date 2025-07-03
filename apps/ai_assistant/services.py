@@ -167,7 +167,7 @@ class GeminiService:
                 'advice': response.text,
                 'specialty': specialty,
                 'processing_time': processing_time,
-                'model_used': 'gemini-pro',
+                'model_used': 'gemini-2.0-flash',
                 'timestamp': time.time()
             }
 

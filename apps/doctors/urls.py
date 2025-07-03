@@ -14,6 +14,9 @@ urlpatterns = [
     path("detail/<int:pk>/", views.DoctorDetailView.as_view(), name="detail"),
     path("search/", views.DoctorSearchView.as_view(), name="search"),
 
+    # API endpoints
+    path("api/", include(router.urls)),
+
     # AJAX endpoints
     path("ajax/search/", views.doctor_search_ajax, name="ajax_search"),
     path("ajax/by-specialty/", views.get_doctors_by_specialty, name="by_specialty"),
