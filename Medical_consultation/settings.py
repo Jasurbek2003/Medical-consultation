@@ -171,7 +171,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React development server
     "http://127.0.0.1:3000",
     "http://localhost:8000",
+    "http://localhost:5173",  # Vite development server
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:5173",  # Vite development server
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -273,3 +275,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 ADMIN_URL = 'admin/'  # Admin panel URL'ini o'zgartirish mumkin
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ADMIN CUSTOMIZATION
+ADMIN_MEDIA_PREFIX = '/static/admin/'
+
+# Admin site customization
+ADMIN_SITE_HEADER = "🏥 Tibbiy Konsultatsiya Admin"
+ADMIN_SITE_TITLE = "Tibbiy Admin"
+ADMIN_INDEX_TITLE = "Boshqaruv Paneli"
