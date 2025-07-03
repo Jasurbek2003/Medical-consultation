@@ -23,13 +23,8 @@ except ImportError as e:
     AI_AVAILABLE = False
 
 
-    # Fallback GeminiService klassi
     class GeminiService:
-        def __init__(self):
-            pass
-
         def classify_medical_issue(self, user_message, user_context=None):
-            # Oddiy klassifikatsiya
             message_lower = user_message.lower()
             if 'tish' in message_lower:
                 specialty = 'stomatolog'
@@ -71,26 +66,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# Web Views
+# ============================================
+# WEB VIEWS (Template render qiladi)
+# ============================================
+
 class ChatRoomView(TemplateView):
-    """Chat xonasi sahifasi"""
+    """Asosiy chat sahifasi"""
     template_name = 'chat/chat_room.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Session yaratish yoki olish
-        session_id = self.request.GET.get('session')
+        # Session ID URL dan olish
+        session_id = self.kwargs.get('session_id') or self.request.GET.get('session')
+
         if session_id:
             try:
                 session = ChatSession.objects.get(id=session_id)
                 context['session'] = session
                 context['messages'] = session.messages.order_by('created_at')
             except ChatSession.DoesNotExist:
-                session = None
+                context['session'] = None
 
-        context['specialties'] = Doctor.SPECIALTIES
-        context['ai_available'] = AI_AVAILABLE
+        context.update({
+            'specialties': Doctor.SPECIALTIES,
+            'ai_available': AI_AVAILABLE,
+            'page_title': 'Tibbiy Chat - AI Yordamchi'
+        })
+
         return context
 
 
@@ -100,14 +103,20 @@ class ChatInterfaceView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['ai_available'] = AI_AVAILABLE
+        context.update({
+            'ai_available': AI_AVAILABLE,
+            'page_title': 'Chat Interface'
+        })
         return context
 
 
-# API Views
+# ============================================
+# API VIEWS (JSON response qaytaradi)
+# ============================================
+
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatMessageView(TemplateView):
-    """Yaxshilangan Chat xabar yuborish API"""
+    """Chat xabar yuborish API (JSON response)"""
 
     def post(self, request, *args, **kwargs):
         try:
@@ -119,7 +128,7 @@ class ChatMessageView(TemplateView):
                 return JsonResponse({
                     'success': False,
                     'error': 'Xabar bo\'sh bo\'lishi mumkin emas'
-                })
+                }, status=400)
 
             # Session olish yoki yaratish
             if session_id:
@@ -142,19 +151,12 @@ class ChatMessageView(TemplateView):
             message_type = self._analyze_message_type(user_message, session)
 
             if message_type == 'greeting':
-                # Oddiy salomlashish
                 ai_response = self._get_greeting_response()
-
             elif message_type == 'general_question':
-                # Umumiy savol - qo'shimcha ma'lumot so'rash
                 ai_response = self._get_clarification_response()
-
             elif message_type == 'medical_complaint':
-                # Tibbiy shikoyat - to'liq tahlil qilish
                 ai_response = self._process_medical_complaint(user_message, session, request)
-
             else:
-                # Noma'lum tur
                 ai_response = self._get_help_response()
 
             # AI javob xabarini saqlash
@@ -192,7 +194,7 @@ class ChatMessageView(TemplateView):
                 'success': False,
                 'error': 'Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.',
                 'error_details': str(e) if settings.DEBUG else None
-            })
+            }, status=500)
 
     def _analyze_message_type(self, message, session):
         """Xabar turini aniqlash"""
@@ -207,7 +209,8 @@ class ChatMessageView(TemplateView):
         medical_keywords = [
             'og\'riq', 'og\'riyapti', 'kasallik', 'bemor', 'shifokor', 'dori',
             'tish', 'bosh', 'qorin', 'yurak', 'siydik', 'harorat', 'yo\'tal',
-            'teri', 'ko\'z', 'quloq', 'allergiya', 'stress', 'charchoq'
+            'teri', 'ko\'z', 'quloq', 'allergiya', 'stress', 'charchoq',
+            'nafas', 'qon', 'vazn', 'uyqu', 'holsizlik', 'qichish'
         ]
 
         if any(keyword in message_lower for keyword in medical_keywords):
@@ -226,19 +229,19 @@ class ChatMessageView(TemplateView):
     def _get_greeting_response(self):
         """Salomlashish javobi"""
         return {
-            'content': """Salom! Men sizning tibbiy yordamchingizman. 🏥
+            'content': """Assalomu alaykum! Men sizning tibbiy yordamchingizman. 🏥
 
 Men sizga to'g'ri shifokorni topishda yordam beraman.
 
-Iltimos, qaysi muammongiz bor bo'lsa, batafsil aytib bering:
+Iltimos, muammoingizni batafsil aytib bering:
 • Qanday belgilar yoki og'riqlar bor?
 • Qachondan beri sezayapsiz?
 • Qaysi joyda og'riq bor?
 
-Masalan:
-"Ikki kundan beri boshim og'riyapti"
-"Tishim juda og'riyapti, yeyolmayapman" 
-"Qon bosimim yuqori ko'tarilgan"
+**Misollar:**
+• "Ikki kundan beri boshim og'riyapti"
+• "Tishim juda og'riyapti, yeyolmayapman" 
+• "Qon bosimim yuqori ko'tarilgan"
 
 Sizning ma'lumotlaringiz asosida eng mos mutaxassisni tavsiya qilaman! 👨‍⚕️""",
             'model_used': 'rule-based',
@@ -257,7 +260,7 @@ Quyidagilarni ma'lum qiling:
 📍 **Qaysi joyda og'riq yoki noqulaylik?**
 📊 **Og'riq darajasi qanday (1-10)?**
 
-Masalan:
+**Misollar:**
 • "3 kundan beri ko'kragimda og'riq bor, yurishda kuchayadi"
 • "Bugun ertalabdan beri oshqozonim og'riyapti, qayt qilish ham bor"
 • "Bir haftadan beri ko'z qichiyapti va ko'z yoshi chiqyapti"
@@ -360,7 +363,9 @@ Buyurtma bering! 😊""",
 
 """
 
-        if classification.get('urgency_assessment', {}).get('urgency_level') == 'emergency':
+        # Shoshilinchlik tekshirish
+        urgency = classification.get('urgency_assessment', {})
+        if urgency.get('urgency_level') == 'emergency':
             response += """⚠️ **DIQQAT: Bu shoshilinch holat bo'lishi mumkin!**
 Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 
@@ -371,7 +376,8 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 
 """
             for i, doctor in enumerate(doctors[:3], 1):
-                response += f"""{i}. **{doctor['name']}**
+                online_badge = " 💻 Online" if doctor.get('is_online_consultation') else ""
+                response += f"""{i}. **{doctor['name']}**{online_badge}
    - Tajriba: {doctor['experience']} yil
    - Reyting: {doctor['rating']}/5 ⭐ ({doctor['total_reviews']} sharh)
    - Narx: {doctor['consultation_price']:,.0f} so'm
@@ -379,6 +385,8 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
    - Telefon: {doctor['phone']}
 
 """
+        else:
+            response += f"❌ Hozircha {specialty_display} mutaxassislari mavjud emas.\n\n"
 
         if advice:
             response += f"""**💊 Umumiy maslahat:**
@@ -390,7 +398,6 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 
         return response
 
-    # Qolgan metodlar bir xil...
     def _create_session(self, request):
         """Yangi chat session yaratish"""
         return ChatSession.objects.create(
@@ -447,7 +454,7 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
                     'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}",
                     'photo_url': doctor.photo.url if doctor.photo else None,
                     'bio': doctor.bio or '',
-                    'detail_url': f'/doctors/detail/{doctor.id}/'
+                    'detail_url': f'/doctors/{doctor.id}/'
                 })
 
             return doctors_data
@@ -460,7 +467,7 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def classify_issue(request):
-    """Tibbiy muammoni klassifikatsiya qilish (oddiy API)"""
+    """Tibbiy muammoni klassifikatsiya qilish (JSON response)"""
     try:
         user_message = request.data.get('message', '').strip()
 
@@ -494,7 +501,7 @@ def classify_issue(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_session_history(request, session_id):
-    """Chat session tarixini olish"""
+    """Chat session tarixini olish (JSON response)"""
     try:
         session = get_object_or_404(ChatSession, id=session_id)
         messages = session.messages.order_by('created_at')
@@ -534,7 +541,7 @@ def get_session_history(request, session_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def submit_feedback(request):
-    """Chat uchun fikr-mulohaza yuborish"""
+    """Chat uchun fikr-mulohaza yuborish (JSON response)"""
     try:
         session_id = request.data.get('session_id')
         overall_rating = request.data.get('overall_rating')

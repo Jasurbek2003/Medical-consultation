@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.http import JsonResponse
 from django.db.models import Count, Avg, Q
 from django.utils import timezone
 from datetime import date, timedelta
@@ -32,20 +33,28 @@ def api_overview(request):
         'version': '1.0.0',
         'ai_available': AI_AVAILABLE,
         'endpoints': {
-            'chat': '/api/chat/',
-            'doctors': '/api/doctors/',
+            'chat': {
+                'send_message': '/api/chat/send-message/',
+                'classify': '/api/chat/classify/',
+                'sessions': '/api/chat/sessions/',
+                'quick_message': '/api/chat/quick-message/'
+            },
+            'doctors': {
+                'list': '/api/doctors/',
+                'search': '/api/doctors/search/',
+                'specialties': '/api/doctors/specialties/',
+                'by_specialty': '/api/doctors/by-specialty/'
+            },
             'users': '/api/users/',
             'consultations': '/api/consultations/',
-            'quick_endpoints': {
-                'send_message': '/api/quick/send-message/',
-                'get_doctors': '/api/quick/doctors/',
-                'get_specialties': '/api/quick/specialties/',
-                'search_doctors': '/api/quick/search-doctors/',
-                'health_check': '/api/quick/health/',
-                'stats': '/api/quick/stats/'
+            'system': {
+                'health': '/api/health/',
+                'stats': '/api/stats/',
+                'regions': '/api/regions/',
+                'emergency': '/api/emergency-info/'
             }
         },
-        'documentation': '/api/',
+        'documentation': '/docs/',
         'timestamp': timezone.now().isoformat()
     })
 
@@ -53,7 +62,7 @@ def api_overview(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def quick_send_message(request):
-    """Tez chat xabar yuborish"""
+    """Tez chat xabar yuborish - to'liq AI tahlil bilan"""
     try:
         message = request.data.get('message', '').strip()
         if not message:
@@ -89,7 +98,7 @@ def quick_send_message(request):
         doctors = Doctor.objects.filter(
             specialty=classification.get('specialty'),
             is_available=True
-        ).order_by('-rating')[:3]
+        ).order_by('-rating')[:5]
 
         doctors_data = []
         for doctor in doctors:
@@ -103,7 +112,8 @@ def quick_send_message(request):
                 'consultation_price': float(doctor.consultation_price),
                 'workplace': doctor.workplace,
                 'phone': doctor.phone,
-                'is_online_consultation': doctor.is_online_consultation
+                'is_online_consultation': doctor.is_online_consultation,
+                'photo_url': doctor.photo.url if doctor.photo else None
             })
 
         # AI javob yaratish
@@ -121,7 +131,7 @@ def quick_send_message(request):
 **🏥 Tavsiya etilgan shifokorlar:**
 """
 
-        for i, doctor in enumerate(doctors_data, 1):
+        for i, doctor in enumerate(doctors_data[:3], 1):
             ai_response += f"""
 {i}. **{doctor['name']}**
    - Tajriba: {doctor['experience']} yil
@@ -165,6 +175,38 @@ def quick_send_message(request):
         }, status=500)
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def quick_classify_issue(request):
+    """Tez klassifikatsiya - faqat tahlil"""
+    try:
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response({
+                'success': False,
+                'error': 'Xabar bo\'sh bo\'lishi mumkin emas'
+            }, status=400)
+
+        # AI tahlili
+        gemini_service = GeminiService()
+        result = gemini_service.classify_medical_issue(message)
+
+        return Response({
+            'success': True,
+            'classification': result,
+            'specialty_display': dict(Doctor.SPECIALTIES).get(
+                result.get('specialty'), result.get('specialty', '')
+            ),
+            'ai_available': AI_AVAILABLE
+        })
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': 'Tahlil qilishda xatolik: ' + str(e)
+        }, status=500)
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def quick_get_doctors(request):
@@ -172,7 +214,8 @@ def quick_get_doctors(request):
     specialty = request.GET.get('specialty')
     region = request.GET.get('region')
     max_price = request.GET.get('max_price')
-    limit = int(request.GET.get('limit', 10))
+    online_only = request.GET.get('online_only') == 'true'
+    limit = int(request.GET.get('limit', 20))
 
     doctors = Doctor.objects.filter(is_available=True)
 
@@ -185,6 +228,8 @@ def quick_get_doctors(request):
             doctors = doctors.filter(consultation_price__lte=float(max_price))
         except ValueError:
             pass
+    if online_only:
+        doctors = doctors.filter(is_online_consultation=True)
 
     doctors = doctors.order_by('-rating', 'consultation_price')[:limit]
 
@@ -204,7 +249,7 @@ def quick_get_doctors(request):
             'region': doctor.region,
             'district': doctor.district,
             'phone': doctor.phone,
-            'email': doctor.email,
+            'email': doctor.email or '',
             'is_available': doctor.is_available,
             'is_online_consultation': doctor.is_online_consultation,
             'photo_url': doctor.photo.url if doctor.photo else None,
@@ -221,6 +266,7 @@ def quick_get_doctors(request):
             'specialty': specialty,
             'region': region,
             'max_price': max_price,
+            'online_only': online_only,
             'limit': limit
         }
     })
@@ -230,22 +276,74 @@ def quick_get_doctors(request):
 @permission_classes([AllowAny])
 def quick_get_specialties(request):
     """Barcha mutaxassisliklar ro'yxati"""
-    specialties = []
+    include_count = request.GET.get('include_count', 'true') == 'true'
 
+    specialties = []
     for code, name in Doctor.SPECIALTIES:
-        count = Doctor.objects.filter(specialty=code, is_available=True).count()
-        specialties.append({
+        specialty_data = {
             'code': code,
-            'name': name,
-            'count': count,
-            'available': count > 0
-        })
+            'name': name
+        }
+
+        if include_count:
+            count = Doctor.objects.filter(specialty=code, is_available=True).count()
+            specialty_data.update({
+                'count': count,
+                'available': count > 0
+            })
+
+        specialties.append(specialty_data)
+
+    total_doctors = Doctor.objects.filter(is_available=True).count() if include_count else 0
 
     return Response({
         'success': True,
         'specialties': specialties,
         'total_specialties': len(specialties),
-        'total_doctors': sum(s['count'] for s in specialties)
+        'total_doctors': total_doctors
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def quick_doctors_by_specialty(request):
+    """Mutaxassislik bo'yicha shifokorlar"""
+    specialty = request.GET.get('specialty')
+    if not specialty:
+        return Response({
+            'success': False,
+            'error': 'specialty parametri talab qilinadi'
+        }, status=400)
+
+    limit = int(request.GET.get('limit', 10))
+
+    doctors = Doctor.objects.filter(
+        specialty=specialty,
+        is_available=True
+    ).order_by('-rating', 'consultation_price')[:limit]
+
+    doctors_data = []
+    for doctor in doctors:
+        doctors_data.append({
+            'id': doctor.id,
+            'name': doctor.get_short_name(),
+            'experience': doctor.experience,
+            'rating': float(doctor.rating),
+            'total_reviews': doctor.total_reviews,
+            'consultation_price': float(doctor.consultation_price),
+            'workplace': doctor.workplace,
+            'region': doctor.region,
+            'phone': doctor.phone,
+            'is_online_consultation': doctor.is_online_consultation,
+            'photo_url': doctor.photo.url if doctor.photo else None
+        })
+
+    return Response({
+        'success': True,
+        'specialty': specialty,
+        'specialty_display': dict(Doctor.SPECIALTIES).get(specialty, specialty),
+        'count': len(doctors_data),
+        'doctors': doctors_data
     })
 
 
@@ -271,6 +369,9 @@ def quick_search_doctors(request):
 
     results = []
     for doctor in doctors:
+        # Match reason aniqlash
+        match_reason = 'name' if query.lower() in doctor.get_full_name().lower() else 'workplace'
+
         results.append({
             'id': doctor.id,
             'name': doctor.get_short_name(),
@@ -281,7 +382,7 @@ def quick_search_doctors(request):
             'workplace': doctor.workplace,
             'phone': doctor.phone,
             'region': doctor.region,
-            'match_reason': 'name' if query.lower() in doctor.get_full_name().lower() else 'workplace'
+            'match_reason': match_reason
         })
 
     return Response({
@@ -414,6 +515,147 @@ def quick_stats(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_regions(request):
+    """Barcha viloyatlar ro'yxati"""
+    try:
+        # Shifokorlardan mavjud viloyatlarni olish
+        regions = Doctor.objects.values_list('region', flat=True).distinct()
+        regions = [region for region in regions if region]  # Bo'sh qiymatlarni olib tashlash
+
+        # Har bir viloyat uchun shifokorlar sonini hisoblash
+        regions_with_count = []
+        for region in sorted(regions):
+            count = Doctor.objects.filter(region=region, is_available=True).count()
+            regions_with_count.append({
+                'name': region,
+                'count': count
+            })
+
+        return Response({
+            'success': True,
+            'regions': regions_with_count,
+            'total_regions': len(regions_with_count)
+        })
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_emergency_info(request):
+    """Shoshilinch yordam ma'lumotlari"""
+    emergency_info = {
+        'emergency_numbers': [
+            {
+                'service': 'Tez yordam',
+                'number': '103',
+                'description': 'Tibbiy shoshilinch yordam'
+            },
+            {
+                'service': "Yong'in xizmati",
+                'number': '101',
+                'description': "Yong'in va qutqaruv xizmati"
+            },
+            {
+                'service': 'Politsiya',
+                'number': '102',
+                'description': 'Politsiya xizmati'
+            },
+            {
+                'service': "Yagona qo'ng'iroq markazi",
+                'number': '112',
+                'description': 'Barcha shoshilinch xizmatlar'
+            }
+        ],
+
+        'urgent_symptoms': [
+            {
+                'symptom': "Ko'krak og'rig'i",
+                'action': "Zudlik bilan 103 ga qo'ng'iroq qiling",
+                'priority': 'critical'
+            },
+            {
+                'symptom': 'Nafas qisilishi',
+                'action': 'Tez yordam chaqiring',
+                'priority': 'critical'
+            },
+            {
+                'symptom': "Hushni yo'qotish",
+                'action': "Darhol 103 ga qo'ng'iroq qiling",
+                'priority': 'critical'
+            },
+            {
+                'symptom': 'Yuqori harorat (39°C+)',
+                'action': "Shifokor bilan bog'laning yoki shifoxonaga boring",
+                'priority': 'high'
+            },
+            {
+                'symptom': "Keskin qorin og'rig'i",
+                'action': 'Tez yordam chaqiring',
+                'priority': 'high'
+            }
+        ],
+
+        'first_aid_tips': [
+            {
+                'situation': 'Yurak tutilishi',
+                'steps': [
+                    "103 ga qo'ng'iroq qiling",
+                    'Bemorni yotqizing',
+                    "Ko'krakning o'rtasiga qattiq bosing",
+                    'CPR boshlang (agar bilsangiz)'
+                ]
+            },
+            {
+                'situation': 'Qon ketish',
+                'steps': [
+                    'Toza mato bilan bosing',
+                    'Jarohatni yuqoriga ko\'taring',
+                    'Bosimni davom eting',
+                    'Tez yordam chaqiring'
+                ]
+            },
+            {
+                'situation': 'Kuyish',
+                'steps': [
+                    'Sovuq suv bilan yuvib chiqing',
+                    "Toza mato bilan o'rang",
+                    "Muz qo'ymang",
+                    'Shifokorga murojaat qiling'
+                ]
+            }
+        ],
+
+        'hospitals': [
+            {
+                'name': 'Respublika Shoshilinch Tibbiy Yordam Markazi',
+                'address': 'Toshkent shahar, Farabi ko\'chasi 2',
+                'phone': '+998712441515',
+                'available_24_7': True
+            },
+            {
+                'name': 'Toshkent Tibbiy Akademiyasi Klinikasi',
+                'address': 'Toshkent shahar, Farabi ko\'chasi 2',
+                'phone': '+998712441414',
+                'available_24_7': True
+            }
+        ],
+
+        'warning': "Bu ma'lumotlar faqat umumiy yo'l-yo'riq uchun. Shoshilinch holatda darhol 103 ga qo'ng'iroq qiling!"
+    }
+
+    return Response({
+        'success': True,
+        'emergency_info': emergency_info
+    })
 
 
 def get_client_ip(request):

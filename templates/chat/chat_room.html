@@ -3,181 +3,427 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tibbiy Chat</title>
+    <title>🏥 Tibbiy Chat - AI Yordamchi</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
-            padding: 20px;
-            background: #f5f7fa;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .chat-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
             overflow: hidden;
         }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 50px rgba(0,0,0,0.2);
+        }
+
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 20px;
             text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+
         .chat-header h1 {
             margin: 0;
-            font-size: 24px;
+            font-size: 1.8em;
+            font-weight: 600;
         }
+
+        .chat-header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .ai-status {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+
         .chat-messages {
-            height: 500px;
+            flex: 1;
             overflow-y: auto;
             padding: 20px;
-            background: #f9f9f9;
+            background: #f8f9fa;
+            scroll-behavior: smooth;
         }
+
         .message {
-            margin: 15px 0;
-            padding: 12px 16px;
-            border-radius: 18px;
-            max-width: 70%;
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.ai {
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 75%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            position: relative;
             word-wrap: break-word;
+            line-height: 1.5;
         }
-        .user-message {
-            background: #007bff;
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            margin-left: auto;
-            text-align: right;
+            border-bottom-right-radius: 5px;
+            animation: messageSlideInRight 0.3s ease-out;
         }
-        .ai-message {
+
+        .message.ai .message-bubble {
             background: white;
             border: 1px solid #e0e0e0;
-            margin-right: auto;
+            color: #333;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            animation: messageSlideInLeft 0.3s ease-out;
         }
+
+        @keyframes messageSlideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes messageSlideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
         .message-time {
-            font-size: 11px;
+            font-size: 0.75em;
             opacity: 0.7;
             margin-top: 5px;
+            padding: 0 5px;
         }
-        .input-area {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            gap: 10px;
+
+        .message.user .message-time {
+            text-align: right;
+            color: #666;
         }
-        .message-input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            outline: none;
-            font-size: 14px;
+
+        .message.ai .message-time {
+            text-align: left;
+            color: #999;
         }
-        .message-input:focus {
-            border-color: #007bff;
+
+        /* AI message formatting */
+        .message.ai .message-bubble strong {
+            color: #1976d2;
         }
-        .send-button {
-            padding: 12px 24px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+
+        .message.ai .message-bubble h3,
+        .message.ai .message-bubble h4 {
+            color: #1976d2;
+            margin: 10px 0 5px 0;
         }
-        .send-button:hover {
-            background: #0056b3;
-        }
-        .send-button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
+
         .typing-indicator {
             display: none;
+            margin: 20px 0;
+            align-items: flex-start;
+        }
+
+        .typing-bubble {
             background: white;
             border: 1px solid #e0e0e0;
-            padding: 12px 16px;
-            border-radius: 18px;
-            margin: 15px 0;
-            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+
         .typing-dots {
-            display: inline-block;
+            display: flex;
+            gap: 3px;
         }
+
         .typing-dots span {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: #999;
-            margin: 0 1px;
+            background: #667eea;
             animation: typing 1.4s infinite ease-in-out;
         }
+
         .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
         .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
 
         @keyframes typing {
             0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+            transition: border-color 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s;
+            min-width: 80px;
+            height: 50px;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .suggestion-chips {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin: 10px 0;
-        }
-        .suggestion-chip {
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            padding: 6px 12px;
-            border-radius: 16px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.3s;
-        }
-        .suggestion-chip:hover {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 0 20px;
         }
 
-        /* Responsive */
-        @media (max-width: 600px) {
-            body { padding: 10px; }
-            .message { max-width: 85%; }
-            .input-area { flex-direction: column; }
-            .message-input { margin-bottom: 10px; }
+        .suggestion-chip {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border: 1px solid #dee2e6;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            color: #495057;
+        }
+
+        .suggestion-chip:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .welcome-message h2 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 20px;
+            border-left: 4px solid #2e7d32;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 100vh;
+                margin: 0;
+            }
+
+            .message-bubble {
+                max-width: 90%;
+            }
+
+            .input-area {
+                padding: 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .send-button {
+                width: 100%;
+            }
+
+            .suggestion-chips {
+                padding: 0 15px;
+            }
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Loading animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div>
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 15px; color: #666;">Chat tayyorlanmoqda...</p>
+        </div>
+    </div>
+
     <div class="chat-container">
         <div class="chat-header">
             <h1>🏥 Tibbiy Konsultatsiya Chat</h1>
-            <p style="margin: 5px 0 0 0; opacity: 0.9;">AI bilan muloqot qilib, to'g'ri shifokorni toping</p>
+            <p>AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping</p>
+            <div class="ai-status">
+                {% if ai_available %}
+                    ✅ AI Yordamchi Faol
+                {% else %}
+                    ⚠️ AI Yordamchi Mavjud Emas
+                {% endif %}
+            </div>
         </div>
 
         <div class="chat-messages" id="messages">
-            <!-- Xabarlar shu yerda ko'rinadi -->
+            {% if session and messages %}
+                {% for message in messages %}
+                    <div class="message {{ message.sender_type }}">
+                        <div class="message-bubble">
+                            {{ message.content|linebreaks }}
+                        </div>
+                        <div class="message-time">
+                            {{ message.created_at|date:"H:i" }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="welcome-message">
+                    <h2>Xush kelibsiz!</h2>
+                    <p>Men sizning tibbiy yordamchingizman. Muammoingizni batafsil aytib bering, men sizga eng mos shifokorni topib beraman.</p>
+                </div>
+            {% endif %}
         </div>
 
         <div class="typing-indicator" id="typingIndicator">
-            <div class="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
+            <div class="typing-bubble">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <span>AI javob yozmoqda...</span>
             </div>
-            AI javob yozmoqda...
+        </div>
+
+        <div class="suggestion-chips" id="suggestionChips" style="display: none;">
+            <!-- JavaScript orqali qo'shiladi -->
         </div>
 
         <div class="input-area">
-            <input type="text"
-                   id="messageInput"
-                   class="message-input"
-                   placeholder="Muammoingizni batafsil yozing..."
-                   maxlength="500">
+            <textarea
+                id="messageInput"
+                class="message-input"
+                placeholder="Muammoingizni batafsil yozing... (masalan: 'Ikki kundan beri boshim og'riyapti')"
+                rows="1"></textarea>
             <button onclick="sendMessage()" class="send-button" id="sendButton">
                 Yuborish
             </button>
@@ -185,8 +431,65 @@
     </div>
 
     <script>
-        let sessionId = null;
+        // Global o'zgaruvchilar
+        let sessionId = {% if session %}'{{ session.id }}'{% else %}null{% endif %};
         let isWaitingForResponse = false;
+        let messageCount = {% if messages %}{{ messages|length }}{% else %}0{% endif %};
+
+        // Sahifa yuklanganda
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+            setupEventListeners();
+
+            // Agar xabarlar bo'lmasa, boshlang'ich xabar ko'rsatish
+            if (messageCount === 0) {
+                setTimeout(showWelcomeMessage, 1000);
+            }
+        });
+
+        function initializeChat() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Textarea avtomatik o'lchamini sozlash
+            const textarea = document.getElementById('messageInput');
+            textarea.addEventListener('input', autoResizeTextarea);
+        }
+
+        function setupEventListeners() {
+            const messageInput = document.getElementById('messageInput');
+
+            // Enter tugmasi bosilganda xabar yuborish
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Fokus qo'yish
+            messageInput.focus();
+        }
+
+        function autoResizeTextarea() {
+            const textarea = document.getElementById('messageInput');
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        function showWelcomeMessage() {
+            const welcomeText = `Assalomu alaykum! Men sizning tibbiy yordamchingizman. 🏥
+
+Men sizga to'g'ri shifokorni topishda yordam beraman.
+
+Muammoingizni batafsil aytib bering, masalan:
+• "Ikki kundan beri boshim og'riyapti"
+• "Tishim juda og'riyapti"
+• "Qon bosimim yuqori"`;
+
+            addMessage(welcomeText, 'ai');
+            showSuggestionChips();
+        }
 
         function sendMessage() {
             const input = document.getElementById("messageInput");
@@ -194,6 +497,12 @@
             const sendButton = document.getElementById("sendButton");
 
             if (!message || isWaitingForResponse) return;
+
+            // Validatsiya
+            if (message.length < 3) {
+                showError('Iltimos, muammoingizni batafsil yozing.');
+                return;
+            }
 
             // UI'ni yangilash
             isWaitingForResponse = true;
@@ -203,15 +512,18 @@
             // User xabarini ko'rsatish
             addMessage(message, "user");
             input.value = "";
+            input.style.height = 'auto';
+            hideSuggestionChips();
 
             // Typing indicator ko'rsatish
             showTypingIndicator();
 
-            // AI ga yuborish
-            fetch("/api/chat/message/", {
+            // API ga yuborish
+            fetch("/api/chat/send-message/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie('csrftoken')
                 },
                 body: JSON.stringify({
                     message: message,
@@ -225,18 +537,32 @@
                 if (data.success) {
                     sessionId = data.session_id;
                     addMessage(data.ai_response.content, "ai");
+                    messageCount += 2;
+
+                    // URL'ni yangilash (agar yangi session)
+                    if (!window.location.pathname.includes(sessionId)) {
+                        window.history.pushState({}, '', `/chat/room/${sessionId}/`);
+                    }
 
                     // Agar greeting yoki clarification bo'lsa, suggestion chips ko'rsatish
                     if (data.message_type === 'greeting' || data.message_type === 'general_question') {
-                        addSuggestionChips();
+                        showSuggestionChips();
                     }
+
+                    // Medical analysis bo'lsa, feedback so'rash
+                    if (data.message_type === 'medical_complaint' && data.ai_response.metadata.response_type === 'medical_analysis') {
+                        setTimeout(() => {
+                            showFeedbackPrompt();
+                        }, 5000);
+                    }
+
                 } else {
-                    addMessage("❌ Xatolik: " + data.error, "ai");
+                    addMessage("❌ Xatolik: " + data.error, "ai", true);
                 }
             })
             .catch(error => {
                 hideTypingIndicator();
-                addMessage("❌ Internet bilan bog'lanishda xatolik: " + error, "ai");
+                addMessage("❌ Internet bilan bog'lanishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", "ai", true);
                 console.error('Error:', error);
             })
             .finally(() => {
@@ -248,51 +574,57 @@
             });
         }
 
-        function addMessage(content, sender) {
+        function addMessage(content, sender, isError = false) {
             const messages = document.getElementById("messages");
             const messageDiv = document.createElement("div");
-            messageDiv.className = `message ${sender}-message`;
+            messageDiv.className = `message ${sender}`;
 
             // Markdown-style formatting
             const formattedContent = content
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\n/g, '<br>');
+                .replace(/\n/g, '<br>')
+                .replace(/•/g, '•');
+
+            const bubbleClass = isError ? 'message-bubble error' : 'message-bubble';
 
             messageDiv.innerHTML = `
-                <div>${formattedContent}</div>
-                <div class="message-time">${new Date().toLocaleTimeString('uz-UZ', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })}</div>
+                <div class="${bubbleClass}">
+                    ${formattedContent}
+                </div>
+                <div class="message-time">
+                    ${new Date().toLocaleTimeString('uz-UZ', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}
+                </div>
             `;
 
             messages.appendChild(messageDiv);
-            messages.scrollTop = messages.scrollHeight;
+            scrollToBottom();
         }
 
         function showTypingIndicator() {
-            document.getElementById("typingIndicator").style.display = "block";
-            const messages = document.getElementById("messages");
-            messages.scrollTop = messages.scrollHeight;
+            document.getElementById("typingIndicator").style.display = "flex";
+            scrollToBottom();
         }
 
         function hideTypingIndicator() {
             document.getElementById("typingIndicator").style.display = "none";
         }
 
-        function addSuggestionChips() {
+        function showSuggestionChips() {
             const suggestions = [
                 "Boshim og'riyapti",
                 "Tish og'rig'i bor",
                 "Qon bosimim yuqori",
                 "Ko'z qichiyapti",
-                "Yo'tal qilyapman"
+                "Yo'tal qilyapman",
+                "Oshqozon og'riyapti"
             ];
 
-            const messages = document.getElementById("messages");
-            const chipsDiv = document.createElement("div");
-            chipsDiv.className = "suggestion-chips";
+            const chipsContainer = document.getElementById("suggestionChips");
+            chipsContainer.innerHTML = '';
 
             suggestions.forEach(suggestion => {
                 const chip = document.createElement("span");
@@ -301,33 +633,88 @@
                 chip.onclick = () => {
                     document.getElementById("messageInput").value = suggestion;
                     sendMessage();
-                    chipsDiv.remove();
                 };
-                chipsDiv.appendChild(chip);
+                chipsContainer.appendChild(chip);
             });
 
-            messages.appendChild(chipsDiv);
-            messages.scrollTop = messages.scrollHeight;
+            chipsContainer.style.display = "flex";
+            scrollToBottom();
         }
 
-        // Enter tugmasi bosilganda xabar yuborish
-        document.getElementById("messageInput").addEventListener("keypress", function(e) {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
+        function hideSuggestionChips() {
+            document.getElementById("suggestionChips").style.display = "none";
+        }
+
+        function showFeedbackPrompt() {
+            const feedbackText = `Sizga yordam bera olganimdan xursandman! 😊
+
+Agar xohlasangiz, fikr-mulohazangizni qoldiring:
+• Tavsiyalar foydali bo'ldimi?
+• Shifokor bilan bog'lana oldingizmi?
+• Tizimni yaxshilash uchun takliflaringiz?
+
+Salomatligingiz yaxshi bo'lsin! 💚`;
+
+            addMessage(feedbackText, "ai");
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.appendChild(errorDiv);
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById("messages");
+            setTimeout(() => {
+                messages.scrollTop = messages.scrollHeight;
+            }, 100);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + Enter - xabar yuborish
+            if (e.ctrlKey && e.key === 'Enter') {
                 sendMessage();
+            }
+
+            // Escape - suggestion chips yashirish
+            if (e.key === 'Escape') {
+                hideSuggestionChips();
             }
         });
 
-        // Sahifa yuklanganda boshlang'ich xabar
-        window.addEventListener('load', function() {
-            setTimeout(() => {
-                addMessage(`Salom! Men sizning tibbiy yordamchingizman. 🏥
+        // Online/offline status
+        window.addEventListener('online', function() {
+            console.log('Internet ulanish qayta tiklandi');
+        });
 
-Men sizga to'g'ri shifokorni topishda yordam beraman.
-
-Muammoingizni batafsil aytib bering yoki quyidagi misollardan birini tanlang:`, "ai");
-                addSuggestionChips();
-            }, 500);
+        window.addEventListener('offline', function() {
+            showError('Internet ulanish uzildi. Qayta ulanishni kuting...');
         });
     </script>
 </body>

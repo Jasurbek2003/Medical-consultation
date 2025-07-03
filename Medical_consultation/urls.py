@@ -5,21 +5,45 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
 urlpatterns = [
+    # Admin panel
     path('admin/', admin.site.urls),
 
-    # API endpoints (REST API)
-    path('api/', include('apps.api.urls')),  # Quick API endpoints
-    path('api/users/', include('apps.users.urls')),
-    path('api/doctors/', include('apps.doctors.urls')),
-    path('api/chat/', include('apps.chat.urls')),
-    path('api/consultations/', include('apps.consultations.urls')),
+    # =============================================
+    # API ENDPOINTS (JSON responses only)
+    # =============================================
 
-    # Web pages
+    # Chat API - asosiy AI xizmatlari
+    path('api/chat/', include('apps.chat.api_urls')),
+
+    # Shifokorlar API
+    path('api/doctors/', include('apps.doctors.api_urls')),
+
+    # Foydalanuvchilar API
+    path('api/users/', include('apps.users.api_urls')),
+
+    # Konsultatsiyalar API
+    path('api/consultations/', include('apps.consultations.api_urls')),
+
+    # Tez API endpoint'lar
+    path('api/', include('apps.api.urls')),
+
+    # =============================================
+    # WEB PAGES (Template responses only)
+    # =============================================
+
+    # Bosh sahifa
     path('', TemplateView.as_view(template_name='base.html'), name='home'),
-    path('chat/', include('apps.chat.urls', namespace='chat')),
-    path('doctors/', include('apps.doctors.urls', namespace='doctors')),
 
-    # API documentation
+    # Chat sahifalar
+    path('chat/', include('apps.chat.web_urls')),
+
+    # Shifokorlar sahifalar
+    path('doctors/', include('apps.doctors.web_urls')),
+
+    # Foydalanuvchilar sahifalar
+    path('users/', include('apps.users.web_urls')),
+
+    # API hujjatlari
     path('docs/', TemplateView.as_view(template_name='api_docs.html'), name='api_docs'),
 ]
 
@@ -28,7 +52,7 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# Admin panel title'ini o'zgartirish
-admin.site.site_header = "Tibbiy Konsultatsiya Admin"
+# Admin panel sozlamalari
+admin.site.site_header = "🏥 Tibbiy Konsultatsiya Admin"
 admin.site.site_title = "Tibbiy Konsultatsiya"
 admin.site.index_title = "Boshqaruv Paneli"
