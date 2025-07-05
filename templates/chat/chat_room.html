@@ -1,9 +1,12 @@
+{% load i18n %}
+{% load static %}
+
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏥 Tibbiy Chat - AI Yordamchi</title>
+    <title>🏥 {% trans "Tibbiy Chat - AI Yordamchi" %}</title>
     <style>
         * {
             margin: 0;
@@ -34,6 +37,74 @@
             padding: 20px;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* Til tanlash tugmasi chat headerda */
+        .language-selector {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+        }
+
+        .language-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .language-button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .language-button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .language-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            padding: 5px 0;
+            min-width: 120px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .language-menu.show {
+            display: block;
+        }
+
+        .language-option {
+            display: block;
+            padding: 8px 15px;
+            color: #333;
+            text-decoration: none;
+            font-size: 12px;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .language-option:hover {
+            background: #f8f9fa;
+        }
+
+        .language-option.active {
+            background: #667eea;
+            color: white;
         }
 
         .chat-header h1 {
@@ -313,6 +384,12 @@
             .suggestion-chips {
                 padding: 0 15px;
             }
+
+            .language-selector {
+                position: static;
+                float: right;
+                margin-top: -10px;
+            }
         }
 
         /* Scrollbar styling */
@@ -332,53 +409,49 @@
         .chat-messages::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
-
-        /* Loading animation */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.9);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div>
-            <div class="loading-spinner"></div>
-            <p style="margin-top: 15px; color: #666;">Chat tayyorlanmoqda...</p>
-        </div>
-    </div>
-
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🏥 Tibbiy Konsultatsiya Chat</h1>
-            <p>AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping</p>
+            <!-- Til tanlash dropdown -->
+            <div class="language-selector">
+                <div class="language-dropdown">
+                    <button class="language-button" onclick="toggleLanguageMenu()">
+                        {% get_current_language as CURRENT_LANGUAGE %}
+                        {% if CURRENT_LANGUAGE == 'uz' %}🇺🇿 UZ
+                        {% elif CURRENT_LANGUAGE == 'ru' %}🇷🇺 RU
+                        {% elif CURRENT_LANGUAGE == 'en' %}🇺🇸 EN
+                        {% endif %}
+                        ▼
+                    </button>
+                    <div class="language-menu" id="languageMenu">
+                        {% get_available_languages as LANGUAGES %}
+                        {% get_language_info_list for LANGUAGES as languages %}
+                        {% for language in languages %}
+                            <form method="post" action="{% url 'set_language' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input name="next" type="hidden" value="{{ request.get_full_path }}" />
+                                <input name="language" type="hidden" value="{{ language.code }}" />
+                                <button type="submit" class="language-option {% if language.code == CURRENT_LANGUAGE %}active{% endif %}">
+                                    {% if language.code == 'uz' %}🇺🇿 O'zbek
+                                    {% elif language.code == 'ru' %}🇷🇺 Русский
+                                    {% elif language.code == 'en' %}🇺🇸 English
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <h1>🏥 {% trans "Tibbiy Konsultatsiya Chat" %}</h1>
+            <p>{% trans "AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping" %}</p>
             <div class="ai-status">
                 {% if ai_available %}
-                    ✅ AI Yordamchi Faol
+                    ✅ {% trans "AI Yordamchi Faol" %}
                 {% else %}
-                    ⚠️ AI Yordamchi Mavjud Emas
+                    ⚠️ {% trans "AI Yordamchi Mavjud Emas" %}
                 {% endif %}
             </div>
         </div>
@@ -397,8 +470,8 @@
                 {% endfor %}
             {% else %}
                 <div class="welcome-message">
-                    <h2>Xush kelibsiz!</h2>
-                    <p>Men sizning tibbiy yordamchingizman. Muammoingizni batafsil aytib bering, men sizga eng mos shifokorni topib beraman.</p>
+                    <h2>{% trans "Xush kelibsiz!" %}</h2>
+                    <p>{% trans "Men sizning tibbiy yordamchingizman. Muammoingizni batafsil aytib bering, men sizga eng mos shifokorni topib beraman." %}</p>
                 </div>
             {% endif %}
         </div>
@@ -410,7 +483,7 @@
                     <span></span>
                     <span></span>
                 </div>
-                <span>AI javob yozmoqda...</span>
+                <span>{% trans "AI javob yozmoqda..." %}</span>
             </div>
         </div>
 
@@ -422,10 +495,10 @@
             <textarea
                 id="messageInput"
                 class="message-input"
-                placeholder="Muammoingizni batafsil yozing... (masalan: 'Ikki kundan beri boshim og'riyapti')"
+                placeholder="{% trans 'Muammoingizni batafsil yozing...' %}"
                 rows="1"></textarea>
             <button onclick="sendMessage()" class="send-button" id="sendButton">
-                Yuborish
+                {% trans "Yuborish" %}
             </button>
         </div>
     </div>
@@ -435,6 +508,79 @@
         let sessionId = {% if session %}'{{ session.id }}'{% else %}null{% endif %};
         let isWaitingForResponse = false;
         let messageCount = {% if messages %}{{ messages|length }}{% else %}0{% endif %};
+        let currentLanguage = '{{ LANGUAGE_CODE }}';
+
+        // Til tanlash funksiyalari
+        function toggleLanguageMenu() {
+            const menu = document.getElementById('languageMenu');
+            menu.classList.toggle('show');
+        }
+
+        // Click outside to close language menu
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.language-dropdown');
+            const menu = document.getElementById('languageMenu');
+
+            if (!dropdown.contains(event.target)) {
+                menu.classList.remove('show');
+            }
+        });
+
+        // Ko'p tilli suggestion chips
+        const suggestionChips = {
+            'uz': [
+                "Boshim og'riyapti",
+                "Tish og'rig'i bor",
+                "Qon bosimim yuqori",
+                "Ko'z qichiyapti",
+                "Yo'tal qilyapman",
+                "Oshqozon og'riyapti"
+            ],
+            'ru': [
+                "Болит голова",
+                "Болит зуб",
+                "Высокое давление",
+                "Чешутся глаза",
+                "Кашляю",
+                "Болит живот"
+            ],
+            'en': [
+                "I have a headache",
+                "Tooth pain",
+                "High blood pressure",
+                "Eyes are itchy",
+                "I'm coughing",
+                "Stomach ache"
+            ]
+        };
+
+        // Ko'p tilli xabarlar
+        const messages = {
+            'uz': {
+                'welcome': 'Assalomu alaykum! Muammoingizni aytib bering.',
+                'typing': 'AI javob yozmoqda...',
+                'error_empty': 'Iltimos, muammoingizni batafsil yozing.',
+                'error_network': 'Internet bilan bog\'lanishda xatolik. Qayta urinib ko\'ring.',
+                'sending': 'Yuborilmoqda...',
+                'send': 'Yuborish'
+            },
+            'ru': {
+                'welcome': 'Здравствуйте! Расскажите о вашей проблеме.',
+                'typing': 'AI пишет ответ...',
+                'error_empty': 'Пожалуйста, опишите вашу проблему подробно.',
+                'error_network': 'Ошибка интернет-соединения. Попробуйте снова.',
+                'sending': 'Отправляется...',
+                'send': 'Отправить'
+            },
+            'en': {
+                'welcome': 'Hello! Tell me about your problem.',
+                'typing': 'AI is writing response...',
+                'error_empty': 'Please describe your problem in detail.',
+                'error_network': 'Network error. Please try again.',
+                'sending': 'Sending...',
+                'send': 'Send'
+            }
+        };
 
         // Sahifa yuklanganda
         document.addEventListener('DOMContentLoaded', function() {
@@ -478,15 +624,7 @@
         }
 
         function showWelcomeMessage() {
-            const welcomeText = `Assalomu alaykum! Men sizning tibbiy yordamchingizman. 🏥
-
-Men sizga to'g'ri shifokorni topishda yordam beraman.
-
-Muammoingizni batafsil aytib bering, masalan:
-• "Ikki kundan beri boshim og'riyapti"
-• "Tishim juda og'riyapti"
-• "Qon bosimim yuqori"`;
-
+            const welcomeText = messages[currentLanguage]['welcome'];
             addMessage(welcomeText, 'ai');
             showSuggestionChips();
         }
@@ -500,14 +638,14 @@ Muammoingizni batafsil aytib bering, masalan:
 
             // Validatsiya
             if (message.length < 3) {
-                showError('Iltimos, muammoingizni batafsil yozing.');
+                showError(messages[currentLanguage]['error_empty']);
                 return;
             }
 
             // UI'ni yangilash
             isWaitingForResponse = true;
             sendButton.disabled = true;
-            sendButton.textContent = "Yuborilmoqda...";
+            sendButton.textContent = messages[currentLanguage]['sending'];
 
             // User xabarini ko'rsatish
             addMessage(message, "user");
@@ -527,7 +665,8 @@ Muammoingizni batafsil aytib bering, masalan:
                 },
                 body: JSON.stringify({
                     message: message,
-                    session_id: sessionId
+                    session_id: sessionId,
+                    language: currentLanguage  // Tilni yuborish
                 })
             })
             .then(response => response.json())
@@ -541,7 +680,8 @@ Muammoingizni batafsil aytib bering, masalan:
 
                     // URL'ni yangilash (agar yangi session)
                     if (!window.location.pathname.includes(sessionId)) {
-                        window.history.pushState({}, '', `/chat/room/${sessionId}/`);
+                        const newUrl = `/${currentLanguage}/chat/room/${sessionId}/`;
+                        window.history.pushState({}, '', newUrl);
                     }
 
                     // Agar greeting yoki clarification bo'lsa, suggestion chips ko'rsatish
@@ -549,27 +689,20 @@ Muammoingizni batafsil aytib bering, masalan:
                         showSuggestionChips();
                     }
 
-                    // Medical analysis bo'lsa, feedback so'rash
-                    if (data.message_type === 'medical_complaint' && data.ai_response.metadata.response_type === 'medical_analysis') {
-                        setTimeout(() => {
-                            showFeedbackPrompt();
-                        }, 5000);
-                    }
-
                 } else {
-                    addMessage("❌ Xatolik: " + data.error, "ai", true);
+                    addMessage("❌ " + data.error, "ai", true);
                 }
             })
             .catch(error => {
                 hideTypingIndicator();
-                addMessage("❌ Internet bilan bog'lanishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", "ai", true);
+                addMessage("❌ " + messages[currentLanguage]['error_network'], "ai", true);
                 console.error('Error:', error);
             })
             .finally(() => {
                 // UI'ni qayta tiklash
                 isWaitingForResponse = false;
                 sendButton.disabled = false;
-                sendButton.textContent = "Yuborish";
+                sendButton.textContent = messages[currentLanguage]['send'];
                 input.focus();
             });
         }
@@ -593,7 +726,7 @@ Muammoingizni batafsil aytib bering, masalan:
                     ${formattedContent}
                 </div>
                 <div class="message-time">
-                    ${new Date().toLocaleTimeString('uz-UZ', {
+                    ${new Date().toLocaleTimeString(currentLanguage === 'en' ? 'en-US' : 'uz-UZ', {
                         hour: '2-digit',
                         minute: '2-digit'
                     })}
@@ -605,7 +738,10 @@ Muammoingizni batafsil aytib bering, masalan:
         }
 
         function showTypingIndicator() {
-            document.getElementById("typingIndicator").style.display = "flex";
+            const indicator = document.getElementById("typingIndicator");
+            indicator.style.display = "flex";
+            // Tilga mos keladigan matnni o'rnatish
+            indicator.querySelector('span:last-child').textContent = messages[currentLanguage]['typing'];
             scrollToBottom();
         }
 
@@ -614,15 +750,7 @@ Muammoingizni batafsil aytib bering, masalan:
         }
 
         function showSuggestionChips() {
-            const suggestions = [
-                "Boshim og'riyapti",
-                "Tish og'rig'i bor",
-                "Qon bosimim yuqori",
-                "Ko'z qichiyapti",
-                "Yo'tal qilyapman",
-                "Oshqozon og'riyapti"
-            ];
-
+            const suggestions = suggestionChips[currentLanguage] || suggestionChips['uz'];
             const chipsContainer = document.getElementById("suggestionChips");
             chipsContainer.innerHTML = '';
 
@@ -643,19 +771,6 @@ Muammoingizni batafsil aytib bering, masalan:
 
         function hideSuggestionChips() {
             document.getElementById("suggestionChips").style.display = "none";
-        }
-
-        function showFeedbackPrompt() {
-            const feedbackText = `Sizga yordam bera olganimdan xursandman! 😊
-
-Agar xohlasangiz, fikr-mulohazangizni qoldiring:
-• Tavsiyalar foydali bo'ldimi?
-• Shifokor bilan bog'lana oldingizmi?
-• Tizimni yaxshilash uchun takliflaringiz?
-
-Salomatligingiz yaxshi bo'lsin! 💚`;
-
-            addMessage(feedbackText, "ai");
         }
 
         function showError(message) {
@@ -706,15 +821,6 @@ Salomatligingiz yaxshi bo'lsin! 💚`;
             if (e.key === 'Escape') {
                 hideSuggestionChips();
             }
-        });
-
-        // Online/offline status
-        window.addEventListener('online', function() {
-            console.log('Internet ulanish qayta tiklandi');
-        });
-
-        window.addEventListener('offline', function() {
-            showError('Internet ulanish uzildi. Qayta ulanishni kuting...');
         });
     </script>
 </body>

@@ -7,55 +7,6 @@ from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-# Oddiy prompts va kalit so'zlar (agar prompts.py mavjud bo'lmasa)
-CLASSIFICATION_PROMPT = """
-Siz tibbiy konsultatsiya tizimining AI yordamchisisiz. Bemorning shikoyatiga qarab, qaysi mutaxassis shifokor kerak ekanligini aniq aniqlashingiz kerak.
-
-MAVJUD MUTAXASSISLAR:
-- terapevt: umumiy kasalliklar, sovuq-shumuq, bosh og'riq, harorat
-- stomatolog: tish og'riq, tish go'shti kasalliklari, og'iz muammolari
-- kardiolog: yurak kasalliklari, qon bosimi, ko'krak og'rig'i
-- urolog: siydik yo'li kasalliklari, buyrak muammolari
-- ginekolog: ayollar kasalliklari, homiladorlik
-- pediatr: bolalar kasalliklari
-- dermatolog: teri kasalliklari, allergiya
-- nevrolog: asab tizimi, migren, bosh og'riq
-- oftalmolog: ko'z kasalliklari
-- lor: quloq-burun-tomoq kasalliklari
-
-BEMORNING SHIKOYATI: "{user_message}"
-
-JAVOBNI FAQAT JSON FORMATIDA BERING:
-{{
-    "specialty": "mutaxassis_nomi",
-    "confidence": 0.95,
-    "explanation": "Nima uchun bu mutaxassisni tanlaganingizni tushuntiring"
-}}
-"""
-
-ADVICE_PROMPT = """
-Siz {specialty} bo'yicha umumiy maslahat beruvchi AI yordamchisisiz. 
-Bemorga foydali va xavfsiz maslahat bering, lekin diagnostika qo'ymang.
-
-BEMORNING MUAMMOSI: "{user_message}"
-
-Javobni o'zbek tilida, do'stona ohangda bering va albatta shifokorga murojaat qilish kerakligini ta'kidlang.
-"""
-
-SYMPTOM_KEYWORDS = {
-    'terapevt': ['harorat', 'sovuq', 'gripp', 'bosh og\'rig\'i', 'holsizlik', 'yo\'tal'],
-    'stomatolog': ['tish og\'rig\'i', 'tish', 'og\'iz', 'tish go\'shti'],
-    'kardiolog': ['yurak og\'rig\'i', 'ko\'krak og\'rig\'i', 'qon bosimi', 'yurak'],
-    'urolog': ['siydik', 'buyrak', 'siydik yo\'li'],
-    'ginekolog': ['ayollik', 'homiladorlik', 'hayz'],
-    'pediatr': ['bola', 'chaqaloq'],
-    'dermatolog': ['teri', 'qichish', 'allergiya'],
-    'nevrolog': ['bosh og\'rig\'i', 'migren', 'asab'],
-    'oftalmolog': ['ko\'z', 'ko\'rish'],
-    'lor': ['quloq', 'burun', 'tomoq']
-}
-
-
 class GeminiService:
     """Google Gemini AI bilan ishlash uchun service"""
 
@@ -80,7 +31,7 @@ class GeminiService:
             logger.error(f"Gemini AI sozlashda xatolik: {e}")
             self.model = None
 
-    def classify_medical_issue(self, user_message, user_context=None):
+    def classify_medical_issue(self, user_message, user_context=None, language='uz'):
         """
         Bemorning shikoyatini tahlil qilib, qaysi mutaxassis kerakligini aniqlash
 
@@ -106,8 +57,9 @@ class GeminiService:
             if not self.model:
                 return self._get_fallback_classification(user_message)
 
+            from .prompts import get_prompt
             # Prompt yaratish
-            prompt = CLASSIFICATION_PROMPT.format(user_message=user_message)
+            prompt = get_prompt('classification', language).format(user_message=user_message)
 
             # AI'dan javob olish
             response = self.model.generate_content(
@@ -133,7 +85,7 @@ class GeminiService:
             logger.error(f"Medical classification xatolik: {e}")
             return self._get_fallback_classification(user_message)
 
-    def get_medical_advice(self, user_message, specialty, symptoms=None):
+    def get_medical_advice(self, user_message, specialty, symptoms=None, language='uz'):
         """
         Tibbiy maslahat berish
 
@@ -141,6 +93,7 @@ class GeminiService:
             user_message (str): Foydalanuvchi xabari
             specialty (str): Aniqlangan mutaxassislik
             symptoms (list): Aniqlangan simptomlar
+            language (str): Til kodi (default: 'uz')
 
         Returns:
             dict: Maslahat natijasi
@@ -151,7 +104,9 @@ class GeminiService:
             if not self.model:
                 return self._get_fallback_advice(specialty)
 
-            prompt = ADVICE_PROMPT.format(
+            from .prompts import get_prompt
+
+            prompt = get_prompt('advice', language).format(
                 user_message=user_message,
                 specialty=specialty
             )
@@ -178,7 +133,7 @@ class GeminiService:
             logger.error(f"Medical advice xatolik: {e}")
             return self._get_fallback_advice(specialty)
 
-    def analyze_symptoms(self, text):
+    def analyze_symptoms(self, text, language='uz'):
         """
         Simptomlarni tahlil qilish
 
@@ -193,7 +148,7 @@ class GeminiService:
             text_lower = text.lower()
             detected_symptoms = []
             keywords = []
-
+            from .prompts import SYMPTOM_KEYWORDS
             for symptom_category, symptom_list in SYMPTOM_KEYWORDS.items():
                 for symptom in symptom_list:
                     if symptom in text_lower:

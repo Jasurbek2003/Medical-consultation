@@ -3,8 +3,15 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from django.conf.urls.i18n import i18n_patterns
 
 urlpatterns = [
+    # Til o'rnatish endpoint'i (har doim eng yuqorida bo'lishi kerak)
+    path('i18n/', include('django.conf.urls.i18n')),
+]
+
+# Ko'p tilli URL'lar - til prefiksi bilan
+urlpatterns += i18n_patterns(
     # Admin panel
     path('admin/', admin.site.urls),
 
@@ -45,7 +52,8 @@ urlpatterns = [
 
     # API hujjatlari
     path('docs/', TemplateView.as_view(template_name='api_docs.html'), name='api_docs'),
-]
+    prefix_default_language=False,
+)
 
 # Development da media va static fayllarni serve qilish
 if settings.DEBUG:

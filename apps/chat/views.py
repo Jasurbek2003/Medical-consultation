@@ -4,13 +4,15 @@ from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
-from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework import  status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.utils.translation import get_language, activate
+from django.utils.translation import gettext as _
 
 # Models
-from .models import ChatSession, ChatMessage, AIAnalysis, DoctorRecommendation, ChatFeedback
+from .models import ChatSession, ChatMessage, DoctorRecommendation, ChatFeedback
 from apps.doctors.models import Doctor
 
 # AI Service - try/except bilan himoyalash
@@ -24,7 +26,7 @@ except ImportError as e:
 
 
     class GeminiService:
-        def classify_medical_issue(self, user_message, user_context=None):
+        def classify_medical_issue(self, user_message, user_context=None, language='uz'):
             message_lower = user_message.lower()
             if 'tish' in message_lower:
                 specialty = 'stomatolog'
@@ -38,23 +40,23 @@ except ImportError as e:
             return {
                 'specialty': specialty,
                 'confidence': 0.7,
-                'explanation': 'Oddiy kalit so\'z tahlili asosida',
+                'explanation': _('Oddiy kalit so\'z tahlili asosida'),
                 'processing_time': 0.1,
                 'model_used': 'fallback',
                 'symptoms_analysis': {'detected_symptoms': [], 'keywords': []},
-                'urgency_assessment': {'urgency_level': 'medium', 'description': 'Shifokorga ko\'rsating'}
+                'urgency_assessment': {'urgency_level': 'medium', 'description': _('Shifokorga ko\'rsating')}
             }
 
-        def get_medical_advice(self, user_message, specialty, symptoms=None):
+        def get_medical_advice(self, user_message, specialty, symptoms=None, language='uz'):
             advice_map = {
-                'terapevt': 'Umumiy holatni yaxshilash uchun shifokorga murojaat qiling.',
-                'stomatolog': 'Tish gigienasini saqlang va shifokorga ko\'rsating.',
-                'kardiolog': 'Qon bosimingizni nazorat qiling.',
-                'urolog': 'Ko\'p suv iching va shifokorga murojaat qiling.'
+                'terapevt': _('Umumiy holatni yaxshilash uchun shifokorga murojaat qiling.'),
+                'stomatolog': _('Tish gigienasini saqlang va shifokorga ko\'rsating.'),
+                'kardiolog': _('Qon bosimingizni nazorat qiling.'),
+                'urolog': _('Ko\'p suv iching va shifokorga murojaat qiling.')
             }
 
             return {
-                'advice': advice_map.get(specialty, 'Shifokor bilan maslahatlashing.'),
+                'advice': advice_map.get(specialty, _('Shifokor bilan maslahatlashing.')),
                 'specialty': specialty,
                 'processing_time': 0.1,
                 'model_used': 'fallback'
@@ -91,7 +93,8 @@ class ChatRoomView(TemplateView):
         context.update({
             'specialties': Doctor.SPECIALTIES,
             'ai_available': AI_AVAILABLE,
-            'page_title': 'Tibbiy Chat - AI Yordamchi'
+            'page_title': _('Tibbiy Chat - AI Yordamchi'),
+            'current_language': get_language(),
         })
 
         return context
@@ -105,7 +108,8 @@ class ChatInterfaceView(TemplateView):
         context = super().get_context_data(**kwargs)
         context.update({
             'ai_available': AI_AVAILABLE,
-            'page_title': 'Chat Interface'
+            'page_title': _('Chat Interface'),
+            'current_language': get_language(),
         })
         return context
 
@@ -123,42 +127,47 @@ class ChatMessageView(TemplateView):
             data = json.loads(request.body)
             user_message = data.get('message', '').strip()
             session_id = data.get('session_id')
+            user_language = data.get('language', get_language())  # Til parametri
+
+            # Tilni o'rnatish
+            if user_language:
+                activate(user_language)
 
             if not user_message:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Xabar bo\'sh bo\'lishi mumkin emas'
+                    'error': _('Xabar bo\'sh bo\'lishi mumkin emas')
                 }, status=400)
 
-            # Session olish yoki yaratish
+                # Session olish yoki yaratish
             if session_id:
                 try:
                     session = ChatSession.objects.get(id=session_id)
                 except ChatSession.DoesNotExist:
-                    session = self._create_session(request)
+                    session = self._create_session(request, user_language)
             else:
-                session = self._create_session(request)
+                session = self._create_session(request, user_language)
 
-            # Foydalanuvchi xabarini saqlash
+                # Foydalanuvchi xabarini saqlash
             user_chat_message = ChatMessage.objects.create(
                 session=session,
                 sender_type='user',
                 message_type='text',
-                content=user_message
+                content=user_message,
+                metadata={'language': user_language}
             )
 
             # Xabar turini aniqlash
-            message_type = self._analyze_message_type(user_message, session)
-            print(message_type)
+            message_type = self._analyze_message_type(user_message, session, user_language)
 
             if message_type == 'greeting':
-                ai_response = self._get_greeting_response()
+                ai_response = self._get_greeting_response(user_language)
             elif message_type == 'general_question':
-                ai_response = self._get_clarification_response()
+                ai_response = self._get_clarification_response(user_language)
             elif message_type == 'medical_complaint':
-                ai_response = self._process_medical_complaint(user_message, session, request)
+                ai_response = self._process_medical_complaint(user_message, session, request, user_language)
             else:
-                ai_response = self._get_help_response()
+                ai_response = self._get_help_response(user_language)
 
             # AI javob xabarini saqlash
             ai_chat_message = ChatMessage.objects.create(
@@ -168,7 +177,7 @@ class ChatMessageView(TemplateView):
                 content=ai_response['content'],
                 ai_model_used=ai_response.get('model_used', 'rule-based'),
                 ai_response_time=ai_response.get('processing_time', 0.1),
-                metadata=ai_response.get('metadata', {})
+                metadata={**ai_response.get('metadata', {}), 'language': user_language}
             )
 
             return JsonResponse({
@@ -177,127 +186,59 @@ class ChatMessageView(TemplateView):
                 'user_message': {
                     'id': user_chat_message.id,
                     'content': user_message,
-                    'timestamp': user_chat_message.created_at.isoformat()
+                    'timestamp': user_chat_message.created_at.isoformat(),
+                    'language': user_language
                 },
                 'ai_response': {
                     'id': ai_chat_message.id,
                     'content': ai_response['content'],
                     'timestamp': ai_chat_message.created_at.isoformat(),
-                    'metadata': ai_response.get('metadata', {})
+                    'metadata': ai_response.get('metadata', {}),
+                    'language': user_language
                 },
                 'message_type': message_type,
-                'ai_available': AI_AVAILABLE
+                'ai_available': AI_AVAILABLE,
+                'language': user_language
             })
 
         except Exception as e:
             logger.error(f"Chat message processing error: {e}")
             return JsonResponse({
                 'success': False,
-                'error': 'Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.',
+                'error': _('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.'),
                 'error_details': str(e) if settings.DEBUG else None
             }, status=500)
 
-    def _analyze_message_type(self, message, session):
-        """Xabar turini aniqlash"""
+    def _analyze_message_type(self, message, session, language='uz'):
+        """Xabar turini aniqlash (ko'p tilli)"""
         message_lower = message.lower().strip()
-        # Salomlashish so'zlari
-        greeting_words = ['salom', 'assalomu alaykum', 'alik', 'hello', 'hi', 'hey']
-        for word in greeting_words:
+
+        # Ko'p tilli salomlashish so'zlari
+        greeting_words = {
+            'uz': ['salom', 'assalomu alaykum', 'alik'],
+            'ru': ['привет', 'здравствуйте', 'добро пожаловать', 'салам'],
+            'en': ['hello', 'hi', 'hey', 'good morning', 'good day']
+        }
+
+        current_greetings = greeting_words.get(language, greeting_words['uz'])
+        for word in current_greetings:
             if message_lower.startswith(word) and len(message_lower.split()) <= 3:
                 return 'greeting'
 
-        # Tana a'zolari va organlar
-        body_parts = [
-            'tish', 'bosh', 'qorin', 'yurak', 'jigar', 'buyrak', 'ichak',
-            'oshqozon', 'teri', "ko'z", 'quloq', 'nafas', 'qon'
-        ]
+        # Ko'p tilli tibbiy kalit so'zlar
+        from apps.ai_assistant.prompts import get_symptom_keywords
+        medical_keywords = []
 
-        # Simptomlar va alomatlar
-        symptoms = [
-            "og'riq", "og'riyapti", 'harorat', "yo'tal", 'allergiya',
-            'stress', 'charchoq', 'holsizlik', 'qichish', "shish",
-            'isitma', 'bosh aylanishi', 'belgi', 'alomat', 'qizaloq',
-            'bezgak', "yon ta'sir"
-        ]
+        # Hozirgi til va boshqa tillarning kalit so'zlarini olish
+        for lang in ['uz', 'ru', 'en']:
+            lang_keywords = get_symptom_keywords(lang)
+            for specialty_keywords in lang_keywords.values():
+                medical_keywords.extend(specialty_keywords)
 
-        # Kasalliklar
-        diseases = [
-            'kasallik', 'shamollash', 'gripp', 'sovuq', 'angina', 'bronxit',
-            'astma', 'diabat', 'bosim', 'gipertaniya', 'hipotaniya',
-            'migran', 'qandli'
-        ]
-
-        # Tibbiy mutaxassislar
-        medical_specialists = [
-            'shifokor', 'hamshira', 'mutaxassis', 'nevropatolog', 'kardiolog',
-            'oftalmolog', 'lor', 'ginekolog', 'pediatr', 'terapevt',
-            'stomatolog', "stamatolog", 'urolog', 'xirurg', 'radiolog', 'laborant',
-            'farmatsevt', 'dermatolog', 'endokrinolog', 'gastroenterolog',
-            'pulmonolog', 'psixiatr', 'nevrolog', 'onkolog', 'reabilitolog',
-            'fizioterapevt', 'akusher', 'androlog', 'psixolog', 'psixoterapevt',
-            'genetik', 'immunolog', 'infektsionist', 'allergolog',
-            'reanimatolog', 'anesteziolog'
-        ]
-
-        # Dorilar va davolash usullari
-        treatment_medicine = [
-            'dori', 'malham', 'tabletkalar', 'kapsulalar', 'davolash',
-            'tuzalish', 'tiklanish', 'profilaktika', 'vaksinatsiya',
-            'emlash', 'jarrohlik', 'operatsiya', 'bandaj', 'davolanish',
-            'instruktsiya', 'dozalash', 'kontraindikasiya', 'fizioterapiya',
-            'retsept'
-        ]
-
-        # Tibbiy tekshiruvlar va asboblar
-        medical_tests_equipment = [
-            'tahlil', 'tekshiruv', 'tashxis', 'rentgen', 'ultrasonografiya',
-            'tomografiya', 'kardiogramma'
-        ]
-
-        # Tibbiy muassasalar va xizmatlar
-        medical_institutions = [
-            'klinika', 'shifoxona', 'poliklinika', 'bemorxona', 'reanimatsiya',
-            'ginekologiya'
-        ]
-
-        # Favqulodda tibbiy yordam
-        emergency_medical = [
-            'tez yordam', 'shoshilinch yordam', 'favqulodda vaziyat',
-            'favqulodda', 'kechakrish', 'zarurat', 'shoshilinch'
-        ]
-
-        # Umumiy tibbiy terminlar
-        general_medical = [
-            'bemor', 'tibbiy', 'holat', 'ahvol', 'muloyimlik', 'siydik',
-            'vazn', 'uyqu'
-        ]
-
-        medical_keywords = (body_parts + symptoms + diseases + medical_specialists + treatment_medicine +
-                            medical_institutions + medical_tests_equipment + emergency_medical + general_medical)
-
+        # Kalit so'zlarni tekshirish
         for keyword in medical_keywords:
-            if keyword in message_lower.split():
+            if keyword in message_lower:
                 return 'medical_complaint'
-
-        uzbek_suffixes = [
-            'im', 'lar', 'larim', 'ga', 'ni', 'da', 'dan', 'ga',
-            'laridan', 'lari', 'lariyim', 'larimiz', 'ning', 'niki',
-            'man', 'miz', 'san', 'siz', 'di', 'dilar', 'dik', 'dingiz',
-            'yapti', 'yabdi', 'yotir', 'moqda', 'adi', 'ayapti',
-            'cha', 'roq', 'gina', 'day', 'dek', 'simon'
-        ]
-
-        # Har bir so'zni tekshirish
-        for word in message_lower.split():
-            # Qo'shimchalarni olib tashlash va ildizni topish
-            for suffix in uzbek_suffixes:
-                if word.endswith(suffix):
-                    root = word[:-len(suffix)]
-                    # To'liq mos kelishi tekshiruvi
-                    if root in medical_keywords:
-                        return 'medical_complaint'
-
-
 
         # Umumiy savollar
         if len(message.split()) <= 5 and '?' not in message:
@@ -309,10 +250,122 @@ class ChatMessageView(TemplateView):
 
         return 'general_question'
 
-    def _get_greeting_response(self):
-        """Salomlashish javobi"""
-        return {
-            'content': """Assalomu alaykum! Men sizning tibbiy yordamchingizman. 🏥
+    # def _analyze_message_type(self, message, session):
+    #     """Xabar turini aniqlash"""
+    #     message_lower = message.lower().strip()
+    #     # Salomlashish so'zlari
+    #     greeting_words = ['salom', 'assalomu alaykum', 'alik', 'hello', 'hi', 'hey']
+    #     for word in greeting_words:
+    #         if message_lower.startswith(word) and len(message_lower.split()) <= 3:
+    #             return 'greeting'
+    #
+    #     # Tana a'zolari va organlar
+    #     body_parts = [
+    #         'tish', 'bosh', 'qorin', 'yurak', 'jigar', 'buyrak', 'ichak',
+    #         'oshqozon', 'teri', "ko'z", 'quloq', 'nafas', 'qon'
+    #     ]
+    #
+    #     # Simptomlar va alomatlar
+    #     symptoms = [
+    #         "og'riq", "og'riyapti", 'harorat', "yo'tal", 'allergiya',
+    #         'stress', 'charchoq', 'holsizlik', 'qichish', "shish",
+    #         'isitma', 'bosh aylanishi', 'belgi', 'alomat', 'qizaloq',
+    #         'bezgak', "yon ta'sir"
+    #     ]
+    #
+    #     # Kasalliklar
+    #     diseases = [
+    #         'kasallik', 'shamollash', 'gripp', 'sovuq', 'angina', 'bronxit',
+    #         'astma', 'diabat', 'bosim', 'gipertaniya', 'hipotaniya',
+    #         'migran', 'qandli'
+    #     ]
+    #
+    #     # Tibbiy mutaxassislar
+    #     medical_specialists = [
+    #         'shifokor', 'hamshira', 'mutaxassis', 'nevropatolog', 'kardiolog',
+    #         'oftalmolog', 'lor', 'ginekolog', 'pediatr', 'terapevt',
+    #         'stomatolog', "stamatolog", 'urolog', 'xirurg', 'radiolog', 'laborant',
+    #         'farmatsevt', 'dermatolog', 'endokrinolog', 'gastroenterolog',
+    #         'pulmonolog', 'psixiatr', 'nevrolog', 'onkolog', 'reabilitolog',
+    #         'fizioterapevt', 'akusher', 'androlog', 'psixolog', 'psixoterapevt',
+    #         'genetik', 'immunolog', 'infektsionist', 'allergolog',
+    #         'reanimatolog', 'anesteziolog'
+    #     ]
+    #
+    #     # Dorilar va davolash usullari
+    #     treatment_medicine = [
+    #         'dori', 'malham', 'tabletkalar', 'kapsulalar', 'davolash',
+    #         'tuzalish', 'tiklanish', 'profilaktika', 'vaksinatsiya',
+    #         'emlash', 'jarrohlik', 'operatsiya', 'bandaj', 'davolanish',
+    #         'instruktsiya', 'dozalash', 'kontraindikasiya', 'fizioterapiya',
+    #         'retsept'
+    #     ]
+    #
+    #     # Tibbiy tekshiruvlar va asboblar
+    #     medical_tests_equipment = [
+    #         'tahlil', 'tekshiruv', 'tashxis', 'rentgen', 'ultrasonografiya',
+    #         'tomografiya', 'kardiogramma'
+    #     ]
+    #
+    #     # Tibbiy muassasalar va xizmatlar
+    #     medical_institutions = [
+    #         'klinika', 'shifoxona', 'poliklinika', 'bemorxona', 'reanimatsiya',
+    #         'ginekologiya'
+    #     ]
+    #
+    #     # Favqulodda tibbiy yordam
+    #     emergency_medical = [
+    #         'tez yordam', 'shoshilinch yordam', 'favqulodda vaziyat',
+    #         'favqulodda', 'kechakrish', 'zarurat', 'shoshilinch'
+    #     ]
+    #
+    #     # Umumiy tibbiy terminlar
+    #     general_medical = [
+    #         'bemor', 'tibbiy', 'holat', 'ahvol', 'muloyimlik', 'siydik',
+    #         'vazn', 'uyqu'
+    #     ]
+    #
+    #     medical_keywords = (body_parts + symptoms + diseases + medical_specialists + treatment_medicine +
+    #                         medical_institutions + medical_tests_equipment + emergency_medical + general_medical)
+    #
+    #     for keyword in medical_keywords:
+    #         if keyword in message_lower.split():
+    #             return 'medical_complaint'
+    #
+    #     uzbek_suffixes = [
+    #         'im', 'lar', 'larim', 'ga', 'ni', 'da', 'dan', 'ga',
+    #         'laridan', 'lari', 'lariyim', 'larimiz', 'ning', 'niki',
+    #         'man', 'miz', 'san', 'siz', 'di', 'dilar', 'dik', 'dingiz',
+    #         'yapti', 'yabdi', 'yotir', 'moqda', 'adi', 'ayapti',
+    #         'cha', 'roq', 'gina', 'day', 'dek', 'simon'
+    #     ]
+    #
+    #     # Har bir so'zni tekshirish
+    #     for word in message_lower.split():
+    #         # Qo'shimchalarni olib tashlash va ildizni topish
+    #         for suffix in uzbek_suffixes:
+    #             if word.endswith(suffix):
+    #                 root = word[:-len(suffix)]
+    #                 # To'liq mos kelishi tekshiruvi
+    #                 if root in medical_keywords:
+    #                     return 'medical_complaint'
+    #
+    #
+    #
+    #     # Umumiy savollar
+    #     if len(message.split()) <= 5 and '?' not in message:
+    #         return 'general_question'
+    #
+    #     # Aniq tibbiy shikoyat (uzunroq matn)
+    #     if len(message.split()) > 5:
+    #         return 'medical_complaint'
+    #
+    #     return 'general_question'
+
+    def _get_greeting_response(self, language='uz'):
+        """Ko'p tilli salomlashish javobi"""
+        greeting_templates = {
+            'uz': """Assalomu alaykum! Men sizning tibbiy yordamchingizman. 🏥
 
 Men sizga to'g'ri shifokorni topishda yordam beraman.
 
@@ -323,23 +376,59 @@ Iltimos, muammoingizni batafsil aytib bering:
 
 **Misollar:**
 • "Ikki kundan beri boshim og'riyapti"
-• "Tishim juda og'riyapti, yeyolmayapman" 
+• "Tishim juda og'riyapti, yeyolmayapman"
 • "Qon bosimim yuqori ko'tarilgan"
 
 Sizning ma'lumotlaringiz asosida eng mos mutaxassisni tavsiya qilaman! 👨‍⚕️""",
-            'model_used': 'rule-based',
-            'processing_time': 0.1,
-            'metadata': {'response_type': 'greeting'}
+
+            'ru': """Здравствуйте! Я ваш медицинский помощник. 🏥
+
+Я помогу вам найти подходящего врача.
+
+Пожалуйста, расскажите подробно о вашей проблеме:
+• Какие симптомы или боли есть?
+• Как давно вы их ощущаете?
+• Где локализуется боль?
+
+**Примеры:**
+• "Уже два дня болит голова"
+• "Очень болит зуб, не могу есть"
+• "Повысилось артериальное давление"
+
+На основе вашей информации я порекомендую наиболее подходящего специалиста! 👨‍⚕️""",
+
+            'en': """Hello! I'm your medical assistant. 🏥
+
+I'll help you find the right doctor.
+
+Please tell me in detail about your problem:
+• What symptoms or pain do you have?
+• How long have you been experiencing them?
+• Where is the pain located?
+
+**Examples:**
+• "I've had a headache for two days"
+• "My tooth hurts a lot, I can't eat"
+• "My blood pressure has risen"
+
+Based on your information, I'll recommend the most suitable specialist! 👨‍⚕️"""
         }
 
-    def _get_clarification_response(self):
-        """Qo'shimcha ma'lumot so'rash"""
         return {
-            'content': """Sizga yordam berish uchun muammoingizni batafsil aytib bering.
+            'content': greeting_templates.get(language, greeting_templates['uz']),
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'greeting', 'language': language}
+        }
+
+    def _get_clarification_response(self, language='uz'):
+        """Ko'p tilli qo'shimcha ma'lumot so'rash"""
+        clarification_templates = {
+            'uz': """Sizga yordam berish uchun muammoingizni batafsil aytib bering.
 
 Quyidagilarni ma'lum qiling:
 🔍 **Aniq qanday belgilar bor?**
-⏰ **Qachondan beri sezayapsiz?** 
+⏰ **Qachondan beri sezayapsiz?**
 📍 **Qaysi joyda og'riq yoki noqulaylik?**
 📊 **Og'riq darajasi qanday (1-10)?**
 
@@ -349,41 +438,109 @@ Quyidagilarni ma'lum qiling:
 • "Bir haftadan beri ko'z qichiyapti va ko'z yoshi chiqyapti"
 
 Bu ma'lumotlar bilan sizga eng to'g'ri shifokorni tavsiya qila olaman! 🎯""",
-            'model_used': 'rule-based',
-            'processing_time': 0.1,
-            'metadata': {'response_type': 'clarification'}
+
+            'ru': """Чтобы помочь вам, расскажите подробно о вашей проблеме.
+
+Укажите следующее:
+🔍 **Какие именно симптомы есть?**
+⏰ **Как давно вы их ощущаете?**
+📍 **Где локализуется боль или дискомфорт?**
+📊 **Какая интенсивность боли (1-10)?**
+
+**Примеры:**
+• "Уже 3 дня болит в груди, усиливается при ходьбе"
+• "С утра болит живот, есть тошнота"
+• "Неделю чешутся глаза и слезятся"
+
+С этой информацией я смогу порекомендовать вам самого подходящего врача! 🎯""",
+
+            'en': """To help you, please tell me in detail about your problem.
+
+Please specify:
+🔍 **What exact symptoms do you have?**
+⏰ **How long have you been experiencing them?**
+📍 **Where is the pain or discomfort located?**
+📊 **What's the pain intensity (1-10)?**
+
+**Examples:**
+• "Chest pain for 3 days, gets worse when walking"
+• "Stomach pain since morning, with nausea"
+• "Eyes have been itchy and watery for a week"
+
+With this information, I can recommend the most suitable doctor for you! 🎯"""
         }
 
-    def _get_help_response(self):
-        """Yordam javobi"""
         return {
-            'content': """Men sizga tibbiy masalalar bo'yicha to'g'ri shifokorni topishda yordam beraman.
+            'content': clarification_templates.get(language, clarification_templates['uz']),
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'clarification', 'language': language}
+        }
+
+    def _get_help_response(self, language='uz'):
+        """Ko'p tilli yordam javobi"""
+        help_templates = {
+            'uz': """Men sizga tibbiy masalalar bo'yicha to'g'ri shifokorni topishda yordam beraman.
 
 **Men qila olaman:**
 • Simptomlaringizni tahlil qilish
-• Mos mutaxassisni tavsiya qilish  
+• Mos mutaxassisni tavsiya qilish
 • Shifokorlar ro'yxatini ko'rsatish
 • Umumiy tibbiy maslahat berish
 
 **Foydalanish:**
-Shunchaki muammoingizni oddiy tilada yozing, masalan:
+Shunchaki muammoingizni oddiy tilida yozing, masalan:
 "Boshim og'riyapti", "Tish og'rig'i bor", "Yurak tez uradi"
 
 Buyurtma bering! 😊""",
-            'model_used': 'rule-based',
-            'processing_time': 0.1,
-            'metadata': {'response_type': 'help'}
+
+            'ru': """Я помогаю найти подходящего врача по медицинским вопросам.
+
+**Что я могу делать:**
+• Анализировать ваши симптомы
+• Рекомендовать подходящего специалиста
+• Показывать список врачей
+• Давать общие медицинские советы
+
+**Как пользоваться:**
+Просто опишите вашу проблему простыми словами, например:
+"Болит голова", "Болит зуб", "Сердце быстро бьется"
+
+Обращайтесь! 😊""",
+
+            'en': """I help you find the right doctor for medical issues.
+
+**What I can do:**
+• Analyze your symptoms
+• Recommend suitable specialists
+• Show list of doctors
+• Provide general medical advice
+
+**How to use:**
+Just describe your problem in simple words, for example:
+"Headache", "Tooth pain", "Heart beating fast"
+
+Feel free to ask! 😊"""
         }
 
-    def _process_medical_complaint(self, user_message, session, request):
-        """Tibbiy shikoyatni qayta ishlash"""
+        return {
+            'content': help_templates.get(language, help_templates['uz']),
+            'model_used': 'rule-based',
+            'processing_time': 0.1,
+            'metadata': {'response_type': 'help', 'language': language}
+        }
+
+
+    def _process_medical_complaint(self, user_message, session, request, language='uz'):
+        """Ko'p tilli tibbiy shikoyatni qayta ishlash"""
         # AI tahlili
         gemini_service = GeminiService()
 
         # Tibbiy muammoni klassifikatsiya qilish
         classification_result = gemini_service.classify_medical_issue(
             user_message,
-            user_context=self._get_user_context(request)
+            user_context=self._get_user_context(request),
+            language=language
         )
 
         # Session ma'lumotlarini yangilash
@@ -401,7 +558,8 @@ Buyurtma bering! 😊""",
         advice_result = gemini_service.get_medical_advice(
             user_message,
             classification_result.get('specialty'),
-            classification_result.get('symptoms_analysis', {}).get('detected_symptoms', [])
+            classification_result.get('symptoms_analysis', {}).get('detected_symptoms', []),
+            language=language
         )
 
         # Shifokor tavsiyasini saqlash
@@ -417,7 +575,8 @@ Buyurtma bering! 😊""",
         ai_response_content = self._format_medical_response(
             classification_result,
             recommended_doctors,
-            advice_result.get('advice', '')
+            advice_result.get('advice', ''),
+            language
         )
 
         return {
@@ -428,65 +587,141 @@ Buyurtma bering! 😊""",
                 'classification': classification_result,
                 'doctors': recommended_doctors,
                 'advice': advice_result,
-                'response_type': 'medical_analysis'
+                'response_type': 'medical_analysis',
+                'language': language
             }
         }
 
-    def _format_medical_response(self, classification, doctors, advice):
-        """Tibbiy javobni formatlash"""
+    def _format_medical_response(self, classification, doctors, advice, language='uz'):
+        """Ko'p tilli tibbiy javobni formatlash"""
         specialty_display = dict(Doctor.SPECIALTIES).get(
             classification.get('specialty'), classification.get('specialty', '')
         )
 
-        response = f"""**Sizning muammoingizni tahlil qildim.**
+        # Ko'p tilli response shablonlari
+        response_templates = {
+            'uz': {
+                'header': "**Sizning muammoingizni tahlil qildim.**\n\n",
+                'specialist': "🔍 **Tavsiya etilgan mutaxassis:** {specialty}\n",
+                'confidence': "📊 **Ishonch darajasi:** {confidence}%\n",
+                'reason': "💡 **Sabab:** {explanation}\n\n",
+                'doctors_header': "**🏥 {specialty} mutaxassislari:**\n\n",
+                'no_doctors': "❌ Hozircha {specialty} mutaxassislari mavjud emas.\n\n",
+                'advice_header': "**💊 Umumiy maslahat:**\n{advice}\n\n",
+                'footer': "**❗ Muhim eslatma:** Bu faqat umumiy ma'lumot. Aniq tashxis va davolash uchun albatta shifokor bilan maslahatlashing.",
+                'online_badge': " 💻 Online"
+            },
+            'ru': {
+                'header': "**Я проанализировал вашу жалобу.**\n\n",
+                'specialist': "🔍 **Рекомендуемый специалист:** {specialty}\n",
+                'confidence': "📊 **Уровень уверенности:** {confidence}%\n",
+                'reason': "💡 **Причина:** {explanation}\n\n",
+                'doctors_header': "**🏥 Специалисты {specialty}:**\n\n",
+                'no_doctors': "❌ В настоящее время специалисты {specialty} недоступны.\n\n",
+                'advice_header': "**💊 Общие советы:**\n{advice}\n\n",
+                'footer': "**❗ Важное примечание:** Это только общая информация. Для точного диагноза и лечения обязательно проконсультируйтесь с врачом.",
+                'online_badge': " 💻 Онлайн"
+            },
+            'en': {
+                'header': "**I've analyzed your complaint.**\n\n",
+                'specialist': "🔍 **Recommended specialist:** {specialty}\n",
+                'confidence': "📊 **Confidence level:** {confidence}%\n",
+                'reason': "💡 **Reason:** {explanation}\n\n",
+                'doctors_header': "**🏥 {specialty} specialists:**\n\n",
+                'no_doctors': "❌ Currently no {specialty} specialists available.\n\n",
+                'advice_header': "**💊 General advice:**\n{advice}\n\n",
+                'footer': "**❗ Important note:** This is general information only. For accurate diagnosis and treatment, please consult with a doctor.",
+                'online_badge': " 💻 Online"
+            }
+        }
 
-🔍 **Tavsiya etilgan mutaxassis:** {specialty_display}
-📊 **Ishonch darajasi:** {classification.get('confidence', 0.5) * 100:.0f}%
-💡 **Sabab:** {classification.get('explanation', '')}
+        template = response_templates.get(language, response_templates['uz'])
 
-"""
+        response = template['header']
+        response += template['specialist'].format(specialty=specialty_display)
+        response += template['confidence'].format(confidence=classification.get('confidence', 0.5) * 100)
+        response += template['reason'].format(explanation=classification.get('explanation', ''))
 
         # Shoshilinchlik tekshirish
         urgency = classification.get('urgency_assessment', {})
         if urgency.get('urgency_level') == 'emergency':
-            response += """⚠️ **DIQQAT: Bu shoshilinch holat bo'lishi mumkin!**
+            emergency_warnings = {
+                'uz': """⚠️ **DIQQAT: Bu shoshilinch holat bo'lishi mumkin!**
 Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 
+""",
+                'ru': """⚠️ **ВНИМАНИЕ: Это может быть экстренная ситуация!**
+Срочно обратитесь в ближайшую больницу или вызовите скорую помощь: 103
+
+""",
+                'en': """⚠️ **WARNING: This may be an emergency!**
+Immediately go to the nearest hospital or call emergency services: 103
+
 """
+            }
+            response += emergency_warnings.get(language, emergency_warnings['uz'])
 
         if doctors:
-            response += f"""**🏥 {specialty_display} mutaxassislari:**
-
-"""
+            response += template['doctors_header'].format(specialty=specialty_display)
             for i, doctor in enumerate(doctors[:3], 1):
-                online_badge = " 💻 Online" if doctor.get('is_online_consultation') else ""
-                response += f"""{i}. **{doctor['name']}**{online_badge}
-   - Tajriba: {doctor['experience']} yil
-   - Reyting: {doctor['rating']}/5 ⭐ ({doctor['total_reviews']} sharh)
-   - Narx: {doctor['consultation_price']:,.0f} so'm
-   - Ish joyi: {doctor['workplace']}
-   - Telefon: {doctor['phone']}
+                online_badge = template['online_badge'] if doctor.get('is_online_consultation') else ""
+
+                doctor_info_templates = {
+                    'uz': """{i}. **{name}**{online_badge}
+   - Tajriba: {experience} yil
+   - Reyting: {rating}/5 ⭐ ({total_reviews} sharh)
+   - Narx: {consultation_price:,.0f} so'm
+   - Ish joyi: {workplace}
+   - Telefon: {phone}
+
+""",
+                    'ru': """{i}. **{name}**{online_badge}
+   - Опыт: {experience} лет
+   - Рейтинг: {rating}/5 ⭐ ({total_reviews} отзывов)
+   - Цена: {consultation_price:,.0f} сум
+   - Место работы: {workplace}
+   - Телефон: {phone}
+
+""",
+                    'en': """{i}. **{name}**{online_badge}
+   - Experience: {experience} years
+   - Rating: {rating}/5 ⭐ ({total_reviews} reviews)
+   - Price: {consultation_price:,.0f} sum
+   - Workplace: {workplace}
+   - Phone: {phone}
 
 """
+                }
+
+                doctor_template = doctor_info_templates.get(language, doctor_info_templates['uz'])
+                response += doctor_template.format(
+                    i=i,
+                    name=doctor['name'],
+                    online_badge=online_badge,
+                    experience=doctor['experience'],
+                    rating=doctor['rating'],
+                    total_reviews=doctor['total_reviews'],
+                    consultation_price=doctor['consultation_price'],
+                    workplace=doctor['workplace'],
+                    phone=doctor['phone']
+                )
         else:
-            response += f"❌ Hozircha {specialty_display} mutaxassislari mavjud emas.\n\n"
+            response += template['no_doctors'].format(specialty=specialty_display)
 
         if advice:
-            response += f"""**💊 Umumiy maslahat:**
-{advice}
+            response += template['advice_header'].format(advice=advice)
 
-"""
-
-        response += """**❗ Muhim eslatma:** Bu faqat umumiy ma'lumot. Aniq tashxis va davolash uchun albatta shifokor bilan maslahatlashing."""
+        response += template['footer']
 
         return response
 
-    def _create_session(self, request):
+    def _create_session(self, request, language='uz'):
         """Yangi chat session yaratish"""
         return ChatSession.objects.create(
             user=request.user if request.user.is_authenticated else None,
             session_ip=self._get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            metadata={'language': language}
         )
 
     def _get_client_ip(self, request):
@@ -496,7 +731,6 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
             ip = x_forwarded_for.split(',')[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
-        print(ip)
         return ip
 
     def _get_user_context(self, request):
@@ -548,22 +782,27 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
             return []
 
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def classify_issue(request):
-    """Tibbiy muammoni klassifikatsiya qilish (JSON response)"""
+    """Ko'p tilli tibbiy muammoni klassifikatsiya qilish (JSON response)"""
     try:
         user_message = request.data.get('message', '').strip()
+        user_language = request.data.get('language', get_language())
+
+        if user_language:
+            activate(user_language)
 
         if not user_message:
             return Response({
                 'success': False,
-                'error': 'Xabar bo\'sh bo\'lishi mumkin emas'
+                'error': _('Xabar bo\'sh bo\'lishi mumkin emas')
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # AI tahlili
         gemini_service = GeminiService()
-        result = gemini_service.classify_medical_issue(user_message)
+        result = gemini_service.classify_medical_issue(user_message, language=user_language)
 
         return Response({
             'success': True,
@@ -571,14 +810,15 @@ def classify_issue(request):
             'specialty_display': dict(Doctor.SPECIALTIES).get(
                 result.get('specialty'), result.get('specialty', '')
             ),
-            'ai_available': AI_AVAILABLE
+            'ai_available': AI_AVAILABLE,
+            'language': user_language
         })
 
     except Exception as e:
         logger.error(f"Classification error: {e}")
         return Response({
             'success': False,
-            'error': 'Tahlil qilishda xatolik yuz berdi'
+            'error': _('Tahlil qilishda xatolik yuz berdi')
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -598,7 +838,8 @@ def get_session_history(request, session_id):
                 'message_type': message.message_type,
                 'content': message.content,
                 'timestamp': message.created_at.isoformat(),
-                'metadata': message.metadata
+                'metadata': message.metadata,
+                'language': message.metadata.get('language', 'uz') if message.metadata else 'uz'
             })
 
         return Response({
@@ -609,7 +850,8 @@ def get_session_history(request, session_id):
                 'detected_specialty': session.detected_specialty,
                 'confidence_score': session.confidence_score,
                 'total_messages': session.total_messages,
-                'created_at': session.created_at.isoformat()
+                'created_at': session.created_at.isoformat(),
+                'language': session.metadata.get('language', 'uz') if session.metadata else 'uz'
             },
             'messages': messages_data
         })
@@ -618,22 +860,26 @@ def get_session_history(request, session_id):
         logger.error(f"Session history error: {e}")
         return Response({
             'success': False,
-            'error': 'Session tarixini olishda xatolik'
+            'error': _('Session tarixini olishda xatolik')
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def submit_feedback(request):
-    """Chat uchun fikr-mulohaza yuborish (JSON response)"""
+    """Ko'p tilli chat uchun fikr-mulohaza yuborish (JSON response)"""
     try:
         session_id = request.data.get('session_id')
         overall_rating = request.data.get('overall_rating')
+        user_language = request.data.get('language', get_language())
+
+        if user_language:
+            activate(user_language)
 
         if not session_id or not overall_rating:
             return Response({
                 'success': False,
-                'error': 'Session ID va umumiy baho talab qilinadi'
+                'error': _('Session ID va umumiy baho talab qilinadi')
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -641,7 +887,7 @@ def submit_feedback(request):
         except ChatSession.DoesNotExist:
             return Response({
                 'success': False,
-                'error': 'Session topilmadi'
+                'error': _('Session topilmadi')
             }, status=status.HTTP_404_NOT_FOUND)
 
         # Feedback yaratish yoki yangilash
@@ -661,13 +907,14 @@ def submit_feedback(request):
 
         return Response({
             'success': True,
-            'message': 'Fikr-mulohaza saqlandi. Rahmat!',
-            'feedback_id': feedback.id
+            'message': _('Fikr-mulohaza saqlandi. Rahmat!'),
+            'feedback_id': feedback.id,
+            'language': user_language
         })
 
     except Exception as e:
         logger.error(f"Feedback submission error: {e}")
         return Response({
             'success': False,
-            'error': 'Fikr-mulohaza yuborishda xatolik'
+            'error': _('Fikr-mulohaza yuborishda xatolik')
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

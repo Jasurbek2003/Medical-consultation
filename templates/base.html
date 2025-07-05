@@ -1,9 +1,12 @@
+{% load i18n %}
+{% load static %}
+
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏥 Tibbiy Konsultatsiya Tizimi</title>
+    <title>🏥 {% trans "Tibbiy Konsultatsiya Tizimi" %}</title>
     <style>
         * {
             margin: 0;
@@ -30,6 +33,68 @@
             color: white;
             margin-bottom: 50px;
             padding: 40px 0;
+            position: relative;
+        }
+
+        /* Til tanlash dropdown */
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .language-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .language-button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .language-button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .language-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 10px 0;
+            min-width: 150px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .language-menu.show {
+            display: block;
+        }
+
+        .language-option {
+            display: block;
+            padding: 10px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.3s ease;
+        }
+
+        .language-option:hover {
+            background: #f8f9fa;
+        }
+
+        .language-option.active {
+            background: #667eea;
+            color: white;
         }
 
         .header h1 {
@@ -201,33 +266,33 @@
             .cta-buttons { flex-direction: column; align-items: center; }
             .features { padding: 30px 20px; grid-template-columns: 1fr; }
             .stats { padding: 30px 20px; }
+            .language-selector {
+                position: static;
+                margin-bottom: 20px;
+            }
         }
 
-        /* Chat tugmasi animatsiyasi */
-        .btn-primary {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        /* Yuklash animatsiyasi */
-        .loading {
+        /* Loading animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
             display: none;
-            margin-top: 20px;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
         .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #1976d2;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
         }
 
         @keyframes spin {
@@ -237,100 +302,153 @@
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div>
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 15px; color: #666;">{% trans "Chat tayyorlanmoqda..." %}</p>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
-            <h1>🏥 Tibbiy Konsultatsiya</h1>
-            <p>AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping</p>
+            <!-- Til tanlash dropdown -->
+            <div class="language-selector">
+                <div class="language-dropdown">
+                    <button class="language-button" onclick="toggleLanguageMenu()">
+                        {% get_current_language as CURRENT_LANGUAGE %}
+                        {% if CURRENT_LANGUAGE == 'uz' %}🇺🇿 O'zbek
+                        {% elif CURRENT_LANGUAGE == 'ru' %}🇷🇺 Русский
+                        {% elif CURRENT_LANGUAGE == 'en' %}🇺🇸 English
+                        {% endif %}
+                        ▼
+                    </button>
+                    <div class="language-menu" id="languageMenu">
+                        {% get_available_languages as LANGUAGES %}
+                        {% get_language_info_list for LANGUAGES as languages %}
+                        {% for language in languages %}
+                            <form method="post" action="{% url 'set_language' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input name="next" type="hidden" value="{{ request.get_full_path }}" />
+                                <input name="language" type="hidden" value="{{ language.code }}" />
+                                <button type="submit" class="language-option {% if language.code == CURRENT_LANGUAGE %}active{% endif %}">
+                                    {% if language.code == 'uz' %}🇺🇿 O'zbek
+                                    {% elif language.code == 'ru' %}🇷🇺 Русский
+                                    {% elif language.code == 'en' %}🇺🇸 English
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <h1>🏥 {% trans "Tibbiy Konsultatsiya" %}</h1>
+            <p>{% trans "AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping" %}</p>
         </div>
 
         <div class="main-content">
             <div class="hero-section">
-                <h2>Sog'ligingiz - bizning ustuvorligimiz</h2>
-                <p>Zamonaviy AI texnologiyasi yordamida sizning tibbiy muammolaringizni tahlil qilib, eng mos shifokorni topishga yordam beramiz. Tez, oson va ishonchli!</p>
+                <h2>{% trans "Sog'ligingiz - bizning ustuvorligimiz" %}</h2>
+                <p>{% trans "Zamonaviy AI texnologiyasi yordamida sizning tibbiy muammolaringizni tahlil qilib, eng mos shifokorni topishga yordam beramiz. Tez, oson va ishonchli!" %}</p>
 
                 <div class="cta-buttons">
                     <a href="/chat/" class="btn btn-primary" id="startChatBtn">
-                        💬 Chat Boshlash
+                        💬 {% trans "Chat Boshlash" %}
                     </a>
                     <a href="/doctors/" class="btn btn-secondary">
-                        👨‍⚕️ Shifokorlar
+                        👨‍⚕️ {% trans "Shifokorlar" %}
                     </a>
                 </div>
 
                 <div class="loading" id="loading">
                     <div class="loading-spinner"></div>
-                    <p>Chat tayyorlanmoqda...</p>
+                    <p>{% trans "Chat tayyorlanmoqda..." %}</p>
                 </div>
             </div>
 
             <div class="features">
                 <div class="feature">
                     <span class="feature-icon">🤖</span>
-                    <h3>AI Yordamchi</h3>
-                    <p>Ilg'or sun'iy intellekt yordamida sizning simptomlaringizni tahlil qilib, to'g'ri mutaxassisni aniqlaydi</p>
+                    <h3>{% trans "AI Yordamchi" %}</h3>
+                    <p>{% trans "Ilg'or sun'iy intellekt yordamida sizning simptomlaringizni tahlil qilib, to'g'ri mutaxassisni aniqlaydi" %}</p>
                 </div>
 
                 <div class="feature">
                     <span class="feature-icon">⚡</span>
-                    <h3>Tez va Oson</h3>
-                    <p>Bir necha daqiqada muammoingizni tasvirlab, mos shifokorlarni topishingiz mumkin</p>
+                    <h3>{% trans "Tez va Oson" %}</h3>
+                    <p>{% trans "Bir necha daqiqada muammoingizni tasvirlab, mos shifokorlarni topishingiz mumkin" %}</p>
                 </div>
 
                 <div class="feature">
                     <span class="feature-icon">🎯</span>
-                    <h3>Aniq Tavsiya</h3>
-                    <p>Tajribali va yuqori reytingli shifokorlar ro'yxatini olasiz</p>
+                    <h3>{% trans "Aniq Tavsiya" %}</h3>
+                    <p>{% trans "Tajribali va yuqori reytingli shifokorlar ro'yxatini olasiz" %}</p>
                 </div>
 
                 <div class="feature">
                     <span class="feature-icon">🔒</span>
-                    <h3>Xavfsiz</h3>
-                    <p>Sizning shaxsiy ma'lumotlaringiz to'liq himoyalangan va maxfiy saqlanadi</p>
+                    <h3>{% trans "Xavfsiz" %}</h3>
+                    <p>{% trans "Sizning shaxsiy ma'lumotlaringiz to'liq himoyalangan va maxfiy saqlanadi" %}</p>
                 </div>
 
                 <div class="feature">
                     <span class="feature-icon">📱</span>
-                    <h3>Online Konsultatsiya</h3>
-                    <p>Uydan chiqmasdan ham shifokor bilan online uchrashuvga yozilishingiz mumkin</p>
+                    <h3>{% trans "Online Konsultatsiya" %}</h3>
+                    <p>{% trans "Uydan chiqmasdan ham shifokor bilan online uchrashuvga yozilishingiz mumkin" %}</p>
                 </div>
 
                 <div class="feature">
                     <span class="feature-icon">⭐</span>
-                    <h3>Tasdiqlangan Shifokorlar</h3>
-                    <p>Faqat litsenziyali va tekshirilgan shifokorlar ro'yxati</p>
+                    <h3>{% trans "Tasdiqlangan Shifokorlar" %}</h3>
+                    <p>{% trans "Faqat litsenziyali va tekshirilgan shifokorlar ro'yxati" %}</p>
                 </div>
             </div>
 
             <div class="stats">
-                <h2>Bizning Natijalar</h2>
+                <h2>{% trans "Bizning Natijalar" %}</h2>
                 <div class="stats-grid">
                     <div class="stat">
                         <span class="stat-number" id="doctorCount">50+</span>
-                        <span class="stat-label">Shifokor</span>
+                        <span class="stat-label">{% trans "Shifokor" %}</span>
                     </div>
                     <div class="stat">
                         <span class="stat-number" id="chatCount">1000+</span>
-                        <span class="stat-label">Chat Sessiya</span>
+                        <span class="stat-label">{% trans "Chat Sessiya" %}</span>
                     </div>
                     <div class="stat">
                         <span class="stat-number">15</span>
-                        <span class="stat-label">Mutaxassislik</span>
+                        <span class="stat-label">{% trans "Mutaxassislik" %}</span>
                     </div>
                     <div class="stat">
                         <span class="stat-number">95%</span>
-                        <span class="stat-label">Qoniqish Darajasi</span>
+                        <span class="stat-label">{% trans "Qoniqish Darajasi" %}</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="footer">
-            <p>&copy; 2025 Tibbiy Konsultatsiya Tizimi. Barcha huquqlar himoyalangan.</p>
-            <p><a href="/docs/" style="color: #ddd;">API Hujjatlari</a> | <a href="/admin/" style="color: #ddd;">Admin Panel</a></p>
+            <p>&copy; 2025 {% trans "Tibbiy Konsultatsiya Tizimi. Barcha huquqlar himoyalangan." %}</p>
+            <p><a href="/docs/" style="color: #ddd;">{% trans "API Hujjatlari" %}</a> | <a href="/admin/" style="color: #ddd;">{% trans "Admin Panel" %}</a></p>
         </div>
     </div>
 
     <script>
+        function toggleLanguageMenu() {
+            const menu = document.getElementById('languageMenu');
+            menu.classList.toggle('show');
+        }
+
+        // Click outside to close language menu
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.language-dropdown');
+            const menu = document.getElementById('languageMenu');
+
+            if (!dropdown.contains(event.target)) {
+                menu.classList.remove('show');
+            }
+        });
+
         // Chat tugmasiga bosilganda
         document.getElementById('startChatBtn').addEventListener('click', function(e) {
             e.preventDefault();
@@ -348,7 +466,7 @@
         // Statistikalarni dinamik yuklash
         async function loadStats() {
             try {
-                const response = await fetch('/api/quick/stats/');
+                const response = await fetch('/api/stats/');
                 const data = await response.json();
 
                 if (data.success) {

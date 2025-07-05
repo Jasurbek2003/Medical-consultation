@@ -44,6 +44,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files uchun
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',  # MUHIM: Ko'p tillilik uchun
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -121,11 +122,13 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'uz'  # O'zbek tili
 TIME_ZONE = 'Asia/Tashkent'  # Toshkent vaqti
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
 
 # O'zbek va Ingliz tillarini qo'llash
 LANGUAGES = [
     ('uz', "O'zbek"),
+    ('ru', 'Русский'),
     ('en', 'English'),
 ]
 
@@ -249,12 +252,7 @@ LOGGING = {
 
 # Email Settings (ixtiyoriy)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Development uchun
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Production uchun
-# EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-# EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-# EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
 
 # Security Settings (Production uchun)
 if not DEBUG:
@@ -278,15 +276,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Admin Settings
 ADMIN_URL = 'admin/'  # Admin panel URL'ini o'zgartirish mumkin
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# ADMIN CUSTOMIZATION
-# ADMIN_MEDIA_PREFIX = '/static/admin/'
-
 # Admin site customization
 ADMIN_SITE_HEADER = "🏥 Tibbiy Konsultatsiya Admin"
 ADMIN_SITE_TITLE = "Tibbiy Admin"
 ADMIN_INDEX_TITLE = "Boshqaruv Paneli"
-
-# Context processors ga qo'shish
-# TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.api.context_processors.admin_stats')
