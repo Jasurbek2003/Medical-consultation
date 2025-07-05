@@ -149,6 +149,7 @@ class ChatMessageView(TemplateView):
 
             # Xabar turini aniqlash
             message_type = self._analyze_message_type(user_message, session)
+            print(message_type)
 
             if message_type == 'greeting':
                 ai_response = self._get_greeting_response()
@@ -199,22 +200,104 @@ class ChatMessageView(TemplateView):
     def _analyze_message_type(self, message, session):
         """Xabar turini aniqlash"""
         message_lower = message.lower().strip()
-
         # Salomlashish so'zlari
         greeting_words = ['salom', 'assalomu alaykum', 'alik', 'hello', 'hi', 'hey']
-        if any(word in message_lower for word in greeting_words) and len(message.split()) <= 3:
-            return 'greeting'
+        for word in greeting_words:
+            if message_lower.startswith(word) and len(message_lower.split()) <= 3:
+                return 'greeting'
 
-        # Tibbiy kalit so'zlar
-        medical_keywords = [
-            'og\'riq', 'og\'riyapti', 'kasallik', 'bemor', 'shifokor', 'dori',
-            'tish', 'bosh', 'qorin', 'yurak', 'siydik', 'harorat', 'yo\'tal',
-            'teri', 'ko\'z', 'quloq', 'allergiya', 'stress', 'charchoq',
-            'nafas', 'qon', 'vazn', 'uyqu', 'holsizlik', 'qichish'
+        # Tana a'zolari va organlar
+        body_parts = [
+            'tish', 'bosh', 'qorin', 'yurak', 'jigar', 'buyrak', 'ichak',
+            'oshqozon', 'teri', "ko'z", 'quloq', 'nafas', 'qon'
         ]
 
-        if any(keyword in message_lower for keyword in medical_keywords):
-            return 'medical_complaint'
+        # Simptomlar va alomatlar
+        symptoms = [
+            "og'riq", "og'riyapti", 'harorat', "yo'tal", 'allergiya',
+            'stress', 'charchoq', 'holsizlik', 'qichish', "shish",
+            'isitma', 'bosh aylanishi', 'belgi', 'alomat', 'qizaloq',
+            'bezgak', "yon ta'sir"
+        ]
+
+        # Kasalliklar
+        diseases = [
+            'kasallik', 'shamollash', 'gripp', 'sovuq', 'angina', 'bronxit',
+            'astma', 'diabat', 'bosim', 'gipertaniya', 'hipotaniya',
+            'migran', 'qandli'
+        ]
+
+        # Tibbiy mutaxassislar
+        medical_specialists = [
+            'shifokor', 'hamshira', 'mutaxassis', 'nevropatolog', 'kardiolog',
+            'oftalmolog', 'lor', 'ginekolog', 'pediatr', 'terapevt',
+            'stomatolog', "stamatolog", 'urolog', 'xirurg', 'radiolog', 'laborant',
+            'farmatsevt', 'dermatolog', 'endokrinolog', 'gastroenterolog',
+            'pulmonolog', 'psixiatr', 'nevrolog', 'onkolog', 'reabilitolog',
+            'fizioterapevt', 'akusher', 'androlog', 'psixolog', 'psixoterapevt',
+            'genetik', 'immunolog', 'infektsionist', 'allergolog',
+            'reanimatolog', 'anesteziolog'
+        ]
+
+        # Dorilar va davolash usullari
+        treatment_medicine = [
+            'dori', 'malham', 'tabletkalar', 'kapsulalar', 'davolash',
+            'tuzalish', 'tiklanish', 'profilaktika', 'vaksinatsiya',
+            'emlash', 'jarrohlik', 'operatsiya', 'bandaj', 'davolanish',
+            'instruktsiya', 'dozalash', 'kontraindikasiya', 'fizioterapiya',
+            'retsept'
+        ]
+
+        # Tibbiy tekshiruvlar va asboblar
+        medical_tests_equipment = [
+            'tahlil', 'tekshiruv', 'tashxis', 'rentgen', 'ultrasonografiya',
+            'tomografiya', 'kardiogramma'
+        ]
+
+        # Tibbiy muassasalar va xizmatlar
+        medical_institutions = [
+            'klinika', 'shifoxona', 'poliklinika', 'bemorxona', 'reanimatsiya',
+            'ginekologiya'
+        ]
+
+        # Favqulodda tibbiy yordam
+        emergency_medical = [
+            'tez yordam', 'shoshilinch yordam', 'favqulodda vaziyat',
+            'favqulodda', 'kechakrish', 'zarurat', 'shoshilinch'
+        ]
+
+        # Umumiy tibbiy terminlar
+        general_medical = [
+            'bemor', 'tibbiy', 'holat', 'ahvol', 'muloyimlik', 'siydik',
+            'vazn', 'uyqu'
+        ]
+
+        medical_keywords = (body_parts + symptoms + diseases + medical_specialists + treatment_medicine +
+                            medical_institutions + medical_tests_equipment + emergency_medical + general_medical)
+
+        for keyword in medical_keywords:
+            if keyword in message_lower.split():
+                return 'medical_complaint'
+
+        uzbek_suffixes = [
+            'im', 'lar', 'larim', 'ga', 'ni', 'da', 'dan', 'ga',
+            'laridan', 'lari', 'lariyim', 'larimiz', 'ning', 'niki',
+            'man', 'miz', 'san', 'siz', 'di', 'dilar', 'dik', 'dingiz',
+            'yapti', 'yabdi', 'yotir', 'moqda', 'adi', 'ayapti',
+            'cha', 'roq', 'gina', 'day', 'dek', 'simon'
+        ]
+
+        # Har bir so'zni tekshirish
+        for word in message_lower.split():
+            # Qo'shimchalarni olib tashlash va ildizni topish
+            for suffix in uzbek_suffixes:
+                if word.endswith(suffix):
+                    root = word[:-len(suffix)]
+                    # To'liq mos kelishi tekshiruvi
+                    if root in medical_keywords:
+                        return 'medical_complaint'
+
+
 
         # Umumiy savollar
         if len(message.split()) <= 5 and '?' not in message:
@@ -413,6 +496,7 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
             ip = x_forwarded_for.split(',')[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
+        print(ip)
         return ip
 
     def _get_user_context(self, request):
