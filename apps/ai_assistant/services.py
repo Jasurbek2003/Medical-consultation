@@ -1,56 +1,82 @@
-import google.generativeai as genai
+"""
+AI Assistant Services - Gemini AI Integration
+"""
+
 import json
 import time
 import logging
-from django.conf import settings
+import hashlib
+from typing import Dict, List, Any, Optional
+from datetime import datetime, timedelta
+
 from django.core.cache import cache
+from django.conf import settings
+from django.utils.translation import get_language, gettext as _
+
+# Google Gemini AI
+try:
+    import google.generativeai as genai
+
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+    genai = None
 
 logger = logging.getLogger(__name__)
 
+
 class GeminiService:
-    """Google Gemini AI bilan ishlash uchun service"""
+    """
+    Google Gemini AI bilan ishlash uchun servis
+    """
 
     def __init__(self):
-        """Gemini AI'ni sozlash"""
-        try:
-            if not settings.GOOGLE_API_KEY:
-                logger.warning("GOOGLE_API_KEY sozlanmagan")
-                self.model = None
-                return
+        """Servisni ishga tushirish"""
+        self.model = None
+        self.generation_config = None
 
-            genai.configure(api_key=settings.GOOGLE_API_KEY)
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
-            self.generation_config = {
-                'temperature': 0.7,
-                'top_p': 0.8,
-                'top_k': 40,
-                'max_output_tokens': 1024,
-            }
-            logger.info("Gemini AI muvaffaqiyatli sozlandi")
-        except Exception as e:
-            logger.error(f"Gemini AI sozlashda xatolik: {e}")
-            self.model = None
+        if AI_AVAILABLE and hasattr(settings, 'GOOGLE_API_KEY'):
+            try:
+                # Gemini sozlash
+                genai.configure(api_key=settings.GOOGLE_API_KEY)
+                self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+
+                # Generation config
+                self.generation_config = genai.GenerationConfig(
+                    temperature=0.3,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=1024,
+                    response_mime_type="text/plain"
+                )
+
+                logger.info("Gemini AI muvaffaqiyatli ulandi")
+
+            except Exception as e:
+                logger.error(f"Gemini AI ulanish xatoligi: {e}")
+                self.model = None
+        else:
+            logger.warning("Gemini API key topilmadi yoki kutubxona mavjud emas")
 
     def classify_medical_issue(self, user_message, user_context=None, language='uz'):
         """
-        Bemorning shikoyatini tahlil qilib, qaysi mutaxassis kerakligini aniqlash
+        Tibbiy muammoni tasniflash va shifokor turini aniqlash
 
         Args:
             user_message (str): Foydalanuvchi xabari
-            user_context (dict): Foydalanuvchi konteksti
+            user_context (dict): Qo'shimcha kontekst ma'lumotlari
+            language (str): Til kodi (default: 'uz')
 
         Returns:
-            dict: Tahlil natijasi
+            dict: Tasnif natijasi
         """
         try:
             start_time = time.time()
 
-            # Cache tekshirish
-            cache_key = f"medical_classification_{hash(user_message)}"
+            # Cache kaliti yaratish
+            cache_key = f"medical_classification_{hashlib.md5(user_message.encode()).hexdigest()}"
             cached_result = cache.get(cache_key)
-
             if cached_result:
-                logger.info("Cache'dan medical classification olindi")
                 return cached_result
 
             # Agar AI mavjud bo'lmasa, fallback ishlatish
@@ -148,6 +174,7 @@ class GeminiService:
             text_lower = text.lower()
             detected_symptoms = []
             keywords = []
+
             from .prompts import SYMPTOM_KEYWORDS
             for symptom_category, symptom_list in SYMPTOM_KEYWORDS.items():
                 for symptom in symptom_list:
@@ -161,15 +188,21 @@ class GeminiService:
 
             return {
                 'detected_symptoms': detected_symptoms,
+                'keywords': keywords,
                 'total_symptoms': len(detected_symptoms),
-                'keywords': keywords
+                'categories': list(set([s['category'] for s in detected_symptoms]))
             }
 
         except Exception as e:
             logger.error(f"Symptom analysis xatolik: {e}")
-            return {'detected_symptoms': [], 'total_symptoms': 0, 'keywords': []}
+            return {
+                'detected_symptoms': [],
+                'keywords': [],
+                'total_symptoms': 0,
+                'categories': []
+            }
 
-    def assess_urgency(self, symptoms, user_message):
+    def assess_urgency(self, symptoms, user_message, language='uz'):
         """
         Shoshilinchlik darajasini baholash
 
@@ -181,33 +214,31 @@ class GeminiService:
             dict: Shoshilinchlik bahosi
         """
         try:
-            # Shoshilinch kalit so'zlar
-            urgent_keywords = [
-                'o\'limga yaqin', 'nafas olmayman', 'ko\'krakda keskin og\'riq',
-                'hushini yo\'qotish', 'yurak og\'rig\'i', 'qon ketish'
-            ]
-
-            # Yuqori prioritet
-            high_priority_keywords = [
-                'og\'riq', 'harorat', 'bosh og\'rig\'i', 'yo\'tal', 'nezle'
-            ]
-
-            text_lower = user_message.lower()
             urgency_score = 0
+            urgency_keywords = {
+                'urgent': ['tez', 'shoshilinch', 'og\'riq', 'qon', 'yurak', 'nafas'],
+                'high': ['kuchli', 'zo\'r', 'og\'ir', 'isitma'],
+                'medium': ['sekin', 'bosim', 'stress'],
+                'low': ['oddiy', 'kichik', 'yengil']
+            }
 
-            # Shoshilinchlik tekshirish
-            for keyword in urgent_keywords:
-                if keyword in text_lower:
-                    urgency_score += 3
+            message_lower = user_message.lower()
 
-            for keyword in high_priority_keywords:
-                if keyword in text_lower:
-                    urgency_score += 1
+            # Urgency keywords bo'yicha ball berish
+            for level, keywords in urgency_keywords.items():
+                for keyword in keywords:
+                    if keyword in message_lower:
+                        if level == 'urgent':
+                            urgency_score += 5
+                        elif level == 'high':
+                            urgency_score += 3
+                        elif level == 'medium':
+                            urgency_score += 1
 
-            # Darajani aniqlash
-            if urgency_score >= 6:
-                level = 'emergency'
-                description = 'Zudlik bilan tibbiy yordam kerak!'
+            # Urgency level aniqlash
+            if urgency_score >= 5:
+                level = 'urgent'
+                description = 'Darhol tibbiy yordam kerak'
             elif urgency_score >= 3:
                 level = 'high'
                 description = 'Tez orada shifokorga murojaat qiling'
@@ -250,7 +281,7 @@ class GeminiService:
             # Qo'shimcha ma'lumotlar
             result.update({
                 'processing_time': processing_time,
-                'model_used': 'gemini-pro',
+                'model_used': 'gemini-2.0-flash',
                 'original_message': original_message,
                 'timestamp': time.time(),
                 'symptoms_analysis': self.analyze_symptoms(original_message),
@@ -279,69 +310,247 @@ class GeminiService:
         return response_text.strip()
 
     def _get_fallback_classification(self, user_message):
-        """Xatolik yuz berganda standart klassifikatsiya"""
-        # Oddiy kalit so'z asosida aniqlash
+        """Fallback classification (AI ishlamasa)"""
         message_lower = user_message.lower()
 
-        if any(word in message_lower for word in ['tish', 'og\'iz']):
+        # Oddiy kalit so'z tahlili
+        if any(word in message_lower for word in ['tish', 'diş', 'tooth']):
             specialty = 'stomatolog'
-            confidence = 0.7
-        elif any(word in message_lower for word in ['yurak', 'qon bosimi']):
+        elif any(word in message_lower for word in ['yurak', 'qalb', 'heart']):
             specialty = 'kardiolog'
-            confidence = 0.7
-        elif any(word in message_lower for word in ['siydik', 'buyrak']):
+        elif any(word in message_lower for word in ['siydik', 'buyrак', 'kidney']):
             specialty = 'urolog'
-            confidence = 0.7
-        elif any(word in message_lower for word in ['ko\'z', 'ko\'rish']):
+        elif any(word in message_lower for word in ['ko\'z', 'eye', 'глаз']):
             specialty = 'oftalmolog'
-            confidence = 0.7
-        elif any(word in message_lower for word in ['quloq', 'burun', 'tomoq']):
+        elif any(word in message_lower for word in ['quloq', 'ear', 'ухо']):
             specialty = 'lor'
-            confidence = 0.7
+        elif any(word in message_lower for word in ['bola', 'child', 'ребенок']):
+            specialty = 'pediatr'
+        elif any(word in message_lower for word in ['ayol', 'woman', 'женщина']):
+            specialty = 'ginekolog'
         else:
             specialty = 'terapevt'
-            confidence = 0.5
 
         return {
             'specialty': specialty,
-            'confidence': confidence,
-            'explanation': f'Kalit so\'zlar asosida {specialty} tavsiya qilinadi',
+            'confidence': 0.7,
+            'explanation': _('Oddiy kalit so\'z tahlili asosida'),
             'processing_time': 0.1,
             'model_used': 'fallback',
-            'is_fallback': True,
+            'original_message': user_message,
+            'timestamp': time.time(),
             'symptoms_analysis': self.analyze_symptoms(user_message),
             'urgency_assessment': self.assess_urgency([], user_message)
         }
 
     def _get_fallback_advice(self, specialty):
-        """Xatolik yuz berganda standart maslahat"""
-        general_advice = {
-            'stomatolog': 'Tish gigienasini saqlang va muntazam shifokorga ko\'rsating.',
-            'kardiolog': 'Qon bosimingizni nazorat qiling va sog\'lom turmush tarzi olib boring.',
-            'urolog': 'Ko\'p suv iching va shifokorga murojaat qiling.',
-            'terapevt': 'Umumiy holatni yaxshilash uchun shifokorga murojaat qiling.',
-            'ginekolog': 'Muntazam ginekologik ko\'rikdan o\'ting.',
-            'pediatr': 'Bolangizni muntazam pediatrga ko\'rsating.',
-            'dermatolog': 'Teri gigienasini saqlang va shifokorga murojaat qiling.',
-            'nevrolog': 'Stress darajasini kamaytiring va shifokorga ko\'rsating.',
-            'oftalmolog': 'Ko\'z gigienasini saqlang va vaqti-vaqti bilan ko\'rikdan o\'ting.',
-            'lor': 'Quloq-burun-tomoq gigienasini saqlang.'
+        """Fallback advice (AI ishlamasa)"""
+        advice_map = {
+            'terapevt': _('Umumiy holatni yaxshilash uchun shifokorga murojaat qiling.'),
+            'stomatolog': _('Tish gigienasini saqlang va shifokorga ko\'rsating.'),
+            'kardiolog': _('Qon bosimingizni nazorat qiling.'),
+            'urolog': _('Ko\'p suv iching va shifokorga murojaat qiling.'),
+            'oftalmolog': 'Ko\'z gigienasini saqlang va oftalmologga murojaat qiling.',
+            'lor': 'Tomog\'ingizni iliq suv bilan chayqang va LOR shifokoriga murojaat qiling.',
+            'pediatr': 'Bolangizning holatini kuzatib boring va pediatrga ko\'rsating.',
+            'ginekolog': 'Muntazam tekshiruvdan o\'ting va ginekologga murojaat qiling.'
         }
 
         return {
-            'advice': general_advice.get(specialty, 'Shifokor bilan maslahatlashing.'),
+            'advice': advice_map.get(specialty, _('Shifokor bilan maslahatlashing.')),
             'specialty': specialty,
             'processing_time': 0.1,
             'model_used': 'fallback',
-            'is_fallback': True
+            'timestamp': time.time()
         }
 
     def _get_urgency_recommendation(self, level):
         """Shoshilinchlik darajasiga qarab tavsiya"""
         recommendations = {
-            'emergency': 'Zudlik bilan tez yordam chaqiring (103) yoki shifoxonaga boring!',
-            'high': 'Bugun shifokorga ko\'rsating yoki klinikaga murojaat qiling.',
-            'medium': 'Yaqin kunlarda shifokor bilan maslahatlashing.',
-            'low': 'Vaqt bo\'lganda shifokorga ko\'rsating.'
+            'urgent': 'Darhol 103 ga qo\'ng\'iroq qiling yoki tez yordam chaqiring',
+            'high': 'Bugun yoki ertaga shifokorga murojaat qiling',
+            'medium': 'Bir necha kun ichida shifokorga ko\'rsating',
+            'low': 'Imkoniyat bo\'lganda shifokor bilan maslahatlashing'
         }
-        return recommendations.get(level, 'Shifokor bilan maslahatlashing.')
+        return recommendations.get(level, 'Shifokor bilan maslahatlashing')
+
+    def get_doctor_recommendations(self, specialty, user_location=None, preferences=None):
+        """
+        Shifokor tavsiyalarini olish
+
+        Args:
+            specialty (str): Mutaxassislik
+            user_location (str): Foydalanuvchi joylashuvi
+            preferences (dict): Foydalanuvchi tanlovi
+
+        Returns:
+            dict: Shifokor tavsiyalari
+        """
+        try:
+            from apps.doctors.models import Doctor
+
+            # Shifokorlarni qidirish
+            doctors = Doctor.objects.filter(
+                specialty=specialty,
+                is_available=True
+            ).order_by('-rating', 'consultation_price')
+
+            # Joylashuvga qarab filtrlash
+            if user_location:
+                doctors = doctors.filter(region__icontains=user_location)
+
+            # Top 5 shifokor
+            top_doctors = doctors[:5]
+
+            recommendations = []
+            for doctor in top_doctors:
+                recommendations.append({
+                    'id': doctor.id,
+                    'name': doctor.get_full_name(),
+                    'specialty': doctor.get_specialty_display(),
+                    'experience': doctor.experience,
+                    'rating': float(doctor.rating),
+                    'price': float(doctor.consultation_price),
+                    'workplace': doctor.workplace,
+                    'phone': doctor.phone,
+                    'is_online': doctor.is_online_consultation,
+                    'work_hours': f"{doctor.work_start_time} - {doctor.work_end_time}"
+                })
+
+            return {
+                'success': True,
+                'specialty': specialty,
+                'total_found': doctors.count(),
+                'recommendations': recommendations,
+                'search_location': user_location
+            }
+
+        except Exception as e:
+            logger.error(f"Doctor recommendations xatolik: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'recommendations': []
+            }
+
+    def validate_medical_input(self, user_input):
+        """
+        Tibbiy input validatsiyasi
+
+        Args:
+            user_input (str): Foydalanuvchi kiritgan ma'lumot
+
+        Returns:
+            dict: Validatsiya natijasi
+        """
+        try:
+            # Asosiy validatsiya
+            if not user_input or len(user_input.strip()) < 3:
+                return {
+                    'is_valid': False,
+                    'error': 'Iltimos, muammoingizni batafsil yozing',
+                    'suggestions': [
+                        'Kamida 3 ta harf yozing',
+                        'Simptomlaringizni tasvirlab bering',
+                        'Qachondan beri azob chekayotganingizni ayting'
+                    ]
+                }
+
+            # Spam/noto'g'ri ma'lumot tekshirish
+            spam_patterns = ['test', '123', 'aaa', 'spam']
+            if any(pattern in user_input.lower() for pattern in spam_patterns):
+                return {
+                    'is_valid': False,
+                    'error': 'Iltimos, haqiqiy tibbiy muammoyingizni yozing',
+                    'suggestions': [
+                        'Haqiqiy simptomlaringizni tasvirlab bering',
+                        'Qanday og\'riq yoki noqulaylik bor?',
+                        'Muammo qachondan boshlangan?'
+                    ]
+                }
+
+            # Uzunlik tekshirish
+            if len(user_input) > 500:
+                return {
+                    'is_valid': False,
+                    'error': 'Xabar juda uzun. Iltimos, qisqartiring',
+                    'suggestions': [
+                        'Asosiy simptomlarni yozing',
+                        'Eng muhim ma\'lumotlarni qoldiring',
+                        '500 belgidan kam yozing'
+                    ]
+                }
+
+            return {
+                'is_valid': True,
+                'message': 'Ma\'lumot to\'g\'ri kiritildi',
+                'word_count': len(user_input.split()),
+                'char_count': len(user_input)
+            }
+
+        except Exception as e:
+            logger.error(f"Input validation xatolik: {e}")
+            return {
+                'is_valid': False,
+                'error': 'Tekshirishda xatolik yuz berdi'
+            }
+
+    def get_health_tips(self, specialty=None, language='uz'):
+        """
+        Sog'liq maslahatlari
+
+        Args:
+            specialty (str): Mutaxassislik (ixtiyoriy)
+            language (str): Til
+
+        Returns:
+            list: Maslahatlat ro'yxati
+        """
+        tips_by_specialty = {
+            'terapevt': [
+                'Kun davomida kamida 8 stakan suv iching',
+                'Muntazam sport bilan shug\'ullaning',
+                'Yetarli uyqu oling (7-8 soat)',
+                'Stressdan saqlaning',
+                'Yiliga kamida bir marta tekshiruvdan o\'ting'
+            ],
+            'stomatolog': [
+                'Kuniga 2 marta tish yuvish kerak',
+                'Dental floss ishlatishni unutmang',
+                'Shakarli ovqatlarni kamroq iste\'mol qiling',
+                '6 oyda bir marta stomatologga ko\'rsating',
+                'Tish cho\'tkasini 3 oyda bir marta almashtiring'
+            ],
+            'kardiolog': [
+                'Qon bosimingizni muntazam o\'lchang',
+                'Tuzli ovqatlarni kamroq iste\'mol qiling',
+                'Meva va sabzavot ko\'proq yeng',
+                'Chekishni to\'xtating',
+                'Stressdan saqlaning'
+            ]
+        }
+
+        if specialty and specialty in tips_by_specialty:
+            return tips_by_specialty[specialty]
+        else:
+            # Umumiy maslahatlat
+            return [
+                'Sog\'lom turmush tarzini olib boring',
+                'Muntazam ravishda sport bilan shug\'ullaning',
+                'Muvozanatli ovqatlaning',
+                'Yetarli uyqu oling',
+                "Stressdan saqlaning"
+                "Muntazam tibbiy tekshiruvdan o'ting"
+            ]
+
+
+# Singlton instance
+_gemini_service = None
+
+
+def get_gemini_service():
+    """Gemini servisini olish"""
+    global _gemini_service
+    if _gemini_service is None:
+        _gemini_service = GeminiService()
+    return _gemini_service

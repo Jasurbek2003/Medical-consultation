@@ -105,6 +105,13 @@ class ChatSession(models.Model):
         verbose_name="Davomiyligi (daqiqa)"
     )
 
+    metadata = models.JSONField(
+        blank=True,
+        null=True,
+        verbose_name="Qo'shimcha ma'lumotlar",
+        help_text="Session haqida qo'shimcha ma'lumotlar (til, qurilma turi va boshqalar)"
+    )
+
     class Meta:
         verbose_name = "Chat sessiyasi"
         verbose_name_plural = "Chat sessiyalari"

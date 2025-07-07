@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -117,6 +118,15 @@ class ChatInterfaceView(TemplateView):
 # ============================================
 # API VIEWS (JSON response qaytaradi)
 # ============================================
+
+def get_client_ip(request):
+    """Client IP manzilini olish"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatMessageView(TemplateView):
@@ -918,3 +928,233 @@ def submit_feedback(request):
             'success': False,
             'error': _('Fikr-mulohaza yuborishda xatolik')
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_message(request):
+    """Chat xabar yuborish - yangilangan versiya"""
+    try:
+        user_message = request.data.get('message', '').strip()
+        user_language = request.data.get('language', 'uz')
+        session_id = request.data.get('session_id')
+
+        if not user_message:
+            return Response({
+                'success': False,
+                'error': _('Xabar bo\'sh bo\'lishi mumkin emas')
+            }, status=400)
+
+        # Session olish yoki yaratish
+        if session_id:
+            try:
+                session = ChatSession.objects.get(id=session_id)
+            except ChatSession.DoesNotExist:
+                session = None
+        else:
+            session = None
+
+        if not session:
+            # Yangi session yaratish
+            session = ChatSession.objects.create(
+                session_ip=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                metadata={  # metadata to'g'ri ishlatish
+                    'language': user_language,
+                    'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                    'created_via': 'api'
+                }
+            )
+
+        # User xabarini saqlash
+        user_chat_message = ChatMessage.objects.create(
+            session=session,
+            sender_type='user',
+            message_type='text',
+            content=user_message,
+            metadata={
+                'language': user_language,
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+
+        # AI tahlil
+        gemini_service = GeminiService()
+        ai_result = gemini_service.classify_medical_issue(
+            user_message,
+            language=user_language
+        )
+
+        # AI javobini yaratish
+        ai_response_content = f"Sizning muammoingiz bo'yicha tahlil:\n\n"
+        ai_response_content += f"Tavsiya etilgan mutaxassislik: {ai_result.get('specialty', 'terapevt')}\n"
+        ai_response_content += f"Ishonch darajasi: {ai_result.get('confidence', 0.7) * 100:.0f}%\n"
+        ai_response_content += f"Tavsif: {ai_result.get('explanation', 'Umumiy tahlil')}\n\n"
+
+        # Shifokorlar ro'yxatini olish
+        recommended_doctors = gemini_service.get_doctor_recommendations(
+            specialty=ai_result.get('specialty', 'terapevt')
+        )
+
+        if recommended_doctors.get('success') and recommended_doctors.get('recommendations'):
+            ai_response_content += "Tavsiya etilgan shifokorlar:\n"
+            for doctor in recommended_doctors['recommendations'][:3]:
+                ai_response_content += f"• {doctor['name']} - {doctor['specialty']} (Reyting: {doctor['rating']})\n"
+
+        # AI javob xabarini saqlash
+        ai_chat_message = ChatMessage.objects.create(
+            session=session,
+            sender_type='ai',
+            message_type='doctor_recommendation',
+            content=ai_response_content,
+            ai_model_used=ai_result.get('model_used', 'gemini-fallback'),
+            ai_response_time=ai_result.get('processing_time', 0.1),
+            metadata={
+                'language': user_language,
+                'ai_classification': ai_result,
+                'recommended_doctors': recommended_doctors.get('recommendations', [])
+            }
+        )
+
+        # Session ma'lumotlarini yangilash
+        session.detected_specialty = ai_result.get('specialty')
+        session.confidence_score = ai_result.get('confidence', 0.7)
+        session.save()
+
+        return Response({
+            'success': True,
+            'session_id': str(session.id),
+            'user_message': {
+                'id': user_chat_message.id,
+                'content': user_message,
+                'timestamp': user_chat_message.created_at.isoformat()
+            },
+            'ai_response': {
+                'id': ai_chat_message.id,
+                'content': ai_response_content,
+                'timestamp': ai_chat_message.created_at.isoformat(),
+                'classification': ai_result,
+                'recommended_doctors': recommended_doctors.get('recommendations', [])
+            },
+            'ai_available': AI_AVAILABLE,
+            'language': user_language
+        })
+
+    except Exception as e:
+        logger.error(f"Chat message processing error: {e}")
+        return Response({
+            'success': False,
+            'error': _('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.')
+        }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def quick_send_message(request):
+    """Tez chat xabar yuborish - to'liq AI tahlil bilan"""
+    try:
+        message = request.data.get('message', '').strip()
+        language = request.data.get('language', 'uz')
+
+        if not message:
+            return Response({
+                'success': False,
+                'error': 'Xabar bo\'sh bo\'lishi mumkin emas'
+            }, status=400)
+
+        # Session yaratish - metadata to'g'ri ishlatish
+        session = ChatSession.objects.create(
+            session_ip=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            metadata={  # Bu yerda to'g'ri ishlatish
+                'language': language,
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'created_via': 'quick_api',
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+
+        # User xabarini saqlash
+        user_message = ChatMessage.objects.create(
+            session=session,
+            sender_type='user',
+            message_type='text',
+            content=message,
+            metadata={
+                'language': language,
+                'message_source': 'quick_api'
+            }
+        )
+
+        # AI tahlil
+        gemini_service = GeminiService()
+        classification_result = gemini_service.classify_medical_issue(
+            message,
+            language=language
+        )
+
+        # Shifokorlar tavsiyasi
+        doctor_recommendations = gemini_service.get_doctor_recommendations(
+            specialty=classification_result.get('specialty', 'terapevt')
+        )
+
+        # AI javob yaratish
+        ai_content = f"🏥 **Tibbiy Tahlil Natijasi**\n\n"
+        ai_content += f"📋 **Tavsiya etilgan mutaxassislik:** {classification_result.get('specialty', 'terapevt')}\n"
+        ai_content += f"📊 **Ishonch darajasi:** {classification_result.get('confidence', 0.7) * 100:.0f}%\n"
+        ai_content += f"💡 **Tahlil:** {classification_result.get('explanation', 'Umumiy tahlil')}\n\n"
+
+        if doctor_recommendations.get('success') and doctor_recommendations.get('recommendations'):
+            ai_content += "👨‍⚕️ **Tavsiya etilgan shifokorlar:**\n\n"
+            for i, doctor in enumerate(doctor_recommendations['recommendations'][:3], 1):
+                ai_content += f"{i}. **{doctor['name']}**\n"
+                ai_content += f"   • Mutaxassislik: {doctor['specialty']}\n"
+                ai_content += f"   • Tajriba: {doctor['experience']} yil\n"
+                ai_content += f"   • Reyting: ⭐ {doctor['rating']}/5\n"
+                ai_content += f"   • Narx: {doctor['price']} so'm\n"
+                ai_content += f"   • Tel: {doctor['phone']}\n\n"
+
+        # AI javob xabarini saqlash
+        ai_message = ChatMessage.objects.create(
+            session=session,
+            sender_type='ai',
+            message_type='doctor_recommendation',
+            content=ai_content,
+            ai_model_used=classification_result.get('model_used', 'gemini-fallback'),
+            ai_response_time=classification_result.get('processing_time', 0.1),
+            metadata={
+                'language': language,
+                'classification': classification_result,
+                'doctor_recommendations': doctor_recommendations.get('recommendations', []),
+                'response_type': 'quick_analysis'
+            }
+        )
+
+        # Session yangilash
+        session.detected_specialty = classification_result.get('specialty')
+        session.confidence_score = classification_result.get('confidence', 0.7)
+        session.save()
+
+        return Response({
+            'success': True,
+            'session_id': str(session.id),
+            'message_id': user_message.id,
+            'ai_response_id': ai_message.id,
+            'classification': {
+                'specialty': classification_result.get('specialty'),
+                'confidence': classification_result.get('confidence'),
+                'explanation': classification_result.get('explanation')
+            },
+            'ai_response': ai_content,
+            'recommended_doctors': doctor_recommendations.get('recommendations', []),
+            'ai_available': AI_AVAILABLE,
+            'language': language,
+            'processing_time': classification_result.get('processing_time', 0.1)
+        })
+
+    except Exception as e:
+        logger.error(f"Quick message error: {e}")
+        return Response({
+            'success': False,
+            'error': f'Xatolik yuz berdi: {str(e)}'
+        }, status=500)
