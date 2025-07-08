@@ -1,6 +1,6 @@
 from django.urls import path
 
-from translate.views import TranslateApiView, LanguageApiView, TranslateAdminApiView
+from .views import TranslateApiView, LanguageApiView, TranslateAdminApiView
 
 urlpatterns = [
     path('<str:lang>', TranslateApiView.as_view()),
