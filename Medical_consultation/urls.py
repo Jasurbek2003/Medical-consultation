@@ -30,6 +30,7 @@ urlpatterns += i18n_patterns(
 
     # Konsultatsiyalar API
     path('api/consultations/', include('apps.consultations.api_urls')),
+    path('api/translate/', include('apps.translate.urls')),
 
     # Tez API endpoint'lar
     path('api/', include('apps.api.urls')),
