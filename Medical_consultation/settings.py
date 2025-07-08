@@ -18,6 +18,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173"
     "https://call.avlo.ai",
 ]
+
+CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
 # Application definition
 DJANGO_APPS = [
     'django.contrib.admin',
