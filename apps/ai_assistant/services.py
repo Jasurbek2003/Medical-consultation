@@ -6,12 +6,10 @@ import json
 import time
 import logging
 import hashlib
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.conf import settings
-from django.utils.translation import get_language, gettext as _
+from django.utils.translation import gettext as _
 
 # Google Gemini AI
 try:
@@ -72,6 +70,7 @@ class GeminiService:
         """
         try:
             start_time = time.time()
+            logger.info("Medical classification so'rovi: %s", user_message)
 
             # Cache kaliti yaratish
             cache_key = f"medical_classification_{hashlib.md5(user_message.encode()).hexdigest()}"

@@ -232,7 +232,7 @@ class ChatMessageView(TemplateView):
 
         current_greetings = greeting_words.get(language, greeting_words['uz'])
         for word in current_greetings:
-            if message_lower.startswith(word) and len(message_lower.split()) <= 3:
+            if message_lower.startswith(word) and len(message_lower.split()) <= 2:
                 return 'greeting'
 
         # Ko'p tilli tibbiy kalit so'zlar
@@ -251,11 +251,11 @@ class ChatMessageView(TemplateView):
                 return 'medical_complaint'
 
         # Umumiy savollar
-        if len(message.split()) <= 5 and '?' not in message:
+        if len(message.split()) <= 2 and '?' not in message:
             return 'general_question'
 
         # Aniq tibbiy shikoyat (uzunroq matn)
-        if len(message.split()) > 5:
+        if len(message.split()) >= 3:
             return 'medical_complaint'
 
         return 'general_question'
