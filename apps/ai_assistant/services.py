@@ -76,15 +76,25 @@ class GeminiService:
             cache_key = f"medical_classification_{hashlib.md5(user_message.encode()).hexdigest()}"
             cached_result = cache.get(cache_key)
             if cached_result:
+                logger.info("Cache'dan natija topildi: %s", cache_key)
                 return cached_result
+
+            logger.info("Cache'dan natija topilmadi: %s", cache_key)
 
             # Agar AI mavjud bo'lmasa, fallback ishlatish
             if not self.model:
+                logger.warning("AI modeli mavjud emas, fallback tasniflash ishlatilmoqda")
                 return self._get_fallback_classification(user_message)
 
+            logger.info("AI modeli mavjud, tasniflash davom etmoqda")
+
+
             from .prompts import get_prompt
+
+            logger.info("Tibbiy tasniflash uchun prompt yaratish")
             # Prompt yaratish
             prompt = get_prompt('classification', language).format(user_message=user_message)
+
 
             # AI'dan javob olish
             response = self.model.generate_content(

@@ -22,8 +22,6 @@ MAVJUD MUTAXASSISLAR:
 
 BEMORNING SHIKOYATI: "{user_message}"
 
-FOYDALANUVCHI KONTEKSTI: {user_context}
-
 QOIDALAR:
 1. Ishonch darajasi 0.0 dan 1.0 gacha bo'lishi kerak
 2. Tushuntirish aniq va qisqa bo'lsin
