@@ -6,12 +6,12 @@ app_name = 'hospital_admin'
 
 urlpatterns = [
     # Dashboard
-    path('', views.hospital_dashboard, name='dashboard'),
+    path('', views.dashboard, name='dashboard'),
 
     # Doctor Management
     path('doctors/', views.doctors_list, name='doctors_list'),
     path('doctors/<uuid:doctor_id>/', views.doctor_detail, name='doctor_detail'),
-    path('doctors/statistics/', views.doctor_statistics, name='doctor_statistics'),
+    # path('doctors/statistics/', views.s, name='doctor_statistics'),
     path('ajax/doctor-stats/<uuid:doctor_id>/', views.ajax_doctor_stats, name='ajax_doctor_stats'),
     path('ajax/doctor-availability/<uuid:doctor_id>/', views.doctor_availability_toggle,
          name='doctor_availability_toggle'),
@@ -24,8 +24,8 @@ urlpatterns = [
     path('profile/', views.my_profile, name='my_profile'),
 
     # Reports and Analytics
-    path('reports/', views.reports_and_analytics, name='reports_and_analytics'),
-    path('export/', views.export_hospital_data, name='export_hospital_data'),
+    # path('reports/', views.reports_and_analytics, name='reports_and_analytics'),
+    # path('export/', views.export_hospital_data, name='export_hospital_data'),
 
     # Notifications
     path('notifications/', views.notification_center, name='notification_center'),

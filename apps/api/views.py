@@ -1,7 +1,6 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.http import JsonResponse
 from django.db.models import Count, Avg, Q
 from django.utils import timezone
 from datetime import date, timedelta
@@ -666,3 +665,33 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+def custom_404(request, exception):
+    """Custom 404 page"""
+    from django.shortcuts import render
+    from django.http import JsonResponse
+
+    if request.content_type == 'application/json' or 'api' in request.path:
+        return JsonResponse({
+            'error': 'Page not found',
+            'status': 404,
+            'message': 'The requested resource was not found.'
+        }, status=404)
+
+    return render(request, '404.html', status=404)
+
+
+def custom_500(request):
+    """Custom 500 page"""
+    from django.shortcuts import render
+    from django.http import JsonResponse
+
+    if request.content_type == 'application/json' or 'api' in request.path:
+        return JsonResponse({
+            'error': 'Internal server error',
+            'status': 500,
+            'message': 'An internal server error occurred.'
+        }, status=500)
+
+    return render(request, '500.html', status=500)

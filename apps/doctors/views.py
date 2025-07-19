@@ -6,13 +6,58 @@ from django.db.models import Q, Avg, Count
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Doctor, DoctorSchedule, DoctorViewStatistics
+from .filters import DoctorFilter
+from .models import Doctor, DoctorSchedule, DoctorViewStatistics, DoctorSpecialization
 from .serializers import (
     DoctorSerializer, DoctorDetailSerializer, DoctorScheduleSerializer,
-    DoctorStatisticsSerializer, DoctorUpdateSerializer
+    DoctorStatisticsSerializer, DoctorUpdateSerializer, DoctorSpecializationSerializer
 )
-from .filters import DoctorFilter
 
+class DoctorSpecializationViewSet(viewsets.ModelViewSet):
+    """Doctor specialization management"""
+
+    serializer_class = DoctorSpecializationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_admin():
+            return DoctorSpecialization.objects.all()
+        elif user.is_hospital_admin():
+            return DoctorSpecialization.objects.filter(
+                doctor__hospital=user.managed_hospital
+            )
+        elif user.is_doctor():
+            return DoctorSpecialization.objects.filter(doctor__user=user)
+        else:
+            # Patients can view all specializations for available doctors
+            return DoctorSpecialization.objects.filter(
+                doctor__verification_status='approved',
+                doctor__is_available=True
+            )
+
+    def perform_create(self, serializer):
+        # Only doctor can create their own specializations
+        if self.request.user.is_doctor():
+            serializer.save(doctor=self.request.user.doctor_profile)
+        else:
+            raise PermissionError("Faqat shifokorlar mutaxassislik qo'sha oladi")
+
+    @action(detail=False, methods=['get'])
+    def my_specializations(self, request):
+        """Get current doctor's specializations"""
+        if not request.user.is_doctor():
+            return Response({
+                'error': 'Faqat shifokorlar ko\'ra oladi'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        specializations = DoctorSpecialization.objects.filter(
+            doctor=request.user.doctor_profile
+        )
+
+        serializer = DoctorSpecializationSerializer(specializations, many=True)
+        return Response(serializer.data)
 
 class DoctorViewSet(viewsets.ModelViewSet):
     """Doctor API with role-based access and statistics"""

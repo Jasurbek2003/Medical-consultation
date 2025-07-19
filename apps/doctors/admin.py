@@ -12,11 +12,11 @@ class DoctorAdmin(admin.ModelAdmin):
         'availability_status', 'total_reviews', 'region_info'
     ]
     list_filter = [
-        'specialty', 'degree', 'is_available', 'region',
+        'specialty', 'degree', 'is_available', 'user__region',
         'is_online_consultation', 'created_at'
     ]
     search_fields = [
-        'first_name', 'last_name', 'phone', 'email',
+        'user__first_name', 'user__last_name', 'user__phone', 'user__email',  # Fixed: added user__
         'license_number', 'workplace'
     ]
     readonly_fields = [
@@ -27,7 +27,7 @@ class DoctorAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('👤 Shaxsiy Ma\'lumotlar', {
-            'fields': ('photo', 'first_name', 'last_name', 'middle_name'),
+            'fields': ('photo', 'user__first_name', 'user__last_name', 'user__middle_name'),
             'classes': ('wide',),
             'description': 'Shifokorning shaxsiy ma\'lumotlari'
         }),
@@ -417,3 +417,32 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
 
     certificate_info.short_description = '📁 Fayl'
 
+
+def custom_404(request, exception):
+    """Custom 404 page"""
+    from django.shortcuts import render
+    from django.http import JsonResponse
+
+    if request.content_type == 'application/json' or 'api' in request.path:
+        return JsonResponse({
+            'error': 'Page not found',
+            'status': 404,
+            'message': 'The requested resource was not found.'
+        }, status=404)
+
+    return render(request, '404.html', status=404)
+
+
+def custom_500(request):
+    """Custom 500 page"""
+    from django.shortcuts import render
+    from django.http import JsonResponse
+
+    if request.content_type == 'application/json' or 'api' in request.path:
+        return JsonResponse({
+            'error': 'Internal server error',
+            'status': 500,
+            'message': 'An internal server error occurred.'
+        }, status=500)
+
+    return render(request, '500.html', status=500)

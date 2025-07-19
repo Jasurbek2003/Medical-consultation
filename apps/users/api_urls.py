@@ -1,8 +1,10 @@
 from django.urls import path, include
+from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.routers import DefaultRouter
 
 from . import views
 from . import api_views
+from . import web_views
 
 app_name = 'users_api'
 
@@ -21,9 +23,9 @@ urlpatterns = [
     path('api/auth/token/', obtain_auth_token, name='api_token'),
 
     # Web views (future implementation)
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('register/', views.register_view, name='register'),
-    path('profile/', views.profile_view, name='profile'),
-    path('profile/edit/', views.edit_profile_view, name='edit_profile'),
+    path('login/', web_views.login_view, name='login'),
+    path('logout/', web_views.logout_view, name='logout'),
+    path('register/', web_views.register_view, name='register'),
+    path('profile/', web_views.profile_view, name='profile'),
+    path('profile/edit/', web_views.edit_profile_view, name='edit_profile'),
 ]

@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from PIL import Image
 import uuid
 
+from django.utils import timezone
+
 User = get_user_model()
 
 
