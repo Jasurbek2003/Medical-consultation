@@ -10,11 +10,11 @@ from apps.hospitals.models import Hospital
 class CustomUserManager(BaseUserManager):
     """Custom user manager"""
 
-    def create_user(self, phone, password=None, **extra_fields):
-        if not phone:
-            raise ValueError('Telefon raqam kiritilishi shart')
+    def create_user(self, username, password=None, **extra_fields):
+        if not username:
+            raise ValueError('Username kiritilishi shart')
 
-        user = self.model(phone=phone, **extra_fields)
+        user = self.model(**extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -62,7 +62,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=13,
         unique=True,
         validators=[RegexValidator(regex=r'^\+998\d{9}$', message='Telefon raqam noto\'g\'ri formatda')],
-        verbose_name="Telefon raqam"
+        verbose_name="Telefon raqam",
+        help_text="Telefon raqam +998901234567 formatida bo'lishi kerak",
+        error_messages={
+            'unique': "Bu telefon raqam allaqachon ro'yxatdan o'tgan.",
+            'blank': "Telefon raqam kiritilishi shart.",
+            'null': "Telefon raqam kiritilishi shart."
+        },
+        null=True,
+        blank=True,
     )
     email = models.EmailField(blank=True, null=True, verbose_name="Email")
 
@@ -154,7 +162,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
-    USERNAME_FIELD = 'phone'
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'user_type']
 
     class Meta:
@@ -244,8 +252,14 @@ class User(AbstractBaseUser, PermissionsMixin):
             # Doctor uchun qo'shimcha talablar
             required_fields.extend([self.birth_date, self.gender])
 
-        self.is_profile_complete = all(required_fields)
-        self.save(update_fields=['is_profile_complete'])
+        is_complete = all(required_fields)
+
+        # CRITICAL FIX: Only update if the value actually changed
+        if self.is_profile_complete != is_complete:
+            self.is_profile_complete = is_complete
+            # Use update_fields to prevent calling the full save method again
+            super(User, self).save(update_fields=['is_profile_complete'])
+
         return self.is_profile_complete
 
     def save(self, *args, **kwargs):
@@ -253,12 +267,21 @@ class User(AbstractBaseUser, PermissionsMixin):
         if not self.username:
             self.username = self.phone
 
-        # Profil to'liqligini tekshirish
-        if not self.pk:  # Yangi user
-            super().save(*args, **kwargs)
-        else:
-            self.check_profile_completeness()
-            super().save(*args, **kwargs)
+        # CRITICAL FIX: Avoid recursion by checking if we're already in a save operation
+        # Check if update_fields is specified (means we're in a recursive call)
+        updating_profile_complete = kwargs.get('update_fields') == ['is_profile_complete']
+
+        if not updating_profile_complete:
+            # Only check profile completeness if this is not a recursive call
+            if self.pk:  # Existing user
+                # Calculate profile completeness without saving
+                required_fields = [self.first_name, self.last_name, self.phone]
+                if self.user_type == 'doctor':
+                    required_fields.extend([self.birth_date, self.gender])
+                self.is_profile_complete = all(required_fields)
+
+        # Call the parent save method
+        super().save(*args, **kwargs)
 
 class UserMedicalHistory(models.Model):
     """Foydalanuvchi tibbiy tarixi"""
