@@ -963,7 +963,7 @@ CHAT_RESPONSE_TEMPLATES_EN = {
     Your symptoms could require urgent medical attention.
 
     **Please:**
-    - Go to the nearest hospital immediately
+    - Go to the nearest hospitals immediately
     - Call emergency services: 103
     - Or seek urgent care from a doctor
 

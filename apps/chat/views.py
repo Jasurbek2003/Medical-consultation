@@ -665,7 +665,7 @@ Zudlik bilan eng yaqin shifoxonaga boring yoki tez yordam chaqiring: 103
 
 """,
                 'en': """⚠️ **WARNING: This may be an emergency!**
-Immediately go to the nearest hospital or call emergency services: 103
+Immediately go to the nearest hospitals or call emergency services: 103
 
 """
             }

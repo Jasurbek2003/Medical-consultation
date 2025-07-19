@@ -1,19 +1,26 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
 from . import views
 
-app_name = 'doctors_api'
-
-# DRF Router
+# API Router
 router = DefaultRouter()
-router.register(r'', views.DoctorViewSet, basename='doctor')
+router.register(r'doctors', views.DoctorViewSet)
+router.register(r'schedules', views.DoctorScheduleViewSet, basename='schedule')
+
+app_name = 'doctors'
 
 urlpatterns = [
-    # DRF Router URL'lari
-    path('', include(router.urls)),
+    # API endpoints
+    path('api/', include(router.urls)),
 
-    # AJAX endpoint'lar (JSON response)
-    path('ajax/search/', views.doctor_search_ajax, name='ajax_search'),
-    path('ajax/by-specialty/', views.get_doctors_by_specialty, name='by_specialty'),
-    path('ajax/specialties/', views.get_specialties_list, name='specialties'),
+    # Web views
+    path('', views.DoctorListView.as_view(), name='list'),
+    path('<uuid:pk>/', views.DoctorDetailView.as_view(), name='detail'),
+    path('register/', views.doctor_register_view, name='register'),
+    path('dashboard/', views.doctor_dashboard_view, name='dashboard'),
+    path('profile/', views.doctor_profile_view, name='profile'),
+    path('profile/edit/', views.edit_doctor_profile_view, name='edit_profile'),
+    path('schedule/', views.doctor_schedule_view, name='schedule'),
+    path('statistics/', views.doctor_statistics_view, name='statistics'),
 ]

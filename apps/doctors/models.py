@@ -1,10 +1,16 @@
+# apps/doctors/models.py - Enhanced Doctor Model
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 from PIL import Image
+import uuid
+
+User = get_user_model()
+
 
 class Doctor(models.Model):
-    """Shifokorlar modeli"""
+    """Shifokorlar modeli - User model bilan bog'langan"""
 
     SPECIALTIES = [
         ('terapevt', 'Terapevt'),
@@ -31,232 +37,277 @@ class Doctor(models.Model):
         ('yoshlar', 'Yoshlar toifasi'),
     ]
 
-    LANGUAGES = [
-        ('uz', 'O\'zbek'),
-        ('ru', 'Rus'),
-        ('en', 'Ingliz'),
+    VERIFICATION_STATUS = [
+        ('pending', 'Kutilmoqda'),
+        ('approved', 'Tasdiqlangan'),
+        ('rejected', 'Rad etilgan'),
+        ('suspended', 'To\'xtatilgan'),
     ]
 
-    # Asosiy ma'lumotlar
-    first_name = models.CharField(
-        max_length=50,
-        verbose_name="Ism"
-    )
-    last_name = models.CharField(
-        max_length=50,
-        verbose_name="Familiya"
-    )
-    middle_name = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        verbose_name="Otasining ismi"
+    # User relationship (One-to-One)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='doctor_profile',
+        verbose_name="Foydalanuvchi"
     )
 
-    # Professional ma'lumotlar
+    # Hospital relationship
+    hospital = models.ForeignKey(
+        'hospitals.Hospital',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='doctors',
+        verbose_name="Shifoxona"
+    )
+
+    # Professional information
     specialty = models.CharField(
         max_length=50,
         choices=SPECIALTIES,
         verbose_name="Mutaxassislik"
     )
+
     degree = models.CharField(
         max_length=20,
         choices=DEGREES,
         default='yoshlar',
         verbose_name="Toifa"
     )
+
     experience = models.PositiveIntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(60)],
         verbose_name="Tajriba (yil)"
     )
+
     license_number = models.CharField(
-        max_length=20,
+        max_length=50,
         unique=True,
         verbose_name="Litsenziya raqami"
     )
 
-    # Kontakt ma'lumotlar
-    phone_regex = RegexValidator(
-        regex=r'^\+998[0-9]{9}$',
-        message="Telefon raqami +998xxxxxxxxx formatida bo'lishi kerak"
-    )
-    phone = models.CharField(
-        validators=[phone_regex],
-        max_length=13,
-        verbose_name="Telefon raqami"
-    )
-    email = models.EmailField(
-        blank=True,
-        null=True,
-        verbose_name="Email"
-    )
+    education = models.TextField(verbose_name="Ta'lim")
+    achievements = models.TextField(blank=True, null=True, verbose_name="Yutuqlar")
+    bio = models.TextField(blank=True, null=True, verbose_name="Biografiya")
 
-    # Manzil
-    region = models.CharField(
-        max_length=50,
-        verbose_name="Viloyat/Shahar"
-    )
-    district = models.CharField(
-        max_length=50,
-        verbose_name="Tuman"
-    )
-    address = models.TextField(
-        verbose_name="To'liq manzil"
-    )
-
-    # Ish joyxi
-    workplace = models.CharField(
-        max_length=200,
-        verbose_name="Ish joyi"
-    )
-    workplace_address = models.TextField(
-        verbose_name="Ish joyi manzili"
-    )
-
-    # Qo'shimcha ma'lumotlar
-    languages = models.CharField(
-        max_length=10,
-        choices=LANGUAGES,
-        default='uz',
-        verbose_name="Tillar"
-    )
-    bio = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Qisqacha ma'lumot"
-    )
-    education = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Ta'lim"
-    )
-    achievements = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Yutuqlar"
-    )
-
-    # Rasm
-    photo = models.ImageField(
-        upload_to='doctors/photos/',
-        blank=True,
-        null=True,
-        verbose_name="Rasmi"
-    )
-
-    # Narx va mavjudlik
-    consultation_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
+    # Work information
+    workplace = models.CharField(max_length=200, verbose_name="Ish joyi")
+    workplace_address = models.TextField(blank=True, null=True, verbose_name="Ish joyi manzili")
+    consultation_price = models.PositiveIntegerField(
         validators=[MinValueValidator(0)],
-        verbose_name="Konsultatsiya narxi (so'm)"
-    )
-    is_available = models.BooleanField(
-        default=True,
-        verbose_name="Mavjud"
-    )
-    is_online_consultation = models.BooleanField(
-        default=False,
-        verbose_name="Online konsultatsiya"
+        verbose_name="Konsultatsiya narxi"
     )
 
-    # Reyting
-    rating = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=0.00,
-        validators=[MinValueValidator(0), MaxValueValidator(5)],
+    # Professional documents
+    diploma_image = models.ImageField(
+        upload_to='doctors/diplomas/',
+        blank=True,
+        null=True,
+        verbose_name="Diploma rasmi"
+    )
+
+    license_image = models.ImageField(
+        upload_to='doctors/licenses/',
+        blank=True,
+        null=True,
+        verbose_name="Litsenziya rasmi"
+    )
+
+    certificate_images = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Sertifikat rasmlari"
+    )
+
+    # Schedule and availability
+    is_available = models.BooleanField(default=True, verbose_name="Mavjud")
+    is_online_consultation = models.BooleanField(default=True, verbose_name="Online konsultatsiya")
+
+    work_start_time = models.TimeField(blank=True, null=True, verbose_name="Ish boshlanish vaqti")
+    work_end_time = models.TimeField(blank=True, null=True, verbose_name="Ish tugash vaqti")
+    work_days = models.JSONField(
+        default=list,
+        verbose_name="Ish kunlari",
+        help_text="Masalan: ['monday', 'tuesday', 'wednesday']"
+    )
+
+    # Verification and approval
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VERIFICATION_STATUS,
+        default='pending',
+        verbose_name="Tasdiq holati"
+    )
+
+    verification_documents_submitted = models.BooleanField(
+        default=False,
+        verbose_name="Hujjatlar topshirilgan"
+    )
+
+    admin_notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Admin eslatmalari"
+    )
+
+    # Statistics and ratings
+    rating = models.FloatField(
+        default=0.0,
+        validators=[MinValueValidator(0.0), MaxValueValidator(5.0)],
         verbose_name="Reyting"
     )
-    total_reviews = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Umumiy sharhlar soni"
-    )
 
-    # Ish vaqti
-    work_start_time = models.TimeField(
-        verbose_name="Ish boshlash vaqti"
-    )
-    work_end_time = models.TimeField(
-        verbose_name="Ish tugash vaqti"
-    )
-    work_days = models.CharField(
-        max_length=20,
-        default='1,2,3,4,5,6',  # Dushanba-Shanba
-        verbose_name="Ish kunlari (1-7)"
-    )
+    total_reviews = models.PositiveIntegerField(default=0, verbose_name="Jami sharhlar")
+    total_consultations = models.PositiveIntegerField(default=0, verbose_name="Jami konsultatsiyalar")
+    successful_consultations = models.PositiveIntegerField(default=0, verbose_name="Muvaffaqiyatli konsultatsiyalar")
 
-    # Meta ma'lumotlar
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Yaratilgan vaqt"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="O'zgartirilgan vaqt"
-    )
+    # View statistics
+    profile_views = models.PositiveIntegerField(default=0, verbose_name="Profil ko'rishlar")
+    weekly_views = models.PositiveIntegerField(default=0, verbose_name="Haftalik ko'rishlar")
+    monthly_views = models.PositiveIntegerField(default=0, verbose_name="Oylik ko'rishlar")
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+    last_activity = models.DateTimeField(blank=True, null=True, verbose_name="Oxirgi faollik")
 
     class Meta:
         verbose_name = "Shifokor"
         verbose_name_plural = "Shifokorlar"
-        ordering = ['-rating', 'last_name', 'first_name']
+        ordering = ['-rating', '-total_reviews', 'user__last_name']
         indexes = [
             models.Index(fields=['specialty']),
+            models.Index(fields=['verification_status']),
             models.Index(fields=['is_available']),
             models.Index(fields=['rating']),
-            models.Index(fields=['region', 'district']),
+            models.Index(fields=['hospital']),
         ]
 
     def __str__(self):
-        return f"Dr. {self.first_name} {self.last_name} - {self.get_specialty_display()}"
-
-    def get_full_name(self):
-        """To'liq ism"""
-        if self.middle_name:
-            return f"{self.last_name} {self.first_name} {self.middle_name}"
-        return f"{self.last_name} {self.first_name}"
-
-    def get_short_name(self):
-        """Qisqa ism"""
-        return f"Dr. {self.first_name} {self.last_name}"
+        return f"Dr. {self.user.get_full_name()} - {self.get_specialty_display()}"
 
     def get_absolute_url(self):
-        """Detail sahifasiga link"""
         return reverse('doctors:detail', kwargs={'pk': self.pk})
 
-    def save(self, *args, **kwargs):
-        """Rasmni kichraytirish"""
-        super().save(*args, **kwargs)
+    @property
+    def full_name(self):
+        """Doctor to'liq ismi"""
+        return self.user.get_full_name()
 
-        if self.photo:
-            img = Image.open(self.photo.path)
-            if img.height > 400 or img.width > 400:
-                output_size = (400, 400)
-                img.thumbnail(output_size)
-                img.save(self.photo.path)
+    @property
+    def phone(self):
+        """Doctor telefon raqami"""
+        return self.user.phone
+
+    @property
+    def email(self):
+        """Doctor email manzili"""
+        return self.user.email
+
+    @property
+    def is_verified(self):
+        """Doctor tasdiqlanganmi"""
+        return self.verification_status == 'approved' and self.user.is_verified
+
+    @property
+    def success_rate(self):
+        """Muvaffaqiyat foizi"""
+        if self.total_consultations > 0:
+            return round((self.successful_consultations / self.total_consultations) * 100, 1)
+        return 0
+
+    def increment_profile_views(self):
+        """Profil ko'rishlarni oshirish"""
+        self.profile_views += 1
+        self.weekly_views += 1
+        self.monthly_views += 1
+        self.save(update_fields=['profile_views', 'weekly_views', 'monthly_views'])
+
+    def reset_weekly_views(self):
+        """Haftalik ko'rishlarni reset qilish"""
+        self.weekly_views = 0
+        self.save(update_fields=['weekly_views'])
+
+    def reset_monthly_views(self):
+        """Oylik ko'rishlarni reset qilish"""
+        self.monthly_views = 0
+        self.save(update_fields=['monthly_views'])
 
     def update_rating(self):
         """Reytingni yangilash"""
         from apps.consultations.models import Review
         reviews = Review.objects.filter(doctor=self, is_active=True)
+
         if reviews.exists():
-            total_rating = sum([review.rating for review in reviews])
-            self.rating = total_rating / reviews.count()
+            avg_rating = reviews.aggregate(models.Avg('rating'))['rating__avg']
+            self.rating = round(avg_rating, 1)
             self.total_reviews = reviews.count()
-            self.save(update_fields=['rating', 'total_reviews'])
+        else:
+            self.rating = 0.0
+            self.total_reviews = 0
+
+        self.save(update_fields=['rating', 'total_reviews'])
+
+    def update_consultation_stats(self):
+        """Konsultatsiya statistikalarini yangilash"""
+        from apps.consultations.models import Consultation
+
+        consultations = Consultation.objects.filter(doctor=self)
+        self.total_consultations = consultations.count()
+        self.successful_consultations = consultations.filter(
+            status__in=['completed', 'successful']
+        ).count()
+
+        self.save(update_fields=['total_consultations', 'successful_consultations'])
+
+    def can_take_consultation(self):
+        """Konsultatsiya qabul qila oladimi"""
+        return (
+                self.is_available and
+                self.is_verified and
+                self.user.is_active and
+                self.verification_status == 'approved'
+        )
+
+    def approve(self, approved_by):
+        """Doctorni tasdiqlash"""
+        self.verification_status = 'approved'
+        self.user.is_verified = True
+        self.user.is_approved_by_admin = True
+        self.user.approved_by = approved_by
+        self.user.approval_date = timezone.now()
+
+        self.save()
+        self.user.save()
+
+    def reject(self, reason=""):
+        """Doctorni rad etish"""
+        self.verification_status = 'rejected'
+        if reason:
+            self.admin_notes = reason
+        self.save()
+
+    def suspend(self, reason=""):
+        """Doctorni to'xtatish"""
+        self.verification_status = 'suspended'
+        self.is_available = False
+        if reason:
+            self.admin_notes = reason
+        self.save()
 
 
 class DoctorSchedule(models.Model):
     """Shifokor ish jadvali"""
 
     WEEKDAYS = [
-        (1, 'Dushanba'),
-        (2, 'Seshanba'),
-        (3, 'Chorshanba'),
-        (4, 'Payshanba'),
-        (5, 'Juma'),
-        (6, 'Shanba'),
-        (7, 'Yakshanba'),
+        ('monday', 'Dushanba'),
+        ('tuesday', 'Seshanba'),
+        ('wednesday', 'Chorshanba'),
+        ('thursday', 'Payshanba'),
+        ('friday', 'Juma'),
+        ('saturday', 'Shanba'),
+        ('sunday', 'Yakshanba'),
     ]
 
     doctor = models.ForeignKey(
@@ -265,29 +316,32 @@ class DoctorSchedule(models.Model):
         related_name='schedules',
         verbose_name="Shifokor"
     )
-    weekday = models.IntegerField(
+
+    weekday = models.CharField(
+        max_length=10,
         choices=WEEKDAYS,
         verbose_name="Kun"
     )
-    start_time = models.TimeField(
-        verbose_name="Boshlash vaqti"
-    )
-    end_time = models.TimeField(
-        verbose_name="Tugash vaqti"
-    )
-    is_available = models.BooleanField(
-        default=True,
-        verbose_name="Mavjud"
-    )
+
+    start_time = models.TimeField(verbose_name="Boshlanish vaqti")
+    end_time = models.TimeField(verbose_name="Tugash vaqti")
+
+    break_start = models.TimeField(blank=True, null=True, verbose_name="Tanaffus boshlanishi")
+    break_end = models.TimeField(blank=True, null=True, verbose_name="Tanaffus tugashi")
+
+    is_available = models.BooleanField(default=True, verbose_name="Mavjud")
+    max_patients = models.PositiveIntegerField(default=20, verbose_name="Maksimal bemorlar")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
 
     class Meta:
-        verbose_name = "Ish jadvali"
-        verbose_name_plural = "Ish jadvallari"
+        verbose_name = "Shifokor jadvali"
+        verbose_name_plural = "Shifokor jadvallari"
         unique_together = ['doctor', 'weekday']
-        ordering = ['weekday', 'start_time']
 
     def __str__(self):
-        return f"{self.doctor.get_short_name()} - {self.get_weekday_display()}"
+        return f"{self.doctor.full_name} - {self.get_weekday_display()}"
 
 
 class DoctorSpecialization(models.Model):
@@ -299,25 +353,54 @@ class DoctorSpecialization(models.Model):
         related_name='specializations',
         verbose_name="Shifokor"
     )
-    name = models.CharField(
-        max_length=100,
-        verbose_name="Mutaxassislik nomi"
-    )
-    description = models.TextField(
+
+    specialty_name = models.CharField(max_length=100, verbose_name="Mutaxassislik nomi")
+    description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
+    certificate_image = models.ImageField(
+        upload_to='doctors/specializations/',
         blank=True,
         null=True,
-        verbose_name="Tavsif"
+        verbose_name="Sertifikat rasmi"
     )
-    certificate = models.FileField(
-        upload_to='doctors/certificates/',
-        blank=True,
-        null=True,
-        verbose_name="Sertifikat"
-    )
+
+    is_verified = models.BooleanField(default=False, verbose_name="Tasdiqlangan")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
 
     class Meta:
         verbose_name = "Qo'shimcha mutaxassislik"
         verbose_name_plural = "Qo'shimcha mutaxassisliklar"
 
     def __str__(self):
-        return f"{self.doctor.get_short_name()} - {self.name}"
+        return f"{self.doctor.full_name} - {self.specialty_name}"
+
+
+class DoctorViewStatistics(models.Model):
+    """Doctor profil ko'rish statistikalari"""
+
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='view_statistics',
+        verbose_name="Shifokor"
+    )
+
+    date = models.DateField(verbose_name="Sana")
+    daily_views = models.PositiveIntegerField(default=0, verbose_name="Kunlik ko'rishlar")
+    unique_visitors = models.PositiveIntegerField(default=0, verbose_name="Yagona ziyoratchilar")
+
+    # Visitor details (optional)
+    visitor_regions = models.JSONField(default=dict, verbose_name="Ziyoratchilar viloyatlari")
+    referral_sources = models.JSONField(default=dict, verbose_name="Havola manbalari")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+
+    class Meta:
+        verbose_name = "Ko'rish statistikasi"
+        verbose_name_plural = "Ko'rish statistikalari"
+        unique_together = ['doctor', 'date']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.doctor.full_name} - {self.date} ({self.daily_views} ko'rish)"
+
+
