@@ -1,4 +1,8 @@
-from rest_framework import generics, status, permissions
+from django.utils import timezone
+from rest_framework import generics, status, permissions, serializers
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
@@ -6,9 +10,11 @@ from django.db.models import Q
 
 from .models import Doctor, DoctorSchedule
 from .serializers import (
-    DoctorSerializer, DoctorDetailSerializer, DoctorUpdateSerializer,
+    DoctorSerializer, DoctorDetailSerializer, DoctorUpdateSerializer, DoctorRegistrationSerializer,
+    DoctorLoginSerializer, DoctorProfileUpdateSerializer,
 )
 from .filters import DoctorFilter
+from ..users.serializers import UserSerializer
 
 
 class DoctorProfileUpdateView(generics.UpdateAPIView):
@@ -398,4 +404,304 @@ class DoctorsByPriceView(generics.ListAPIView):
 
         return queryset.order_by('consultation_price')
 
-# Add more view implementations as needed...
+
+class DoctorRegistrationView(generics.CreateAPIView):
+    """
+    Doctor Registration API
+
+    POST /api/v1/doctors/auth/register/
+    """
+    serializer_class = DoctorRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Create user and doctor profile
+        user = serializer.save()
+
+        # Note: Doctor needs admin approval before they can login
+        # So we don't create a token immediately
+
+        return Response({
+            'success': True,
+            'message': 'Doctor registration successful. Please wait for admin approval.',
+            'user': UserSerializer(user).data,
+            'doctor_id': user.doctor_profile.id,
+            'verification_status': user.doctor_profile.verification_status,
+            'approval_required': True
+        }, status=status.HTTP_201_CREATED)
+
+
+class DoctorLoginView(APIView):
+    """
+    Doctor Login API
+
+    POST /api/v1/doctors/auth/login/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = DoctorLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+        doctor = user.doctor_profile
+
+        # Check if doctor is approved
+        if doctor.verification_status != 'approved':
+            return Response({
+                'success': False,
+                'error': 'Your account is pending approval. Please wait for admin verification.',
+                'verification_status': doctor.verification_status
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Check if user is approved by admin
+        if not user.is_approved_by_admin:
+            return Response({
+                'success': False,
+                'error': 'Your account needs admin approval before you can login.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Update last login
+        user.last_login = timezone.now()
+        user.last_login_ip = get_client_ip(request)
+        user.save(update_fields=['last_login', 'last_login_ip'])
+
+        # Create or get token
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'success': True,
+            'message': 'Login successful',
+            'token': token.key,
+            'user': UserSerializer(user).data,
+            'doctor': {
+                'id': doctor.id,
+                'specialty': doctor.get_specialty_display(),
+                'rating': doctor.rating,
+                'total_consultations': doctor.total_consultations,
+                'is_available': doctor.is_available,
+                'hospital': doctor.hospital.name if doctor.hospital else None
+            }
+        })
+
+
+class DoctorProfileView(generics.RetrieveUpdateAPIView):
+    """
+    Get and Update Doctor Profile
+
+    GET /api/v1/doctors/auth/profile/
+    PUT/PATCH /api/v1/doctors/auth/profile/
+    """
+    serializer_class = DoctorProfileUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self):
+        """Get the doctor profile of the authenticated user"""
+        user = self.request.user
+
+        if user.user_type != 'doctor':
+            raise serializers.ValidationError('User is not a doctor')
+
+        return user.doctor_profile
+
+    def retrieve(self, request, *args, **kwargs):
+        """Get doctor profile with additional info"""
+        doctor = self.get_object()
+
+        # Prepare detailed response
+        data = {
+            'success': True,
+            'user': UserSerializer(doctor.user).data,
+            'doctor': {
+                'id': doctor.id,
+                'specialty': doctor.specialty,
+                'specialty_display': doctor.get_specialty_display(),
+                'degree': doctor.degree,
+                'degree_display': doctor.get_degree_display(),
+                'license_number': doctor.license_number,
+                'experience': doctor.experience,
+                'education': doctor.education,
+                'workplace': doctor.workplace,
+                'workplace_address': doctor.workplace_address,
+                'consultation_price': str(doctor.consultation_price),
+                'bio': doctor.bio,
+                'achievements': doctor.achievements,
+                'rating': doctor.rating,
+                'total_reviews': doctor.total_reviews,
+                'total_consultations': doctor.total_consultations,
+                'is_available': doctor.is_available,
+                'is_online_consultation': doctor.is_online_consultation,
+                'work_start_time': doctor.work_start_time,
+                'work_end_time': doctor.work_end_time,
+                'work_days': doctor.work_days,
+                'verification_status': doctor.verification_status,
+                'hospital': {
+                    'id': doctor.hospital.id,
+                    'name': doctor.hospital.name,
+                    'address': doctor.hospital.address
+                } if doctor.hospital else None,
+                'diploma_image': doctor.diploma_image.url if doctor.diploma_image else None,
+                'license_image': doctor.license_image.url if doctor.license_image else None,
+            }
+        }
+
+        return Response(data)
+
+
+class DoctorChangePasswordView(APIView):
+    """
+    Change Doctor Password
+
+    POST /api/v1/doctors/auth/change-password/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.user_type != 'doctor':
+            return Response({
+                'success': False,
+                'error': 'User is not a doctor'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        new_password_confirm = request.data.get('new_password_confirm')
+
+        if not all([old_password, new_password, new_password_confirm]):
+            return Response({
+                'success': False,
+                'error': 'All password fields are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_password != new_password_confirm:
+            return Response({
+                'success': False,
+                'error': 'New passwords do not match'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.user.check_password(old_password):
+            return Response({
+                'success': False,
+                'error': 'Current password is incorrect'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update password
+        request.user.set_password(new_password)
+        request.user.save()
+
+        # Create new token
+        Token.objects.filter(user=request.user).delete()
+        token = Token.objects.create(user=request.user)
+
+        return Response({
+            'success': True,
+            'message': 'Password changed successfully',
+            'token': token.key
+        })
+
+
+class DoctorAvailabilityToggleView(APIView):
+    """
+    Toggle Doctor Availability
+
+    POST /api/v1/doctors/auth/toggle-availability/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.user_type != 'doctor':
+            return Response({
+                'success': False,
+                'error': 'User is not a doctor'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        doctor = request.user.doctor_profile
+        doctor.is_available = not doctor.is_available
+        doctor.save()
+
+        return Response({
+            'success': True,
+            'message': f'Availability {"enabled" if doctor.is_available else "disabled"}',
+            'is_available': doctor.is_available
+        })
+
+
+# Quick endpoints for easy integration
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def quick_doctor_register(request):
+    """
+    Quick doctor registration endpoint with file upload
+    """
+    serializer = DoctorRegistrationSerializer(data=request.data)
+
+    if serializer.is_valid():
+        user = serializer.save()
+
+        return Response({
+            'success': True,
+            'message': 'Registration successful. Waiting for approval.',
+            'doctor_id': user.doctor_profile.id,
+            'user_id': user.id,
+            'phone': user.phone,
+            'verification_status': 'pending'
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def quick_doctor_login(request):
+    """
+    Quick doctor login endpoint
+    """
+    serializer = DoctorLoginSerializer(data=request.data)
+
+    if serializer.is_valid():
+        user = serializer.validated_data['user']
+        doctor = user.doctor_profile
+
+        # Check approval status
+        if doctor.verification_status != 'approved' or not user.is_approved_by_admin:
+            return Response({
+                'success': False,
+                'error': 'Account pending approval',
+                'verification_status': doctor.verification_status
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Create token
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'success': True,
+            'token': token.key,
+            'doctor_id': doctor.id,
+            'user_id': user.id,
+            'specialty': doctor.get_specialty_display(),
+            'full_name': user.get_full_name()
+        })
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+def get_client_ip(request):
+    """Get client IP address"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
