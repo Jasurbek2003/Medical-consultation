@@ -10,7 +10,7 @@ User = get_user_model()
 
 class LoginSerializer(serializers.Serializer):
     """Login serializer"""
-    phone = serializers.CharField(max_length=13)
+    username = serializers.CharField(max_length=200, required=True, allow_blank=False,)
     password = serializers.CharField(max_length=128, write_only=True)
 
 
@@ -361,11 +361,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
         ]
     )
+    username = serializers.CharField(
+        required=True,
+        allow_blank=True,
+        max_length=150,
+        help_text="Optional username, defaults to phone number if not provided"
+    )
 
     class Meta:
         model = User
         fields = [
-            'phone', 'password', 'password_confirm',
+            'phone', 'password', 'password_confirm', 'username',
             'first_name', 'last_name', 'middle_name',
             'email', 'birth_date', 'gender',
             'blood_type', 'height', 'weight',
@@ -395,25 +401,31 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_username(self, value):
+        """Check if username already exists"""
+        if value and User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "User with this username already exists."
+            )
+        return value
+
     def create(self, validated_data):
         """Create user with validated data"""
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        username = validated_data.pop('username')
 
-        # Set username as phone number if not provided
-        if not validated_data.get('username'):
-            validated_data['username'] = validated_data['phone']
-
+        print(validated_data, "creating user with data")
         # Create user
         with transaction.atomic():
-            user = User.objects.create_user(
+            user = User.objects.create(
                 password=password,
+                username=username,
                 **validated_data
             )
-
             # Create user preferences
             from .models import UserPreferences
-            UserPreferences.objects.create(
+            UserPreferences.objects.get_or_create(
                 user=user,
                 preferred_language=validated_data.get('language', 'uz')
             )

@@ -1,9 +1,5 @@
-# apps/doctors/admin.py
 from django.contrib import admin
 from django.utils.html import format_html
-from django.db.models import Q
-from django.urls import reverse
-from django.utils.safestring import mark_safe
 
 from .models import Doctor, DoctorSchedule, DoctorSpecialization
 
@@ -64,120 +60,106 @@ class DoctorAdmin(admin.ModelAdmin):
             'fields': ('rating', 'total_reviews', 'total_consultations',
                        'profile_views', 'weekly_views', 'monthly_views'),
             'classes': ('collapse',),
-            'description': 'Avtomatik hisoblanadigan statistikalar'
+            'description': 'Avtomatik hisoblanadigan statistika'
         }),
-        ('🔧 Admin', {
-            'fields': ('verification_documents_submitted', 'admin_notes'),
-            'classes': ('collapse',)
-        }),
-        ('⏰ Meta Ma\'lumotlar', {
+        ('📅 Vaqt', {
             'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+            'classes': ('collapse',),
+        }),
     )
 
     actions = ['make_available', 'make_unavailable', 'approve_doctors', 'reject_doctors', 'send_notification']
 
     def get_photo_thumbnail(self, obj):
-        if obj.diploma_image:
+        if obj.user.avatar:
             return format_html(
-                '<img src="{}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">',
-                obj.diploma_image.url
+                '<img src="{}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 3px solid #667eea;">',
+                obj.user.avatar.url
             )
-        return format_html(
-            '<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">👨‍⚕️</div>'
-        )
+        else:
+            initials = f"{obj.user.first_name[0] if obj.user.first_name else ''}{obj.user.last_name[0] if obj.user.last_name else ''}"
+            return format_html(
+                '<div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px;">{}</div>',
+                initials.upper()
+            )
 
     get_photo_thumbnail.short_description = '📷'
 
     def get_full_name_with_emoji(self, obj):
+        full_name = obj.user.get_full_name()
+        phone = obj.user.phone
+        gender_emoji = '👨‍⚕️' if obj.user.gender == 'M' else '👩‍⚕️'
+
         return format_html(
-            '<strong style="color: #333; font-size: 14px;">Dr. {} {}</strong><br>'
-            '<small style="color: #666; font-size: 12px;">🆔 {}</small><br>'
-            '<small style="color: #888; font-size: 11px;">📱 {}</small>',
-            obj.user.first_name, obj.user.last_name, obj.license_number, obj.user.phone
+            '<div>'
+            '<strong style="color: #333; font-size: 14px;">{} {}</strong>'
+            '<br><small style="color: #666;">📱 {}</small>'
+            '</div>',
+            gender_emoji, full_name, phone
         )
 
-    get_full_name_with_emoji.short_description = '👨‍⚕️ Shifokor'
+    get_full_name_with_emoji.short_description = '👨‍⚕️ F.I.O'
 
     def get_diploma_preview(self, obj):
         if obj.diploma_image:
             return format_html(
-                '<div style="text-align: center;"><img src="{}" style="max-width: 300px; max-height: 300px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);"><br><small style="color: #666; margin-top: 10px; display: block;">Fayl hajmi: {} KB</small></div>',
+                '<a href="{}" target="_blank">'
+                '<img src="{}" style="max-width: 200px; max-height: 150px; border: 2px solid #ddd; border-radius: 8px;">'
+                '</a>',
                 obj.diploma_image.url,
-                round(obj.diploma_image.size / 1024, 1) if obj.diploma_image.size else 0
+                obj.diploma_image.url
             )
-        return format_html(
-            '<div style="text-align: center; padding: 50px; background: #f8f9fa; border-radius: 15px; border: 2px dashed #dee2e6;">'
-            '<div style="font-size: 48px; color: #6c757d; margin-bottom: 15px;">📷</div>'
-            '<p style="color: #6c757d; margin: 0;">Diploma yuklanmagan</p></div>'
-        )
+        return '❌ Diplom yuklanmagan'
 
-    get_diploma_preview.short_description = '🖼️ Diploma Preview'
+    get_diploma_preview.short_description = '📜 Diplom'
 
     def specialty_badge(self, obj):
         specialty_colors = {
             'terapevt': '#007bff',
             'stomatolog': '#28a745',
             'kardiolog': '#dc3545',
-            'urolog': '#6f42c1',
+            'urolog': '#ffc107',
             'ginekolog': '#e83e8c',
-            'pediatr': '#fd7e14',
-            'dermatolog': '#20c997',
-            'nevrolog': '#6c757d',
+            'pediatr': '#20c997',
+            'dermatolog': '#6f42c1',
+            'nevrolog': '#fd7e14',
             'oftalmolog': '#17a2b8',
-            'lor': '#ffc107',
-            'ortoped': '#795548',
-            'psixiatr': '#9c27b0',
-            'endokrinolog': '#ff5722',
-            'gastroenterolog': '#607d8b',
-            'pulmonolog': '#3f51b5',
-        }
-
-        specialty_emojis = {
-            'terapevt': '🩺',
-            'stomatolog': '🦷',
-            'kardiolog': '❤️',
-            'urolog': '🩺',
-            'ginekolog': '👩‍⚕️',
-            'pediatr': '👶',
-            'dermatolog': '🧴',
-            'nevrolog': '🧠',
-            'oftalmolog': '👁️',
-            'lor': '👂',
-            'ortoped': '🦴',
-            'psixiatr': '🧠',
-            'endokrinolog': '⚕️',
-            'gastroenterolog': '🫃',
-            'pulmonolog': '🫁',
+            'lor': '#6610f2',
+            'ortoped': '#495057',
+            'psixiatr': '#6c757d',
+            'endokrinolog': '#343a40',
+            'gastroenterolog': '#007bff',
+            'pulmonolog': '#28a745',
         }
 
         color = specialty_colors.get(obj.specialty, '#6c757d')
-        emoji = specialty_emojis.get(obj.specialty, '⚕️')
-
         return format_html(
-            '<span style="background: {}; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">'
-            '{} {}</span>',
-            color, emoji, obj.get_specialty_display()
+            '<span style="background: {}; color: white; padding: 6px 14px; border-radius: 15px; font-size: 12px; font-weight: 600; display: inline-block; white-space: nowrap;">{}</span>',
+            color, obj.get_specialty_display()
         )
 
-    specialty_badge.short_description = '🏥 Mutaxassislik'
+    specialty_badge.short_description = '🩺 Mutaxassis'
 
     def experience_years(self, obj):
-        if obj.experience >= 10:
-            icon = '🥇'
-            color = '#ffd700'
+        if obj.experience >= 20:
+            badge_color = '#dc3545'
+            badge_text = 'Expert'
+        elif obj.experience >= 10:
+            badge_color = '#28a745'
+            badge_text = 'Senior'
         elif obj.experience >= 5:
-            icon = '🥈'
-            color = '#c0c0c0'
+            badge_color = '#ffc107'
+            badge_text = 'Middle'
         else:
-            icon = '🥉'
-            color = '#cd7f32'
+            badge_color = '#17a2b8'
+            badge_text = 'Junior'
 
         return format_html(
-            '<span style="color: {}; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">'
-            '{} {} yil</span>',
-            color, icon, obj.experience
+            '<div style="text-align: center;">'
+            '<strong style="font-size: 18px; color: #333;">{}</strong> yil'
+            '<br><span style="background: {}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-top: 2px; display: inline-block;">{}</span>'
+            '</div>',
+            obj.experience, badge_color, badge_text
         )
 
     experience_years.short_description = '🎯 Tajriba'
@@ -185,7 +167,7 @@ class DoctorAdmin(admin.ModelAdmin):
     def rating_stars(self, obj):
         return format_html(
             '<div style="display: flex; flex-direction: column; align-items: center;">'
-            '<span style="font-size: 14px; letter-spacing: 1px;" title="{}/5">{:.1f}</span>'
+            '<span style="font-size: 14px; letter-spacing: 1px;" title="{}/5">{}</span>'
             '</div>',
             obj.rating, obj.rating
         )
@@ -195,9 +177,9 @@ class DoctorAdmin(admin.ModelAdmin):
     def consultation_price_formatted(self, obj):
         price = int(obj.consultation_price)
         if price >= 1000000:
-            display_price = f"{price / 1000000:.1f}M"
+            display_price = "{:.1f}M".format(price / 1000000)
         elif price >= 1000:
-            display_price = f"{price / 1000:.0f}K"
+            display_price = "{:.0f}K".format(price / 1000)
         else:
             display_price = str(price)
 
@@ -232,13 +214,15 @@ class DoctorAdmin(admin.ModelAdmin):
     availability_status.short_description = '🟢 Holat'
 
     def region_info(self, obj):
+        region = obj.user.region if obj.user.region else 'Belgilanmagan'
+        district = obj.user.district if obj.user.district else 'Belgilanmagan'
+
         return format_html(
             '<div style="text-align: center;">'
             '<strong style="color: #667eea; font-size: 13px;">📍 {}</strong>'
             '<br><small style="color: #666; font-size: 11px;">{}</small>'
             '</div>',
-            obj.user.region if obj.user.region else 'Belgilanmagan',
-            obj.user.district if obj.user.district else 'Belgilanmagan'
+            region, district
         )
 
     region_info.short_description = '📍 Hudud'
@@ -317,6 +301,10 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
     )
 
     def doctor_info(self, obj):
+        # Fixed: Removed f-string from inside format_html
+        doctor_name = "Dr. {} {}".format(obj.doctor.user.first_name, obj.doctor.user.last_name)
+        specialty = obj.doctor.get_specialty_display()
+
         return format_html(
             '<div style="display: flex; align-items: center; gap: 10px;">'
             '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">👨‍⚕️</div>'
@@ -325,8 +313,8 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
             '<br><small style="color: #666;">{}</small>'
             '</div>'
             '</div>',
-            f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}",
-            obj.doctor.get_specialty_display()
+            doctor_name,
+            specialty
         )
 
     doctor_info.short_description = '👨‍⚕️ Shifokor'
@@ -358,12 +346,15 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
     weekday_badge.short_description = '📅 Kun'
 
     def time_range(self, obj):
+        start_time = obj.start_time.strftime('%H:%M')
+        end_time = obj.end_time.strftime('%H:%M')
+
         return format_html(
             '<div style="text-align: center; background: #f8f9fa; padding: 8px 12px; border-radius: 10px; border: 2px solid #e9ecef;">'
             '<span style="color: #667eea; font-weight: 600; font-size: 13px;">🕐 {} - {}</span>'
             '</div>',
-            obj.start_time.strftime('%H:%M'),
-            obj.end_time.strftime('%H:%M')
+            start_time,
+            end_time
         )
 
     time_range.short_description = '🕐 Vaqt'
@@ -398,17 +389,17 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
     )
 
     def doctor_name(self, obj):
+        doctor_name = "Dr. {} {}".format(obj.doctor.user.first_name, obj.doctor.user.last_name)
         return format_html(
             '<strong style="color: #667eea;">{}</strong>',
-            f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}"
+            doctor_name
         )
 
     doctor_name.short_description = '👨‍⚕️ Shifokor'
 
     def specialization_name(self, obj):
         return format_html(
-            '<div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 8px 15px; border-radius: 12px; display: inline-block; font-weight: 600;">'
-            '🎓 {}</div>',
+            '<span style="color: #28a745; font-weight: 600;">{}</span>',
             obj.name
         )
 
@@ -416,53 +407,17 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
 
     def has_certificate(self, obj):
         if obj.certificate:
-            return format_html(
-                '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">📜 Mavjud</span>'
-            )
-        return format_html(
-            '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">❌ Yo\'q</span>'
-        )
+            return format_html('<span style="color: #28a745;">✅ Mavjud</span>')
+        return format_html('<span style="color: #dc3545;">❌ Yo\'q</span>')
 
     has_certificate.short_description = '📜 Sertifikat'
 
     def certificate_info(self, obj):
         if obj.certificate:
-            file_size = round(obj.certificate.size / 1024, 1) if obj.certificate.size else 0
             return format_html(
-                '<small style="color: #666;">📁 {} KB</small>',
-                file_size
+                '<a href="{}" target="_blank" style="color: #007bff;">📥 Yuklab olish</a>',
+                obj.certificate.url
             )
-        return format_html('<small style="color: #999;">-</small>')
+        return '-'
 
-    certificate_info.short_description = '📁 Fayl'
-
-
-# Custom error handlers
-def custom_404(request, exception):
-    """Custom 404 page"""
-    from django.shortcuts import render
-    from django.http import JsonResponse
-
-    if request.content_type == 'application/json' or 'api' in request.path:
-        return JsonResponse({
-            'error': 'Page not found',
-            'status': 404,
-            'message': 'The requested resource was not found.'
-        }, status=404)
-
-    return render(request, '404.html', status=404)
-
-
-def custom_500(request):
-    """Custom 500 page"""
-    from django.shortcuts import render
-    from django.http import JsonResponse
-
-    if request.content_type == 'application/json' or 'api' in request.path:
-        return JsonResponse({
-            'error': 'Internal server error',
-            'status': 500,
-            'message': 'An internal server error occurred.'
-        }, status=500)
-
-    return render(request, '500.html', status=500)
+    certificate_info.short_description = '📄 Fayl'
