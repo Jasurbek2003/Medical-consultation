@@ -1,5 +1,9 @@
+# apps/doctors/admin.py
 from django.contrib import admin
 from django.utils.html import format_html
+from django.db.models import Q
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 
 from .models import Doctor, DoctorSchedule, DoctorSpecialization
 
@@ -7,44 +11,46 @@ from .models import Doctor, DoctorSchedule, DoctorSpecialization
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
     list_display = [
-        'get_photo_thumbnail', 'get_full_name_with_emoji', 'specialty_badge', "rating_stars",
+        'get_photo_thumbnail', 'get_full_name_with_emoji', 'specialty_badge', 'rating_stars',
         'experience_years', 'consultation_price_formatted',
         'availability_status', 'total_reviews', 'region_info'
     ]
     list_filter = [
-        'specialty', 'degree', 'is_available', 'user__region',
-        'is_online_consultation', 'created_at'
+        'specialty', 'degree', 'is_available', 'verification_status',
+        'is_online_consultation', 'created_at', 'user__region'
     ]
     search_fields = [
-        'user__first_name', 'user__last_name', 'user__phone', 'user__email',  # Fixed: added user__
+        'user__first_name', 'user__last_name', 'user__phone', 'user__email',
         'license_number', 'workplace'
     ]
     readonly_fields = [
-        'created_at', 'updated_at', 'rating', 'total_reviews', 'get_photo_preview'
+        'created_at', 'updated_at', 'rating', 'total_reviews', 'get_diploma_preview',
+        'total_consultations', 'profile_views', 'weekly_views', 'monthly_views'
     ]
     list_per_page = 25
     date_hierarchy = 'created_at'
+    autocomplete_fields = ['user']
 
     fieldsets = (
-        ('👤 Shaxsiy Ma\'lumotlar', {
-            'fields': ('photo', 'user__first_name', 'user__last_name', 'user__middle_name'),
+        ('👤 Foydalanuvchi Ma\'lumotlari', {
+            'fields': ('user', 'get_diploma_preview'),
             'classes': ('wide',),
-            'description': 'Shifokorning shaxsiy ma\'lumotlari'
+            'description': 'Shifokorga biriktirilgan foydalanuvchi'
+        }),
+        ('📷 Hujjatlar', {
+            'fields': ('diploma_image', 'license_image'),
+            'classes': ('wide',)
         }),
         ('🏥 Professional Ma\'lumotlar', {
             'fields': (
                 'specialty', 'degree', 'experience', 'license_number',
-                'education', 'achievements', 'bio'
+                'education', 'achievements', 'bio', 'verification_status'
             ),
             'classes': ('wide',),
             'description': 'Professional malaka va tajriba'
         }),
-        ('📞 Kontakt Ma\'lumotlar', {
-            'fields': ('phone', 'email', 'languages'),
-            'classes': ('wide',)
-        }),
-        ('📍 Manzil va Ish Joyi', {
-            'fields': ('region', 'district', 'address', 'workplace', 'workplace_address'),
+        ('🏥 Ish Joyi', {
+            'fields': ('hospital', 'workplace', 'workplace_address'),
             'classes': ('wide',)
         }),
         ('💼 Ish va Narx', {
@@ -55,9 +61,14 @@ class DoctorAdmin(admin.ModelAdmin):
             'classes': ('wide',)
         }),
         ('📊 Statistika', {
-            'fields': ('rating', 'total_reviews'),
+            'fields': ('rating', 'total_reviews', 'total_consultations',
+                       'profile_views', 'weekly_views', 'monthly_views'),
             'classes': ('collapse',),
             'description': 'Avtomatik hisoblanadigan statistikalar'
+        }),
+        ('🔧 Admin', {
+            'fields': ('verification_documents_submitted', 'admin_notes'),
+            'classes': ('collapse',)
         }),
         ('⏰ Meta Ma\'lumotlar', {
             'fields': ('created_at', 'updated_at'),
@@ -65,13 +76,13 @@ class DoctorAdmin(admin.ModelAdmin):
         })
     )
 
-    actions = ['make_available', 'make_unavailable', 'send_notification', 'export_selected']
+    actions = ['make_available', 'make_unavailable', 'approve_doctors', 'reject_doctors', 'send_notification']
 
     def get_photo_thumbnail(self, obj):
-        if obj.photo:
+        if obj.diploma_image:
             return format_html(
                 '<img src="{}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">',
-                obj.photo.url
+                obj.diploma_image.url
             )
         return format_html(
             '<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">👨‍⚕️</div>'
@@ -82,26 +93,27 @@ class DoctorAdmin(admin.ModelAdmin):
     def get_full_name_with_emoji(self, obj):
         return format_html(
             '<strong style="color: #333; font-size: 14px;">Dr. {} {}</strong><br>'
-            '<small style="color: #666; font-size: 12px;">🆔 {}</small>',
-            obj.first_name, obj.last_name, obj.license_number
+            '<small style="color: #666; font-size: 12px;">🆔 {}</small><br>'
+            '<small style="color: #888; font-size: 11px;">📱 {}</small>',
+            obj.user.first_name, obj.user.last_name, obj.license_number, obj.user.phone
         )
 
     get_full_name_with_emoji.short_description = '👨‍⚕️ Shifokor'
 
-    def get_photo_preview(self, obj):
-        if obj.photo:
+    def get_diploma_preview(self, obj):
+        if obj.diploma_image:
             return format_html(
                 '<div style="text-align: center;"><img src="{}" style="max-width: 300px; max-height: 300px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);"><br><small style="color: #666; margin-top: 10px; display: block;">Fayl hajmi: {} KB</small></div>',
-                obj.photo.url,
-                round(obj.photo.size / 1024, 1) if obj.photo.size else 0
+                obj.diploma_image.url,
+                round(obj.diploma_image.size / 1024, 1) if obj.diploma_image.size else 0
             )
         return format_html(
             '<div style="text-align: center; padding: 50px; background: #f8f9fa; border-radius: 15px; border: 2px dashed #dee2e6;">'
             '<div style="font-size: 48px; color: #6c757d; margin-bottom: 15px;">📷</div>'
-            '<p style="color: #6c757d; margin: 0;">Rasm yuklanmagan</p></div>'
+            '<p style="color: #6c757d; margin: 0;">Diploma yuklanmagan</p></div>'
         )
 
-    get_photo_preview.short_description = '🖼️ Rasm Preview'
+    get_diploma_preview.short_description = '🖼️ Diploma Preview'
 
     def specialty_badge(self, obj):
         specialty_colors = {
@@ -171,25 +183,12 @@ class DoctorAdmin(admin.ModelAdmin):
     experience_years.short_description = '🎯 Tajriba'
 
     def rating_stars(self, obj):
-        full_stars = int(obj.rating)
-        half_star = obj.rating - full_stars >= 0.5
-        empty_stars = 5 - full_stars - (1 if half_star else 0)
-
-        stars_html = '⭐' * full_stars
-        if half_star:
-            stars_html += '⭐'
-        stars_html += '☆' * empty_stars
-
-        rating_color = '#ffc107' if obj.rating >= 4.0 else '#17a2b8' if obj.rating >= 3.0 else '#6c757d'
-
-        return obj.rating
-        # return format_html(
-        #     '<div style="display: flex; flex-direction: column; align-items: center;">'
-        #     '<span style="font-size: 16px; letter-spacing: 1px;" title="{}/5">{}</span>'
-        #     '<small style="color: {}; font-weight: 600; margin-top: 2px;">{:.1f}/5</small>'
-        #     '</div>',
-        #     obj.rating, stars_html, rating_color, obj.rating
-        # )
+        return format_html(
+            '<div style="display: flex; flex-direction: column; align-items: center;">'
+            '<span style="font-size: 14px; letter-spacing: 1px;" title="{}/5">{:.1f}</span>'
+            '</div>',
+            obj.rating, obj.rating
+        )
 
     rating_stars.short_description = '⭐ Reyting'
 
@@ -202,14 +201,13 @@ class DoctorAdmin(admin.ModelAdmin):
         else:
             display_price = str(price)
 
-        return display_price
-        # format_html(
-        #     '<div style="text-align: center;">'
-        #     '<span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span>'
-        #     '<br><small style="color: #666; font-size: 11px;">{:,} so\'m</small>'
-        #     '</div>',
-        #     display_price, price
-        # )
+        return format_html(
+            '<div style="text-align: center;">'
+            '<span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span>'
+            '<br><small style="color: #666; font-size: 11px;">{:,} so\'m</small>'
+            '</div>',
+            display_price, price
+        )
 
     consultation_price_formatted.short_description = '💰 Narx'
 
@@ -220,6 +218,15 @@ class DoctorAdmin(admin.ModelAdmin):
                 status_html += '<br><span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 8px; font-size: 10px; margin-top: 4px; display: inline-block;">💻 Online</span>'
         else:
             status_html = '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">❌ Band</span>'
+
+        # Verification status
+        if obj.verification_status == 'approved':
+            status_html += '<br><span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 8px; font-size: 10px; margin-top: 2px; display: inline-block;">✅ Tasdiqlangan</span>'
+        elif obj.verification_status == 'pending':
+            status_html += '<br><span style="background: #ffc107; color: black; padding: 2px 8px; border-radius: 8px; font-size: 10px; margin-top: 2px; display: inline-block;">⏳ Kutilmoqda</span>'
+        elif obj.verification_status == 'rejected':
+            status_html += '<br><span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 8px; font-size: 10px; margin-top: 2px; display: inline-block;">❌ Rad etilgan</span>'
+
         return format_html(status_html)
 
     availability_status.short_description = '🟢 Holat'
@@ -230,7 +237,8 @@ class DoctorAdmin(admin.ModelAdmin):
             '<strong style="color: #667eea; font-size: 13px;">📍 {}</strong>'
             '<br><small style="color: #666; font-size: 11px;">{}</small>'
             '</div>',
-            obj.region, obj.district
+            obj.user.region if obj.user.region else 'Belgilanmagan',
+            obj.user.district if obj.user.district else 'Belgilanmagan'
         )
 
     region_info.short_description = '📍 Hudud'
@@ -255,6 +263,26 @@ class DoctorAdmin(admin.ModelAdmin):
 
     make_unavailable.short_description = "❌ Band qilish"
 
+    def approve_doctors(self, request, queryset):
+        updated = queryset.update(verification_status='approved')
+        self.message_user(
+            request,
+            format_html('✅ <strong>{}</strong> ta shifokor tasdiqlandi.', updated),
+            level='SUCCESS'
+        )
+
+    approve_doctors.short_description = "✅ Shifokorlarni tasdiqlash"
+
+    def reject_doctors(self, request, queryset):
+        updated = queryset.update(verification_status='rejected')
+        self.message_user(
+            request,
+            format_html('❌ <strong>{}</strong> ta shifokor rad etildi.', updated),
+            level='WARNING'
+        )
+
+    reject_doctors.short_description = "❌ Shifokorlarni rad etish"
+
     def send_notification(self, request, queryset):
         count = queryset.count()
         self.message_user(
@@ -265,28 +293,18 @@ class DoctorAdmin(admin.ModelAdmin):
 
     send_notification.short_description = "📧 Bildirishnoma yuborish"
 
-    def export_selected(self, request, queryset):
-        count = queryset.count()
-        self.message_user(
-            request,
-            format_html('📊 <strong>{}</strong> ta shifokor ma\'lumotlari eksport qilindi.', count),
-            level='SUCCESS'
-        )
-
-    export_selected.short_description = "📊 Eksport qilish"
-
-    # Custom view uchun
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related().prefetch_related('specializations', 'schedules')
+        return qs.select_related('user', 'hospital').prefetch_related('specializations', 'schedules')
 
 
 @admin.register(DoctorSchedule)
 class DoctorScheduleAdmin(admin.ModelAdmin):
     list_display = ['doctor_info', 'weekday_badge', 'time_range', 'availability_status']
     list_filter = ['weekday', 'is_available', 'doctor__specialty']
-    search_fields = ['doctor__first_name', 'doctor__last_name']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name', 'doctor__license_number']
     list_per_page = 20
+    autocomplete_fields = ['doctor']
 
     fieldsets = (
         ('👨‍⚕️ Shifokor', {
@@ -307,7 +325,7 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
             '<br><small style="color: #666;">{}</small>'
             '</div>'
             '</div>',
-            obj.doctor.get_short_name(),
+            f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}",
             obj.doctor.get_specialty_display()
         )
 
@@ -361,8 +379,9 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
 @admin.register(DoctorSpecialization)
 class DoctorSpecializationAdmin(admin.ModelAdmin):
     list_display = ['doctor_name', 'specialization_name', 'has_certificate', 'certificate_info']
-    search_fields = ['doctor__first_name', 'doctor__last_name', 'name']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name', 'name']
     list_filter = ['doctor__specialty']
+    autocomplete_fields = ['doctor']
 
     fieldsets = (
         ('👨‍⚕️ Shifokor', {
@@ -381,7 +400,7 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
     def doctor_name(self, obj):
         return format_html(
             '<strong style="color: #667eea;">{}</strong>',
-            obj.doctor.get_short_name()
+            f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}"
         )
 
     doctor_name.short_description = '👨‍⚕️ Shifokor'
@@ -418,6 +437,7 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
     certificate_info.short_description = '📁 Fayl'
 
 
+# Custom error handlers
 def custom_404(request, exception):
     """Custom 404 page"""
     from django.shortcuts import render

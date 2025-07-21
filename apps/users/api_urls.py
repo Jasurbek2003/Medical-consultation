@@ -18,9 +18,9 @@ app_name = 'users'
 
 urlpatterns = [
     # API endpoints
-    path('api/', include(router.urls)),
-    path('api/auth/login/', api_views.CustomAuthToken.as_view(), name='api_login'),
-    path('api/auth/token/', obtain_auth_token, name='api_token'),
+    path('', include(router.urls)),
+    path('auth/login/', api_views.CustomAuthToken.as_view(), name='api_login'),
+    path('auth/token/', obtain_auth_token, name='api_token'),
 
     # Web views (future implementation)
     path('login/', web_views.login_view, name='login'),
