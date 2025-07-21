@@ -419,10 +419,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         # Create user
         with transaction.atomic():
             user = User.objects.create(
-                password=password,
                 username=username,
                 **validated_data
             )
+            user.set_password(password)
+            user.save()
             # Create user preferences
             from .models import UserPreferences
             UserPreferences.objects.get_or_create(
