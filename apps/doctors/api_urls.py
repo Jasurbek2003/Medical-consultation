@@ -16,7 +16,7 @@ urlpatterns = [
     # Authentication endpoints (NEW)
     path('auth/register/', api_views.DoctorRegistrationView.as_view(), name='doctor_register'),
     path('auth/login/', api_views.DoctorLoginView.as_view(), name='doctor_login'),
-    path('auth/profile/', api_views.DoctorProfileView.as_view(), name='doctor_profile'),
+    path('profile/', api_views.DoctorProfileView.as_view(), name='doctor_profile'),
     path('auth/change-password/', api_views.DoctorChangePasswordView.as_view(), name='doctor_change_password'),
     path('auth/toggle-availability/', api_views.DoctorAvailabilityToggleView.as_view(),
          name='doctor_toggle_availability'),

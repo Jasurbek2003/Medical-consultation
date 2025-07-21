@@ -56,7 +56,8 @@ class UserAdmin(BaseUserAdmin):
             'classes': ('collapse',)
         }),
         ('Meta', {
-            'fields': ('created_at', 'updated_at', 'last_login', 'last_login_ip', 'is_profile_complete'),
+            'fields': ('created_at', 'updated_at', 'last_login', 'last_login_ip', 'is_profile_complete',
+                       "is_approved_by_admin", ),
             'classes': ('collapse',)
         })
     )

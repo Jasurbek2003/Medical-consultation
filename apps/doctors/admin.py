@@ -13,7 +13,7 @@ class DoctorAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         'specialty', 'degree', 'is_available', 'verification_status',
-        'is_online_consultation', 'created_at', 'user__region'
+        # 'is_online_consultation', 'created_at', 'user__region'
     ]
     search_fields = [
         'user__first_name', 'user__last_name', 'user__phone', 'user__email',
@@ -184,10 +184,7 @@ class DoctorAdmin(admin.ModelAdmin):
             display_price = str(price)
 
         return format_html(
-            '<div style="text-align: center;">'
-            '<span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span>'
-            '<br><small style="color: #666; font-size: 11px;">{:,} so\'m</small>'
-            '</div>',
+            '<div style="text-align: center;"><span style="color: #28a745; font-weight: 700; font-size: 14px;">💰 {}</span><br><small style="color: #666; font-size: 11px;">{} so\'m</small></div>',
             display_price, price
         )
 

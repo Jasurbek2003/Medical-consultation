@@ -459,6 +459,7 @@ class DoctorLoginView(APIView):
             }, status=status.HTTP_403_FORBIDDEN)
 
         # Check if user is approved by admin
+        print(user.is_approved_by_admin, "User approval status")
         if not user.is_approved_by_admin:
             return Response({
                 'success': False,
