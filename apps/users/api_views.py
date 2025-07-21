@@ -1,5 +1,6 @@
-from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework import viewsets, status, permissions, generics
+from rest_framework.decorators import action, api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -7,12 +8,14 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework.views import APIView
 
 from .models import UserMedicalHistory, UserPreferences
 from .serializers import (
     UserSerializer, UserProfileSerializer, DoctorRegistrationSerializer,
     UserMedicalHistorySerializer, UserPreferencesSerializer,
-    LoginSerializer, RegisterSerializer
+    LoginSerializer, RegisterSerializer, UserProfileUpdateSerializer, UserRegistrationSerializer,
+    ChangePasswordSerializer
 )
 
 User = get_user_model()
@@ -110,10 +113,10 @@ class UserViewSet(viewsets.ModelViewSet):
         """User login"""
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            phone = serializer.validated_data['phone']
+            username = serializer.validated_data['username']
             password = serializer.validated_data['password']
 
-            user = authenticate(request, username=phone, password=password)
+            user = authenticate(request, username=username, password=password)
 
             if user:
                 if not user.is_active:
@@ -393,3 +396,277 @@ class UserPreferencesViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class UserRegistrationAPIView(generics.CreateAPIView):
+    """
+    User Registration API
+
+    POST /api/v1/users/register/
+    """
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Create user
+        user = serializer.save()
+
+        # Create auth token
+        token, created = Token.objects.get_or_create(user=user)
+
+        # Prepare response data
+        response_data = {
+            'success': True,
+            'message': 'User registered successfully',
+            'user': UserSerializer(user).data,
+            'token': token.key
+        }
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class UserProfileAPIView(generics.RetrieveUpdateAPIView):
+    """
+    Get and Update User Profile
+
+    GET /api/v1/users/profile/
+    PUT/PATCH /api/v1/users/profile/
+    """
+    serializer_class = UserProfileUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self):
+        return self.request.user
+
+    def retrieve(self, request, *args, **kwargs):
+        """Get detailed user profile"""
+        user = self.get_object()
+        serializer = UserProfileSerializer(user)
+        return Response({
+            'success': True,
+            'user': serializer.data
+        })
+
+    def update(self, request, *args, **kwargs):
+        """Update user profile"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'user': serializer.data
+        })
+
+
+class ChangePasswordAPIView(APIView):
+    """
+    Change User Password
+
+    POST /api/v1/users/change-password/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            # Update password
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+
+            # Update token
+            Token.objects.filter(user=user).delete()
+            token = Token.objects.create(user=user)
+
+            return Response({
+                'success': True,
+                'message': 'Password changed successfully',
+                'token': token.key
+            })
+
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteAccountAPIView(APIView):
+    """
+    Delete User Account
+
+    DELETE /api/v1/users/delete-account/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        # Soft delete - just deactivate
+        user.is_active = False
+        user.save()
+
+        return Response({
+            'success': True,
+            'message': 'Account deactivated successfully'
+        })
+
+
+class UploadAvatarAPIView(APIView):
+    """
+    Upload User Avatar
+
+    POST /api/v1/users/upload-avatar/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if 'avatar' not in request.FILES:
+            return Response({
+                'success': False,
+                'error': 'No avatar file provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        user.avatar = request.FILES['avatar']
+        user.save()
+
+        return Response({
+            'success': True,
+            'message': 'Avatar uploaded successfully',
+            'avatar_url': user.avatar.url if user.avatar else None
+        })
+
+
+# Quick API endpoints for easy integration
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def quick_register(request):
+    """
+    Quick registration endpoint
+    Required: Username, password, first_name, last_name
+    Optional: email, birth_date, gender, etc.
+    """
+    serializer = UserRegistrationSerializer(data=request.data)
+
+    if serializer.is_valid():
+        user = serializer.save()
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'success': True,
+            'token': token.key,
+            'user_id': user.id,
+            'user_type': user.user_type,
+            'message': 'Registration successful'
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def quick_login(request):
+    """
+    Quick login endpoint
+    Required: Username, password
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response({
+            'success': False,
+            'error': 'Username and password are required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Authenticate user
+    user = authenticate(username=username, password=password)
+
+    if user and user.is_active:
+        # Update last login info
+        user.last_login = timezone.now()
+        user.last_login_ip = get_client_ip(request)
+        user.save(update_fields=['last_login', 'last_login_ip'])
+
+        # Get or create token
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'success': True,
+            'token': token.key,
+            'user_id': user.id,
+            'user_type': user.user_type,
+            'profile_complete': user.is_profile_complete,
+            'message': 'Login successful'
+        })
+
+    return Response({
+        'success': False,
+        'error': 'Invalid credentials or inactive account'
+    }, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_my_profile(request):
+    """
+    Get current user's profile
+    """
+    serializer = UserProfileSerializer(request.user)
+    return Response({
+        'success': True,
+        'user': serializer.data
+    })
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([permissions.IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def update_my_profile(request):
+    """
+    Update current user's profile
+    """
+    serializer = UserProfileUpdateSerializer(
+        request.user,
+        data=request.data,
+        partial=True
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'user': serializer.data
+        })
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+def get_client_ip(request):
+    """Get client IP address from request"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip

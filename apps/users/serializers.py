@@ -1,3 +1,5 @@
+from django.core.validators import RegexValidator
+from django.db import transaction
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -334,3 +336,164 @@ class UserApprovalSerializer(serializers.Serializer):
         if attrs['action'] == 'reject' and not attrs.get('reason'):
             raise serializers.ValidationError("Rad etish uchun sabab ko'rsatish kerak")
         return attrs
+
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    """Enhanced user registration serializer"""
+
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+        style={'input_type': 'password'}
+    )
+    password_confirm = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'}
+    )
+    phone = serializers.CharField(
+        required=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+998\d{9}$',
+                message='Phone number must be in format: +998901234567'
+            )
+        ]
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'phone', 'password', 'password_confirm',
+            'first_name', 'last_name', 'middle_name',
+            'email', 'birth_date', 'gender',
+            'blood_type', 'height', 'weight',
+            'region', 'district', 'address',
+            'allergies', 'chronic_diseases', 'current_medications',
+            'language'
+        ]
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'email': {'required': False},
+        }
+
+    def validate(self, attrs):
+        """Validate passwords match"""
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({
+                "password": "Password fields didn't match."
+            })
+        return attrs
+
+    def validate_phone(self, value):
+        """Check if phone number already exists"""
+        if User.objects.filter(phone=value).exists():
+            raise serializers.ValidationError(
+                "User with this phone number already exists."
+            )
+        return value
+
+    def create(self, validated_data):
+        """Create user with validated data"""
+        validated_data.pop('password_confirm')
+        password = validated_data.pop('password')
+
+        # Set username as phone number if not provided
+        if not validated_data.get('username'):
+            validated_data['username'] = validated_data['phone']
+
+        # Create user
+        with transaction.atomic():
+            user = User.objects.create_user(
+                password=password,
+                **validated_data
+            )
+
+            # Create user preferences
+            from .models import UserPreferences
+            UserPreferences.objects.create(
+                user=user,
+                preferred_language=validated_data.get('language', 'uz')
+            )
+
+        return user
+
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user profile"""
+
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    age = serializers.IntegerField(source='get_age', read_only=True)
+    bmi = serializers.FloatField(source='get_bmi', read_only=True)
+    bmi_category = serializers.CharField(source='get_bmi_category', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'phone', 'email', 'first_name', 'last_name', 'middle_name',
+            'full_name', 'birth_date', 'age', 'gender', 'avatar',
+            'blood_type', 'height', 'weight', 'bmi', 'bmi_category',
+            'allergies', 'chronic_diseases', 'current_medications',
+            'region', 'district', 'address', 'language',
+            'emergency_contact_name', 'emergency_contact_phone',
+            'emergency_contact_relation', 'notifications_enabled',
+            'email_notifications', 'sms_notifications',
+            'is_profile_complete', 'is_verified'
+        ]
+        read_only_fields = [
+            'id', 'phone', 'is_profile_complete', 'is_verified',
+            'full_name', 'age', 'bmi', 'bmi_category'
+        ]
+        extra_kwargs = {
+            'avatar': {'required': False},
+        }
+
+    def update(self, instance, validated_data):
+        """Update user profile with automatic profile completeness check"""
+
+        # Update user instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Check and update profile completeness
+        instance.check_profile_completeness()
+        instance.save()
+
+        return instance
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Serializer for password change"""
+
+    old_password = serializers.CharField(
+        required=True,
+        style={'input_type': 'password'}
+    )
+    new_password = serializers.CharField(
+        required=True,
+        validators=[validate_password],
+        style={'input_type': 'password'}
+    )
+    new_password_confirm = serializers.CharField(
+        required=True,
+        style={'input_type': 'password'}
+    )
+
+    def validate(self, attrs):
+        """Validate passwords match"""
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({
+                "new_password": "New password fields didn't match."
+            })
+        return attrs
+
+    def validate_old_password(self, value):
+        """Validate old password is correct"""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError(
+                "Old password is not correct."
+            )
+        return value
