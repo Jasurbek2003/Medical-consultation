@@ -1,4 +1,7 @@
 # apps/doctors/models.py - Enhanced Doctor Model
+from typing import List
+
+from django.conf import settings
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from django.urls import reverse
@@ -298,6 +301,48 @@ class Doctor(models.Model):
             self.admin_notes = reason
         self.save()
 
+    def get_translated_field(self, field_name: str, language: str = None) -> str:
+        """Get translated field value"""
+        if not language:
+            # Use default language from settings or user preference
+            language = getattr(settings, 'LANGUAGE_CODE', 'uzn_Latn')
+
+        try:
+            translation = self.translations
+            return translation.get_translation(field_name, language,
+                                               fallback=getattr(self, field_name, ''))
+        except DoctorTranslation.DoesNotExist:
+            return getattr(self, field_name, '')
+
+    def get_bio_translated(self, language: str = 'uzn_Latn') -> str:
+        """Get translated bio"""
+        return self.get_translated_field('bio', language)
+
+    def get_education_translated(self, language: str = 'uzn_Latn') -> str:
+        """Get translated education"""
+        return self.get_translated_field('education', language)
+
+    def get_achievements_translated(self, language: str = 'uzn_Latn') -> str:
+        """Get translated achievements"""
+        return self.get_translated_field('achievements', language)
+
+    def get_workplace_translated(self, language: str = 'uzn_Latn') -> str:
+        """Get translated workplace"""
+        return self.get_translated_field('workplace', language)
+
+    def has_translations(self) -> bool:
+        """Check if doctor has any translations"""
+        try:
+            return bool(self.translations.translations)
+        except DoctorTranslation.DoesNotExist:
+            return False
+
+    def get_translation_languages(self) -> List[str]:
+        """Get list of available translation languages"""
+        try:
+            return self.translations.get_available_languages()
+        except DoctorTranslation.DoesNotExist:
+            return []
 
 class DoctorSchedule(models.Model):
     """Shifokor ish jadvali"""
@@ -406,3 +451,157 @@ class DoctorViewStatistics(models.Model):
         return f"{self.doctor.full_name} - {self.date} ({self.daily_views} ko'rish)"
 
 
+class DoctorTranslation(models.Model):
+    """Store translations for doctor profiles"""
+
+    doctor = models.OneToOneField(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='translations',
+        verbose_name="Shifokor"
+    )
+
+    # Store all translations as JSON
+    translations = models.JSONField(
+        default=dict,
+        verbose_name="Tarjimalar",
+        help_text="All field translations in different languages"
+    )
+
+    # Translation metadata
+    source_language = models.CharField(
+        max_length=10,
+        default='uzn_Latn',
+        verbose_name="Manba til"
+    )
+
+    last_updated = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Oxirgi yangilanish"
+    )
+
+    is_auto_translated = models.BooleanField(
+        default=True,
+        verbose_name="Avtomatik tarjima"
+    )
+
+    # Quality control
+    is_verified = models.BooleanField(
+        default=False,
+        verbose_name="Tasdiqlangan"
+    )
+
+    verified_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='verified_doctor_translations',
+        verbose_name="Tasdiqlovchi"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+
+    class Meta:
+        verbose_name = "Shifokor tarjimasi"
+        verbose_name_plural = "Shifokor tarjimalari"
+        ordering = ['-last_updated']
+
+    def __str__(self):
+        return f"{self.doctor.get_full_name()} tarjimalari"
+
+    def get_translation(self, field_name: str, language: str, fallback: str = '') -> str:
+        """Get specific field translation"""
+        try:
+            return self.translations.get(field_name, {}).get(language, fallback)
+        except (AttributeError, TypeError):
+            return fallback
+
+    def set_translation(self, field_name: str, language: str, value: str):
+        """Set specific field translation"""
+        if field_name not in self.translations:
+            self.translations[field_name] = {}
+        self.translations[field_name][language] = value
+
+    def get_available_languages(self) -> List[str]:
+        """Get list of available languages for this doctor"""
+        languages = set()
+        for field_translations in self.translations.values():
+            if isinstance(field_translations, dict):
+                languages.update(field_translations.keys())
+        return list(languages)
+
+    def is_field_translated(self, field_name: str, language: str) -> bool:
+        """Check if specific field is translated to language"""
+        return bool(self.get_translation(field_name, language))
+
+
+class ConsultationTranslation(models.Model):
+    """Store translations for consultation data"""
+
+    consultation = models.OneToOneField(
+        'consultations.Consultation',
+        on_delete=models.CASCADE,
+        related_name='translations',
+        verbose_name="Konsultatsiya"
+    )
+
+    translations = models.JSONField(
+        default=dict,
+        verbose_name="Tarjimalar"
+    )
+
+    source_language = models.CharField(
+        max_length=10,
+        default='uzn_Latn',
+        verbose_name="Manba til"
+    )
+
+    last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Konsultatsiya tarjimasi"
+        verbose_name_plural = "Konsultatsiya tarjimalari"
+
+    def __str__(self):
+        return f"Konsultatsiya {self.consultation.id} tarjimalari"
+
+
+class ChatMessageTranslation(models.Model):
+    """Store translations for chat messages"""
+
+    message = models.OneToOneField(
+        'chat.ChatMessage',
+        on_delete=models.CASCADE,
+        related_name='translations',
+        verbose_name="Xabar"
+    )
+
+    translations = models.JSONField(
+        default=dict,
+        verbose_name="Tarjimalar"
+    )
+
+    source_language = models.CharField(
+        max_length=10,
+        default='uzn_Latn',
+        verbose_name="Manba til"
+    )
+
+    auto_detected_language = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        verbose_name="Aniqlangan til"
+    )
+
+    last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Xabar tarjimasi"
+        verbose_name_plural = "Xabar tarjimalari"
+
+    def __str__(self):
+        return f"Xabar {self.message.id} tarjimalari"

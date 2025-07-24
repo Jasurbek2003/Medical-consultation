@@ -2,8 +2,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
 from django.db import transaction
-from rest_framework import serializers
-from .models import Doctor, DoctorSchedule, DoctorSpecialization
+from django.utils.translation import get_language
+from rest_framework import serializers, status
+from rest_framework.response import Response
+
+from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation
+from .services.translation_service import TahrirchiTranslationService
 
 User = get_user_model()
 
@@ -463,3 +467,184 @@ class DoctorProfileUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class DoctorTranslationSerializer(serializers.ModelSerializer):
+    """Doctor translation serializer"""
+
+    available_languages = serializers.SerializerMethodField()
+    translation_stats = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DoctorTranslation
+        fields = [
+            'id', 'doctor', 'translations', 'source_language',
+            'last_updated', 'is_auto_translated', 'is_verified',
+            'verified_by', 'created_at', 'available_languages',
+            'translation_stats'
+        ]
+
+    def get_available_languages(self, obj):
+        """Get list of available languages"""
+        return obj.get_available_languages()
+
+    def get_translation_stats(self, obj):
+        """Get translation statistics"""
+        stats = {
+            'total_fields': 0,
+            'translated_fields': 0,
+            'languages': {},
+        }
+
+        for field_name, field_translations in obj.translations.items():
+            stats['total_fields'] += 1
+            if isinstance(field_translations, dict):
+                for lang, translation in field_translations.items():
+                    if translation and translation.strip():
+                        stats['translated_fields'] += 1
+                        if lang not in stats['languages']:
+                            stats['languages'][lang] = 0
+                        stats['languages'][lang] += 1
+
+        return stats
+
+
+class TranslatedDoctorSerializer(DoctorSerializer):
+    """Doctor serializer with translation support"""
+
+    # Translated fields
+    bio_translated = serializers.SerializerMethodField()
+    education_translated = serializers.SerializerMethodField()
+    achievements_translated = serializers.SerializerMethodField()
+    workplace_translated = serializers.SerializerMethodField()
+    workplace_address_translated = serializers.SerializerMethodField()
+
+    # Translation metadata
+    has_translations = serializers.SerializerMethodField()
+    available_languages = serializers.SerializerMethodField()
+
+    class Meta(DoctorSerializer.Meta):
+        fields = DoctorSerializer.Meta.fields + [
+            'bio_translated', 'education_translated', 'achievements_translated',
+            'workplace_translated', 'workplace_address_translated',
+            'has_translations', 'available_languages'
+        ]
+
+    def _get_language(self):
+        """Get language from request or default"""
+        request = self.context.get('request')
+        if request:
+            return request.query_params.get('language', get_language())
+        return get_language()
+
+    def get_bio_translated(self, obj):
+        language = self._get_language()
+        return obj.get_bio_translated(language)
+
+    def get_education_translated(self, obj):
+        language = self._get_language()
+        return obj.get_education_translated(language)
+
+    def get_achievements_translated(self, obj):
+        language = self._get_language()
+        return obj.get_achievements_translated(language)
+
+    def get_workplace_translated(self, obj):
+        language = self._get_language()
+        return obj.get_workplace_translated(language)
+
+    def get_workplace_address_translated(self, obj):
+        language = self._get_language()
+        return obj.get_translated_field('workplace_address', self._get_language())
+
+    def get_has_translations(self, obj):
+        return obj.has_translations()
+
+    def get_available_languages(self, obj):
+        return obj.get_translation_languages()
+
+
+class TextTranslationSerializer(serializers.Serializer):
+    """Serializer for text translation requests"""
+
+    text = serializers.CharField(required=True, max_length=5000)
+    source_lang = serializers.CharField(default='uzn_Latn', max_length=10)
+    target_lang = serializers.CharField(default='rus_Cyrl', max_length=10)
+
+    def validate_text(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Text cannot be empty")
+        return value
+
+    def validate_source_lang(self, value):
+        from .services.translation_service import TranslationConfig
+        config = TranslationConfig()
+        if value not in config.LANGUAGES.values():
+            raise serializers.ValidationError(f"Unsupported source language: {value}")
+        return value
+
+    def validate_target_lang(self, value):
+        from .services.translation_service import TranslationConfig
+        config = TranslationConfig()
+        if value not in config.LANGUAGES.values():
+            raise serializers.ValidationError(f"Unsupported target language: {value}")
+        return value
+
+
+class BatchTranslationSerializer(serializers.Serializer):
+    """Serializer for batch translation requests"""
+
+    texts = serializers.ListField(
+        child=serializers.CharField(max_length=5000),
+        max_length=100,
+        min_length=1
+    )
+    source_lang = serializers.CharField(default='uzn_Latn', max_length=10)
+    target_lang = serializers.CharField(default='rus_Cyrl', max_length=10)
+
+    def validate_texts(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one text is required")
+
+        # Check for empty texts
+        for i, text in enumerate(value):
+            if not text.strip():
+                raise serializers.ValidationError(f"Text at index {i} cannot be empty")
+
+        return value
+
+def translate_text_api(request):
+    """API endpoint for translating arbitrary text"""
+
+    text = request.data.get('text')
+    source_lang = request.data.get('source_lang', 'uzn_Latn')
+    target_lang = request.data.get('target_lang', 'rus_Cyrl')
+
+    if not text:
+        return Response(
+            {'error': 'Text is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        translator = TahrirchiTranslationService()
+        translated_text = translator.translate_text(text, source_lang, target_lang)
+
+        if translated_text:
+            return Response({
+                'original_text': text,
+                'translated_text': translated_text,
+                'source_language': source_lang,
+                'target_language': target_lang
+            })
+        else:
+            return Response(
+                {'error': 'Translation failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    except Exception as e:
+        return Response(
+            {'error': f'Translation error: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

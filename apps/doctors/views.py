@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status, permissions, filters
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Avg, Count
@@ -7,11 +7,13 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .filters import DoctorFilter
-from .models import Doctor, DoctorSchedule, DoctorViewStatistics, DoctorSpecialization
+from .models import Doctor, DoctorSchedule, DoctorViewStatistics, DoctorSpecialization, DoctorTranslation
 from .serializers import (
     DoctorSerializer, DoctorDetailSerializer, DoctorScheduleSerializer,
-    DoctorStatisticsSerializer, DoctorUpdateSerializer, DoctorSpecializationSerializer
+    DoctorStatisticsSerializer, DoctorUpdateSerializer, DoctorSpecializationSerializer, DoctorTranslationSerializer
 )
+from .services.translation_service import DoctorTranslationService, TahrirchiTranslationService
+
 
 class DoctorSpecializationViewSet(viewsets.ModelViewSet):
     """Doctor specialization management"""
@@ -420,6 +422,124 @@ class DoctorViewSet(viewsets.ModelViewSet):
         else:
             return False
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def translate_profile(self, request, pk=None):
+        """Translate doctor profile to all languages"""
+        doctor = self.get_object()
+
+        # Check permissions - only doctor themselves or admin can translate
+        if request.user != doctor.user and not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        source_lang = request.data.get('source_language', 'uzn_Latn')
+
+        try:
+            translation_service = DoctorTranslationService()
+
+            # Get translations
+            translations = translation_service.translate_doctor_profile(doctor, source_lang)
+
+            # Save translations
+            translation_obj = translation_service.save_doctor_translations(doctor, translations)
+
+            if translation_obj:
+                serializer = DoctorTranslationSerializer(translation_obj)
+                return Response({
+                    'message': 'Profile translated successfully',
+                    'translations': serializer.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {'error': 'Failed to save translations'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Exception as e:
+            return Response(
+                {'error': f'Translation failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
+    def get_translations(self, request, pk=None):
+        """Get doctor profile translations"""
+        doctor = self.get_object()
+        language = request.query_params.get('language')
+
+        try:
+            translation_obj = doctor.translations
+
+            if language:
+                # Get specific language translations
+                translated_data = {}
+                for field_name in ['bio', 'education', 'achievements', 'workplace', 'workplace_address']:
+                    translated_data[field_name] = translation_obj.get_translation(
+                        field_name, language, getattr(doctor, field_name, '')
+                    )
+
+                return Response({
+                    'language': language,
+                    'translations': translated_data
+                })
+            else:
+                # Get all translations
+                serializer = DoctorTranslationSerializer(translation_obj)
+                return Response(serializer.data)
+
+        except DoctorTranslation.DoesNotExist:
+            return Response(
+                {'error': 'No translations found for this doctor'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
+    def update_translation(self, request, pk=None):
+        """Update specific translation for doctor"""
+        doctor = self.get_object()
+
+        # Check permissions
+        if request.user != doctor.user and not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        field_name = request.data.get('field_name')
+        language = request.data.get('language')
+        translation = request.data.get('translation')
+
+        if not all([field_name, language, translation]):
+            return Response(
+                {'error': 'field_name, language, and translation are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            translation_obj, created = DoctorTranslation.objects.get_or_create(
+                doctor=doctor,
+                defaults={'translations': {}}
+            )
+
+            # Update specific translation
+            translation_obj.set_translation(field_name, language, translation)
+            translation_obj.is_auto_translated = False  # Mark as manually edited
+            translation_obj.save()
+
+            return Response({
+                'message': 'Translation updated successfully',
+                'field_name': field_name,
+                'language': language,
+                'translation': translation
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to update translation: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class DoctorScheduleViewSet(viewsets.ModelViewSet):
     """Doctor schedule management"""
@@ -467,3 +587,95 @@ class DoctorScheduleViewSet(viewsets.ModelViewSet):
 
         serializer = DoctorScheduleSerializer(schedules, many=True)
         return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def batch_translate_api(request):
+    """API endpoint for batch translating multiple texts"""
+
+    texts = request.data.get('texts', [])
+    source_lang = request.data.get('source_lang', 'uzn_Latn')
+    target_lang = request.data.get('target_lang', 'rus_Cyrl')
+
+    if not texts or not isinstance(texts, list):
+        return Response(
+            {'error': 'texts must be a non-empty list'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(texts) > 100:  # Limit batch size
+        return Response(
+            {'error': 'Maximum 100 texts allowed per batch'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        translator = TahrirchiTranslationService()
+        translated_texts = translator.batch_translate(texts, source_lang, target_lang)
+
+        results = []
+        for i, (original, translated) in enumerate(zip(texts, translated_texts)):
+            results.append({
+                'index': i,
+                'original_text': original,
+                'translated_text': translated or original,  # Fallback to original
+                'success': translated is not None
+            })
+
+        return Response({
+            'results': results,
+            'source_language': source_lang,
+            'target_language': target_lang,
+            'total_count': len(texts),
+            'success_count': sum(1 for result in results if result['success'])
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': f'Batch translation error: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def translate_all_doctors_api(request):
+    """API endpoint for translating all doctors (admin only)"""
+
+    batch_size = request.data.get('batch_size', 10)
+
+    if batch_size > 50:  # Limit batch size
+        batch_size = 50
+
+    try:
+        translation_service = DoctorTranslationService()
+
+        # Run translation in background (you might want to use Celery for this)
+        translation_service.translate_all_doctors(batch_size)
+
+        return Response({
+            'message': 'Translation of all doctors started successfully',
+            'batch_size': batch_size
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to start translation: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_translation_languages(request):
+    """Get list of supported translation languages"""
+
+    from .services.translation_service import TranslationConfig
+
+    config = TranslationConfig()
+
+    return Response({
+        'supported_languages': config.LANGUAGES,
+        'default_source': 'uzn_Latn',
+        'available_targets': list(config.LANGUAGES.values())
+    })
