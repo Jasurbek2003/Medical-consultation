@@ -153,6 +153,8 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
 
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
+
     class Meta:
         model = Doctor
         fields = [
@@ -160,7 +162,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'experience', 'degree', 'rating', 'total_reviews',
             'consultation_price', 'is_available', 'is_online_consultation',
             'hospital_name', 'workplace', 'verification_status',
-            'total_consultations', 'success_rate', 'photo'
+            'total_consultations', 'success_rate', 'avatar'
         ]
 
 
