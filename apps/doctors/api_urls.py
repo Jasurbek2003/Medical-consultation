@@ -35,7 +35,7 @@ urlpatterns = [
 
     # Public endpoints (no authentication required)
     path('public/list/', api_views.PublicDoctorListView.as_view(), name='public_list'),
-    path('public/detail/<uuid:doctor_id>/', api_views.PublicDoctorDetailView.as_view(), name='public_detail'),
+    path('public/detail/<int:id>/', api_views.PublicDoctorDetailView.as_view(), name='public_detail'),
     path('public/search/', api_views.PublicDoctorSearchView.as_view(), name='public_search'),
     path('public/specialties/', api_views.PublicSpecialtiesView.as_view(), name='public_specialties'),
     path('public/featured/', api_views.FeaturedDoctorsView.as_view(), name='featured_doctors'),
