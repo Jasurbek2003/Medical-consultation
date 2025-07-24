@@ -7,6 +7,7 @@ from .models import Doctor, DoctorSchedule, DoctorSpecialization
 
 User = get_user_model()
 
+
 class DoctorSerializer(serializers.ModelSerializer):
     """Shifokor serializer (ro'yxat uchun)"""
 
@@ -15,21 +16,32 @@ class DoctorSerializer(serializers.ModelSerializer):
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     age = serializers.SerializerMethodField()
 
+    # Add these fields to access User model fields properly
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    region = serializers.CharField(source='user.region', read_only=True)
+    district = serializers.CharField(source='user.district', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    language = serializers.CharField(source='user.language', read_only=True)
+
+
     class Meta:
         model = Doctor
         fields = [
-            'id', 'full_name', 'short_name', 'user__first_name', 'user__last_name',
+            'id', 'full_name', 'short_name', 'first_name', 'last_name',
             'specialty', 'specialty_display', 'experience', 'degree',
             'rating', 'total_reviews', 'consultation_price',
             'workplace', 'region', 'district', 'phone', 'email',
-            'is_available', 'is_online_consultation', 'photo',
-            'work_start_time', 'work_end_time', 'languages', 'age'
+            'is_available', 'is_online_consultation', 'avatar',
+            'work_start_time', 'work_end_time', 'language', 'age'
         ]
 
     def get_age(self, obj):
         """Tajribaga asoslangan yosh"""
         return obj.experience + 25  # Taxminiy yosh
-
 
 class DoctorDetailSerializer(DoctorSerializer):
     """Shifokor batafsil serializer"""
