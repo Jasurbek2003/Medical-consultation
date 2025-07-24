@@ -6,10 +6,10 @@ app_name = 'admin_panel'
 
 urlpatterns = [
     # Dashboard
-    path('', views.admin_dashboard, name='dashboard'),
+    # path('', views.admin_dashboard, name='dashboard'),
 
     # Doctor Management
-    path('doctors/', views.doctor_management, name='doctor_management'),
+    path('', views.doctor_management, name='doctor_management'),
     path('doctors/<uuid:doctor_id>/', views.doctor_detail, name='doctor_detail'),
     path('doctors/<uuid:doctor_id>/approve/', views.approve_doctor, name='approve_doctor'),
     path('doctors/<uuid:doctor_id>/reject/', views.reject_doctor, name='reject_doctor'),

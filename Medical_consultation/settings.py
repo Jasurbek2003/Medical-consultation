@@ -170,7 +170,10 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Barcha foydalanuvchilar uchun
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',  # Ochiq API uchun
         'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAdminUser',  # Admin uchun
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
