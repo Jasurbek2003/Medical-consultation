@@ -49,6 +49,8 @@ class DoctorDetailSerializer(DoctorSerializer):
     schedules = serializers.SerializerMethodField()
     specializations = serializers.SerializerMethodField()
     recent_reviews = serializers.SerializerMethodField()
+    middle_name = serializers.CharField(source='user.middle_name', read_only=True)
+    address = serializers.CharField(source='user.address', read_only=True)
 
     class Meta(DoctorSerializer.Meta):
         fields = DoctorSerializer.Meta.fields + [
