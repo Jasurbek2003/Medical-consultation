@@ -38,7 +38,8 @@ class TahrirchiTranslationService:
             'Content-Type': 'application/json'
         })
 
-    def _generate_cache_key(self, text: str, source_lang: str, target_lang: str) -> str:
+    @staticmethod
+    def _generate_cache_key(text: str, source_lang: str, target_lang: str) -> str:
         """Generate cache key for translation"""
         import hashlib
         text_hash = hashlib.md5(text.encode()).hexdigest()
@@ -179,8 +180,6 @@ class DoctorTranslationService:
         Returns:
             Dictionary with field names and their translations
         """
-        from apps.doctors.models import Doctor
-
         # Fields to translate
         translatable_fields = {
             'bio': doctor.bio or '',
@@ -216,7 +215,8 @@ class DoctorTranslationService:
 
         return translations
 
-    def save_doctor_translations(self, doctor, translations: Dict[str, Dict[str, str]]):
+    @staticmethod
+    def save_doctor_translations(doctor, translations: Dict[str, Dict[str, str]]):
         """
         Save translations to doctor's translation model
 
@@ -246,7 +246,8 @@ class DoctorTranslationService:
             logger.error(f"Failed to save doctor translations: {e}")
             return None
 
-    def get_doctor_translation(self, doctor, field_name: str, language: str) -> str:
+    @staticmethod
+    def get_doctor_translation(doctor, field_name: str, language: str) -> str:
         """
         Get specific field translation for doctor
 

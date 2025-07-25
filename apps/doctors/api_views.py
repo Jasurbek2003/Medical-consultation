@@ -508,6 +508,7 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         """Get the doctor profile of the authenticated user"""
+        print("Fetching doctor profile for user:", self.request.user)
         user = self.request.user
 
         if user.user_type != 'doctor':
