@@ -11,13 +11,12 @@ urlpatterns = [
     path('admin-panel/', include('apps.admin_panel.urls')),
 
     # Hospital Admin Panel
-    path('hospital-admin/', include('apps.hospitals.urls')),
+    # path('hospital-admin/', include('apps.hospitals.urls')),
 
     # API endpoints
     path('api/v1/users/', include('apps.users.api_urls')),
     path('api/v1/doctors/', include('apps.doctors.api_urls')),
     path('api/v1/hospitals/', include('apps.hospitals.urls')),
-    path('users-web/', include(('apps.users.web_urls', 'users_web'))),
     path('api/v1/consultations/', include('apps.consultations.api_urls')),
     path('api/v1/chat/', include('apps.chat.api_urls')),
 

@@ -15,7 +15,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(','
 
 CSRF_TRUSTED_ORIGINS = [
     "https://inaf.avlo.app",
-    "http://localhost:5173"
+    "http://localhost:5173",
     "https://call.avlo.ai",
     "https://med.quloqai.uz",
 ]
@@ -54,7 +54,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files uchun
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',  # MUHIM: Ko'p tillilik uchun
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

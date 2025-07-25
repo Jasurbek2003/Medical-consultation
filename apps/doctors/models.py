@@ -492,7 +492,7 @@ class DoctorTranslation(models.Model):
     )
 
     verified_by = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         blank=True,
         null=True,

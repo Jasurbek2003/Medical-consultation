@@ -498,7 +498,7 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
     PUT/PATCH /api/v1/doctors/auth/profile/
     """
     serializer_class = DoctorProfileUpdateSerializer
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
