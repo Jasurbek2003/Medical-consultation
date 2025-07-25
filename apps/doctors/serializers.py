@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
 from django.db import transaction
+from django.utils import timezone
 from django.utils.translation import get_language
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -44,8 +45,11 @@ class DoctorSerializer(serializers.ModelSerializer):
         ]
 
     def get_age(self, obj):
-        """Tajribaga asoslangan yosh"""
-        return obj.experience + 25  # Taxminiy yosh
+        """Calculate age based on experience or birth date"""
+        if hasattr(obj.user, 'birth_date') and obj.user.birth_date:
+            today = timezone.now().date()
+            return today.year - obj.user.birth_date.year
+        return obj.experience + 25  # Approximate age based on experience
 
 class DoctorDetailSerializer(DoctorSerializer):
     """Shifokor batafsil serializer"""

@@ -366,10 +366,15 @@ class TopRatedDoctorsView(generics.ListAPIView):
 # You can implement these based on your specific requirements
 
 class DoctorMonthlyAnalyticsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
     def get(self, request):
-        return Response({'message': 'Monthly analytics endpoint'})
+        doctor = get_object_or_404(Doctor, user=request.user)
+        # Implement actual analytics logic
+        return Response({
+            'consultations_this_month': doctor.consultations.filter(
+                created_at__month=timezone.now().month
+            ).count(),
+            # Add more analytics
+        })
 
 
 class DoctorYearlyAnalyticsView(APIView):

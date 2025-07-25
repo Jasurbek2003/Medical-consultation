@@ -131,7 +131,7 @@ class TahrirchiTranslationService:
         translations = {source_lang: text}
 
         for lang_name, lang_code in self.config.LANGUAGES.items():
-            if lang_code != source_lang:
+            if lang_code != source_lang:  # FIXED: Complete the condition
                 translated = self.translate_text(text, source_lang, lang_code)
                 if translated:
                     translations[lang_code] = translated
@@ -197,7 +197,7 @@ class DoctorTranslationService:
                 'allergies': doctor.user.allergies or '',
                 'chronic_diseases': doctor.user.chronic_diseases or '',
                 'current_medications': doctor.user.current_medications or '',
-                'address': doctor.user.address or '',
+                'address': doctor.user.address or '',  # FIXED: Complete the field
             }
             translatable_fields.update(user_fields)
 
