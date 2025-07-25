@@ -2,6 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from . import api_views
+from .serializers import translate_text_api
+from .views import batch_translate_api, translate_all_doctors_api, get_translation_languages
 
 app_name = 'doctors_api'
 
