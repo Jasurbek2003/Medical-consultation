@@ -80,7 +80,7 @@ def admin_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_management(request):
     """Doctor management page for admin"""
 
@@ -136,7 +136,8 @@ def doctor_management(request):
     return Response(data)
 
 
-@staff_member_required
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def doctor_detail(request, doctor_id):
     """Doctor detail page for admin"""
 
@@ -154,13 +155,17 @@ def doctor_detail(request, doctor_id):
         doctor=doctor
     ).order_by('-created_at')[:10]
 
-    context = {
-        'doctor': doctor,
-        'consultation_stats': consultation_stats,
-        'recent_consultations': recent_consultations,
-    }
+    serializer = DoctorSerializer(doctor)
+    print(consultation_stats)
 
-    return render(request, 'admin_panel/doctor_detail.html', context)
+    context = {
+        'doctor': serializer.data,
+        'consultation_stats': consultation_stats,
+        'recent_consultations': list(recent_consultations.values()),
+    }
+    print("Admin doctor detail context:", context)
+
+    return JsonResponse(context)
 
 
 @staff_member_required
