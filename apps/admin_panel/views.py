@@ -7,9 +7,11 @@ from django.db.models import Count, Avg, Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
 
 from apps.doctors.models import Doctor
+from apps.doctors.serializers import DoctorSerializer
 from apps.hospitals.models import Hospital
 from apps.consultations.models import Consultation
 
@@ -78,7 +80,7 @@ def admin_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def doctor_management(request):
     """Doctor management page for admin"""
 
@@ -111,19 +113,27 @@ def doctor_management(request):
     doctors_page = paginator.get_page(page_number)
 
     # Get filter options
-    specialties = Doctor.SPECIALTIES
-    statuses = Doctor.VERIFICATION_STATUS
+    serializer = DoctorSerializer(doctors_page, many=True)
 
-    context = {
-        'doctors': doctors_page,
-        'specialties': specialties,
-        'statuses': statuses,
-        'current_status': status_filter,
-        'current_specialty': specialty_filter,
-        'search_query': search_query,
+    data = {
+        'doctors': serializer.data,
+        'pagination': {
+            'current_page': doctors_page.number,
+            'total_pages': doctors_page.paginator.num_pages,
+            'has_next': doctors_page.has_next(),
+            'has_previous': doctors_page.has_previous(),
+            'total_items': doctors_page.paginator.count,
+        },
+        'filters': {
+            'specialties': dict(Doctor.SPECIALTIES),
+            'statuses': dict(Doctor.VERIFICATION_STATUS),
+            'current_status': status_filter,
+            'current_specialty': specialty_filter,
+            'search_query': search_query,
+        }
     }
-    return JsonResponse(context)
 
+    return Response(data)
 
 
 @staff_member_required
