@@ -137,7 +137,7 @@ def doctor_management(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_detail(request, doctor_id):
     """Doctor detail page for admin"""
 
@@ -168,7 +168,8 @@ def doctor_detail(request, doctor_id):
     return JsonResponse(context)
 
 
-@staff_member_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def approve_doctor(request, doctor_id):
     """Approve doctor"""
 
@@ -191,7 +192,8 @@ def approve_doctor(request, doctor_id):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
-@staff_member_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def reject_doctor(request, doctor_id):
     """Reject doctor"""
 
