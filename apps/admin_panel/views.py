@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.db.models import Count, Avg, Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
+from rest_framework.decorators import api_view, permission_classes
 
 from apps.doctors.models import Doctor
 from apps.hospitals.models import Hospital
@@ -75,7 +76,8 @@ def admin_dashboard(request):
     return render(request, 'admin_panel/dashboard.html', context)
 
 
-@staff_member_required
+@api_view(['GET'])
+@permission_classes(['IsAuthenticated'])
 def doctor_management(request):
     """Doctor management page for admin"""
 
