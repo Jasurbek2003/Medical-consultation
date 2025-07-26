@@ -285,7 +285,7 @@ class DoctorTranslationService:
         """
         from apps.doctors.models import Doctor
 
-        doctors = Doctor.objects.filter(is_verified=True)
+        doctors = Doctor.objects.filter(user__is_approved_by_admin=True)
         total_doctors = doctors.count()
 
         logger.info(f"Starting translation of {total_doctors} doctors")

@@ -508,7 +508,7 @@ class DoctorTranslation(models.Model):
         ordering = ['-last_updated']
 
     def __str__(self):
-        return f"{self.doctor.get_full_name()} tarjimalari"
+        return f"{self.doctor.user.get_full_name()} tarjimalari"
 
     def get_translation(self, field_name: str, language: str, fallback: str = '') -> str:
         """Get specific field translation"""

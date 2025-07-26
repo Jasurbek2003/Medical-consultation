@@ -639,7 +639,7 @@ def batch_translate_api(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAdminUser])
+@permission_classes([permissions.IsAuthenticated])
 def translate_all_doctors_api(request):
     """API endpoint for translating all doctors (admin only)"""
 

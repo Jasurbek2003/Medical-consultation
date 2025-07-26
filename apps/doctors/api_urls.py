@@ -43,9 +43,5 @@ urlpatterns = [
     path('public/featured/', api_views.FeaturedDoctorsView.as_view(), name='featured_doctors'),
     path('public/top-rated/', api_views.TopRatedDoctorsView.as_view(), name='top_rated_public'),
 
-    # Translation API endpoints
-    path('api/translate/text/', translate_text_api, name='translate-text'),
-    path('api/translate/batch/', batch_translate_api, name='batch-translate'),
-    path('api/translate/all-doctors/', translate_all_doctors_api, name='translate-all-doctors'),
-    path('api/translate/languages/', get_translation_languages, name='translation-languages'),
+
 ]

@@ -63,22 +63,6 @@ class DoctorDocumentUploadView(APIView):
         return Response({'success': True, 'message': 'Hujjatlar yuklandi'})
 
 
-class DoctorAvailabilityToggleView(APIView):
-    """Toggle doctor availability"""
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        doctor = get_object_or_404(Doctor, user=request.user)
-        doctor.is_available = not doctor.is_available
-        doctor.save()
-
-        return Response({
-            'success': True,
-            'is_available': doctor.is_available,
-            'message': 'Mavjudlik holati yangilandi'
-        })
-
-
 class DoctorScheduleBulkUpdateView(APIView):
     """Bulk update doctor schedule"""
     permission_classes = [permissions.IsAuthenticated]

@@ -119,8 +119,8 @@ def doctor_management(request):
         'current_specialty': specialty_filter,
         'search_query': search_query,
     }
+    return JsonResponse(context)
 
-    return render(request, 'admin_panel/doctor_management.html', context)
 
 
 @staff_member_required
