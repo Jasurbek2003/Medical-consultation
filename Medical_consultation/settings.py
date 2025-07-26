@@ -18,6 +18,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://call.avlo.ai",
     "https://med.quloqai.uz",
+    "https://med-admin.quloqai.uz",
 ]
 # Application definition
 DJANGO_APPS = [
