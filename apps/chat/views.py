@@ -70,52 +70,6 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================
-# WEB VIEWS (Template render qiladi)
-# ============================================
-
-class ChatRoomView(TemplateView):
-    """Asosiy chat sahifasi"""
-    template_name = 'chat/chat_room.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # Session ID URL dan olish
-        session_id = self.kwargs.get('session_id') or self.request.GET.get('session')
-
-        if session_id:
-            try:
-                session = ChatSession.objects.get(id=session_id)
-                context['session'] = session
-                context['messages'] = session.messages.order_by('created_at')
-            except ChatSession.DoesNotExist:
-                context['session'] = None
-
-        context.update({
-            'specialties': Doctor.SPECIALTIES,
-            'ai_available': AI_AVAILABLE,
-            'page_title': _('Tibbiy Chat - AI Yordamchi'),
-            'current_language': get_language(),
-        })
-
-        return context
-
-
-class ChatInterfaceView(TemplateView):
-    """Chat interface sahifasi"""
-    template_name = 'chat/chat_interface.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context.update({
-            'ai_available': AI_AVAILABLE,
-            'page_title': _('Chat Interface'),
-            'current_language': get_language(),
-        })
-        return context
-
-
-# ============================================
 # API VIEWS (JSON response qaytaradi)
 # ============================================
 
