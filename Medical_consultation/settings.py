@@ -194,6 +194,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",  # Vite development server
     "http://192.168.0.29:5173",
     "https://inaf.avlo.app",
+    "https://med-admin.quloqai.uz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
