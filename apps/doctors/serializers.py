@@ -41,7 +41,7 @@ class DoctorSerializer(serializers.ModelSerializer):
             'rating', 'total_reviews', 'consultation_price',
             'workplace', 'region', 'district', 'phone', 'email',
             'is_available', 'is_online_consultation', 'avatar',
-            'work_start_time', 'work_end_time', 'language', 'age'
+            'work_start_time', 'work_end_time', 'language', 'age', 'verification_status'
         ]
 
     def get_age(self, obj):
