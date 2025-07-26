@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
@@ -372,7 +374,7 @@ def ajax_doctor_stats(request, doctor_id):
     doctor = get_object_or_404(Doctor, id=doctor_id, hospital=hospital)
 
     # Get statistics for the last 30 days
-    thirty_days_ago = timezone.now().date() - timezone.timedelta(days=30)
+    thirty_days_ago = timezone.now().date() - timedelta(days=30)
 
     # Daily view statistics
     daily_stats = DoctorViewStatistics.objects.filter(
