@@ -181,13 +181,10 @@ def approve_doctor(request, doctor_id):
 
         messages.success(request, f'Shifokor {doctor.full_name} muvaffaqiyatli tasdiqlandi.')
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': 'Shifokor tasdiqlandi'
-            })
-
-        return redirect('admin_panel:doctor_detail', doctor_id=doctor_id)
+        return JsonResponse({
+            'success': True,
+            'message': 'Shifokor tasdiqlandi'
+        })
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -206,13 +203,10 @@ def reject_doctor(request, doctor_id):
 
         messages.warning(request, f'Shifokor {doctor.full_name} rad etildi.')
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': 'Shifokor rad etildi'
-            })
-
-        return redirect('admin_panel:doctor_detail', doctor_id=doctor_id)
+        return JsonResponse({
+            'success': True,
+            'message': 'Shifokor rad etildi'
+        })
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
