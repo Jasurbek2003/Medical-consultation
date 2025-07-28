@@ -500,7 +500,7 @@ class DoctorTranslationAdmin(admin.ModelAdmin):
             'description': 'Raw translation JSON data'
         }),
         ('📅 Timestamps', {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('created_at',),
             'classes': ('collapse',)
         })
     )

@@ -9,11 +9,13 @@ from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from yaml import serialize
 
 from apps.doctors.models import Doctor
 from apps.doctors.serializers import DoctorSerializer
 from apps.hospitals.models import Hospital
 from apps.consultations.models import Consultation
+from apps.hospitals.serializers import HospitalSerializer
 
 User = get_user_model()
 
@@ -156,14 +158,12 @@ def doctor_detail(request, doctor_id):
     ).order_by('-created_at')[:10]
 
     serializer = DoctorSerializer(doctor)
-    print(consultation_stats)
 
     context = {
         'doctor': serializer.data,
         'consultation_stats': consultation_stats,
         'recent_consultations': list(recent_consultations.values()),
     }
-    print("Admin doctor detail context:", context)
 
     return JsonResponse(context)
 
@@ -303,8 +303,8 @@ def toggle_user_status(request, user_id):
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-
-@staff_member_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def hospital_management(request):
     """Hospital management page"""
 
@@ -331,14 +331,25 @@ def hospital_management(request):
     page_number = request.GET.get('page')
     hospitals_page = paginator.get_page(page_number)
 
-    context = {
-        'hospitals': hospitals_page,
-        'hospital_types': Hospital.HOSPITAL_TYPES,
-        'current_type': hospital_type_filter,
-        'search_query': search_query,
+    serializer = HospitalSerializer(hospitals_page, many=True)
+
+    data = {
+        'hospitals': serializer.data,
+        'pagination': {
+            'current_page': hospitals_page.number,
+            'total_pages': hospitals_page.paginator.num_pages,
+            'has_next': hospitals_page.has_next(),
+            'has_previous': hospitals_page.has_previous(),
+            'total_items': hospitals_page.paginator.count,
+        },
+        'filters': {
+            'hospital_types': dict(Hospital.HOSPITAL_TYPES),
+            'current_type': hospital_type_filter,
+            'search_query': search_query,
+        }
     }
 
-    return render(request, 'admin_panel/hospital_management.html', context)
+    return Response(data)
 
 
 @staff_member_required
