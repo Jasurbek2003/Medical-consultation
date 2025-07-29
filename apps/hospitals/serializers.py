@@ -13,7 +13,7 @@ class HospitalSerializer(serializers.ModelSerializer):
 
     def get_full_address(self, obj):
         # Custom method to format address
-        return f"{obj.address}, {obj.city}, {obj.state}"
+        return f"{obj.address}"
 
     def validate_phone(self, value):
         # Custom validation for phone field
