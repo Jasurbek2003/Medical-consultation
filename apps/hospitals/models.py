@@ -77,7 +77,7 @@ class Hospital(models.Model):
     def update_statistics(self):
         """Statistikalarni yangilash"""
         # Shifokorlar sonini hisoblash
-        self.total_doctors = self.doctors.filter(is_active=True, is_verified=True).count()
+        self.total_doctors = self.doctors.filter(is_available=True, user__is_verified=True).count()
 
         # Bemorlar sonini hisoblash (unique patients from consultations)
         from apps.consultations.models import Consultation
