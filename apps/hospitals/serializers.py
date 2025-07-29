@@ -9,7 +9,9 @@ class HospitalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Hospital
-        fields = ['id', 'name', 'address', 'phone', 'email', 'full_address']
+        fields = ['id', 'name', "short_name", 'hospital_type', 'address', 'phone', 'email', 'full_address', 'website',
+                  'logo', 'created_at', 'updated_at', 'is_active', 'is_verified', 'description', 'services',
+                  'working_hours', 'total_doctors', 'total_patients', 'rating']
 
     def get_full_address(self, obj):
         # Custom method to format address
