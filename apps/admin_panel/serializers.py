@@ -1,0 +1,451 @@
+"""
+Admin Panel Serializers for DRF
+Comprehensive serializers for hospital and doctor management
+"""
+
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from apps.hospitals.models import Hospital
+from apps.doctors.models import Doctor
+from apps.consultations.models import Consultation
+
+User = get_user_model()
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Serializer for user information in admin panel"""
+
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    user_type_display = serializers.CharField(source='get_user_type_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'full_name',
+            'phone', 'email', 'user_type', 'user_type_display',
+            'is_active', 'is_verified', 'is_approved_by_admin',
+            'created_at', 'last_login', 'region', 'district'
+        ]
+        read_only_fields = ['id', 'created_at', 'last_login']
+
+
+class AdminHospitalSerializer(serializers.ModelSerializer):
+    """Serializer for hospital management in admin panel"""
+
+    # Statistics fields
+    doctor_count = serializers.SerializerMethodField()
+    active_doctor_count = serializers.SerializerMethodField()
+    total_consultations = serializers.SerializerMethodField()
+
+    # Display fields
+    hospital_type_display = serializers.CharField(
+        source='get_hospital_type_display',
+        read_only=True
+    )
+
+    class Meta:
+        model = Hospital
+        fields = [
+            'id', 'name', 'address', 'phone', 'email',
+            'hospital_type', 'hospital_type_display',
+            'region', 'district', 'website', 'description',
+            'is_active',
+            'doctor_count', 'active_doctor_count', 'total_consultations',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_doctor_count(self, obj):
+        """Get total number of doctors in hospital"""
+        return obj.doctors.count()
+
+    def get_active_doctor_count(self, obj):
+        """Get number of active doctors in hospital"""
+        return obj.doctors.filter(is_available=True).count()
+
+    def get_total_consultations(self, obj):
+        """Get total consultations for this hospital"""
+        return Consultation.objects.filter(doctor__hospital=obj).count()
+
+    def validate_phone(self, value):
+        """Validate phone number format"""
+        if value and not value.startswith('+998'):
+            raise serializers.ValidationError(
+                "Telefon raqam +998 bilan boshlanishi kerak"
+            )
+        return value
+
+    def validate_email(self, value):
+        """Validate email uniqueness"""
+        if value:
+            # Check if email exists for other hospitals
+            if Hospital.objects.filter(email=value).exclude(id=self.instance.id if self.instance else None).exists():
+                raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
+        return value
+
+
+class AdminDoctorSerializer(serializers.ModelSerializer):
+    """Serializer for doctor management in admin panel"""
+
+    # User information
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    user_is_active = serializers.BooleanField(source='user.is_active', read_only=True)
+    user_is_verified = serializers.BooleanField(source='user.is_verified', read_only=True)
+    user_created_at = serializers.DateTimeField(source='user.created_at', read_only=True)
+
+    # Hospital information
+    hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
+    hospital_id = serializers.IntegerField(source='hospital.id', read_only=True, allow_null=True)
+
+    # Display fields
+    specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
+    verification_status_display = serializers.CharField(
+        source='get_verification_status_display',
+        read_only=True
+    )
+
+    # Statistics
+    consultation_count = serializers.SerializerMethodField()
+    success_rate = serializers.SerializerMethodField()
+
+    # Approval information
+    approved_by_name = serializers.CharField(
+        source='approved_by.get_full_name',
+        read_only=True,
+        allow_null=True
+    )
+    rejected_by_name = serializers.CharField(
+        source='rejected_by.get_full_name',
+        read_only=True,
+        allow_null=True
+    )
+
+    class Meta:
+        model = Doctor
+        fields = [
+            # Basic info
+            'id', 'user_id', 'first_name', 'last_name', 'full_name',
+            'phone', 'email', 'avatar', 'user_is_active', 'user_is_verified',
+            'user_created_at',
+
+            # Doctor specific
+            'specialty', 'specialty_display', 'experience', 'degree',
+            'license_number', 'workplace', 'workplace_address',
+            'consultation_price', 'bio', 'achievements',
+            'rating', 'total_reviews', 'total_consultations',
+
+            # Hospital
+            'hospital', 'hospital_name', 'hospital_id',
+
+            # Availability
+            'is_available', 'is_online_consultation',
+            'work_start_time', 'work_end_time', 'work_days',
+
+            # Verification
+            'verification_status', 'verification_status_display',
+            'approved_by_name',
+            'rejected_by_name',
+
+            # Statistics
+            'consultation_count', 'success_rate',
+
+            # Timestamps
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'user_id', 'rating', 'total_reviews', 'total_consultations',
+            'created_at', 'updated_at', 'approved_at', 'rejected_at'
+        ]
+
+    def get_consultation_count(self, obj):
+        """Get total consultation count"""
+        return Consultation.objects.filter(doctor=obj).count()
+
+    def get_success_rate(self, obj):
+        """Calculate success rate based on completed consultations"""
+        total = Consultation.objects.filter(doctor=obj).count()
+        completed = Consultation.objects.filter(
+            doctor=obj,
+            status='completed'
+        ).count()
+
+        if total == 0:
+            return 0
+        return round((completed / total) * 100, 2)
+
+    def validate_license_number(self, value):
+        """Validate license number uniqueness"""
+        if value:
+            existing_doctor = Doctor.objects.filter(license_number=value)
+            if self.instance:
+                existing_doctor = existing_doctor.exclude(id=self.instance.id)
+
+            if existing_doctor.exists():
+                raise serializers.ValidationError(
+                    "Bu litsenziya raqami allaqachon ishlatilgan"
+                )
+        return value
+
+    def validate_consultation_price(self, value):
+        """Validate consultation price"""
+        if value is not None and value < 0:
+            raise serializers.ValidationError(
+                "Konsultatsiya narxi 0 dan kichik bo'lishi mumkin emas"
+            )
+        return value
+
+    def validate_experience(self, value):
+        """Validate experience years"""
+        if value is not None and (value < 0 or value > 60):
+            raise serializers.ValidationError(
+                "Tajriba 0 dan 60 yil orasida bo'lishi kerak"
+            )
+        return value
+
+
+class AdminDoctorCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new doctors from admin panel"""
+
+    # User fields
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=20)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = Doctor
+        fields = [
+            # User fields
+            'first_name', 'last_name', 'middle_name', 'phone', 'email', 'password',
+
+            # Doctor fields
+            'specialty', 'experience', 'degree', 'license_number',
+            'workplace', 'workplace_address', 'consultation_price',
+            'bio', 'hospital', 'is_available', 'is_online_consultation',
+            'work_start_time', 'work_end_time', 'work_days'
+        ]
+
+    def validate_phone(self, value):
+        """Validate phone number"""
+        if User.objects.filter(phone=value).exists():
+            raise serializers.ValidationError(
+                "Bu telefon raqami allaqachon ro'yxatdan o'tgan"
+            )
+        return value
+
+    def validate_email(self, value):
+        """Validate email"""
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "Bu email allaqachon ishlatilgan"
+            )
+        return value
+
+    def create(self, validated_data):
+        """Create new doctor with user account"""
+        # Extract user data
+        user_data = {
+            'first_name': validated_data.pop('first_name'),
+            'last_name': validated_data.pop('last_name'),
+            'middle_name': validated_data.pop('middle_name', ''),
+            'phone': validated_data.pop('phone'),
+            'email': validated_data.pop('email', ''),
+            'password': validated_data.pop('password'),
+            'user_type': 'doctor',
+            'is_approved_by_admin': True,  # Auto-approve admin created doctors
+        }
+
+        # Create user
+        user = User.objects.create_user(**user_data)
+
+        # Create doctor profile
+        doctor = Doctor.objects.create(
+            user=user,
+            verification_status='approved',  # Auto-approve
+            **validated_data
+        )
+
+        return doctor
+
+
+class AdminStatisticsSerializer(serializers.Serializer):
+    """Serializer for admin dashboard statistics"""
+
+    # User statistics
+    total_users = serializers.IntegerField()
+    active_users = serializers.IntegerField()
+    patients = serializers.IntegerField()
+    doctors = serializers.IntegerField()
+    approved_doctors = serializers.IntegerField()
+    pending_doctors = serializers.IntegerField()
+    hospital_admins = serializers.IntegerField()
+
+    # Hospital statistics
+    total_hospitals = serializers.IntegerField()
+    active_hospitals = serializers.IntegerField()
+    hospitals_with_doctors = serializers.IntegerField()
+
+    # Doctor statistics
+    verified_doctors = serializers.IntegerField()
+    rejected_doctors = serializers.IntegerField()
+    available_doctors = serializers.IntegerField()
+
+    # Consultation statistics
+    total_consultations = serializers.IntegerField()
+    completed_consultations = serializers.IntegerField()
+    pending_consultations = serializers.IntegerField()
+    cancelled_consultations = serializers.IntegerField()
+
+
+class AdminHospitalCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new hospitals from admin panel"""
+
+    class Meta:
+        model = Hospital
+        fields = [
+            'name', 'address', 'phone', 'email', 'hospital_type',
+            'region', 'district', 'website', 'description',
+            'license_number', 'established_date', 'bed_capacity',
+            'emergency_services', 'is_active'
+        ]
+
+    def validate_name(self, value):
+        """Validate hospital name uniqueness"""
+        if Hospital.objects.filter(name=value).exists():
+            raise serializers.ValidationError(
+                "Bu nomli shifoxona allaqachon mavjud"
+            )
+        return value
+
+    def validate_license_number(self, value):
+        """Validate license number uniqueness"""
+        if value and Hospital.objects.filter(license_number=value).exists():
+            raise serializers.ValidationError(
+                "Bu litsenziya raqami allaqachon ishlatilgan"
+            )
+        return value
+
+
+class BulkActionSerializer(serializers.Serializer):
+    """Serializer for bulk actions"""
+
+    action = serializers.ChoiceField(choices=[
+        ('approve', 'Tasdiqlash'),
+        ('reject', 'Rad etish'),
+        ('delete', 'O\'chirish'),
+        ('activate', 'Faollashtirish'),
+        ('deactivate', 'Faolsizlashtirish'),
+    ])
+    type = serializers.ChoiceField(choices=[
+        ('doctors', 'Shifokorlar'),
+        ('hospitals', 'Shifoxonalar'),
+        ('users', 'Foydalanuvchilar'),
+    ])
+    ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1
+    )
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        """Validate bulk action data"""
+        action = data.get('action')
+        item_type = data.get('type')
+
+        # Check if reason is required for certain actions
+        if action == 'reject' and not data.get('reason'):
+            raise serializers.ValidationError({
+                'reason': 'Rad etish uchun sabab ko\'rsatish majburiy'
+            })
+
+        return data
+
+
+class ExportDataSerializer(serializers.Serializer):
+    """Serializer for data export"""
+
+    type = serializers.ChoiceField(choices=[
+        ('users', 'Foydalanuvchilar'),
+        ('doctors', 'Shifokorlar'),
+        ('hospitals', 'Shifoxonalar'),
+        ('consultations', 'Konsultatsiyalar'),
+    ])
+    format = serializers.ChoiceField(choices=[
+        ('json', 'JSON'),
+        ('csv', 'CSV'),
+        ('excel', 'Excel'),
+    ])
+    date_from = serializers.DateField(required=False)
+    date_to = serializers.DateField(required=False)
+    filters = serializers.DictField(required=False)
+
+
+class AdminDoctorUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating doctor information from admin panel"""
+
+    # Allow updating some user fields
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
+    middle_name = serializers.CharField(source='user.middle_name', required=False, allow_blank=True)
+    email = serializers.EmailField(source='user.email', required=False, allow_blank=True)
+    is_active = serializers.BooleanField(source='user.is_active', required=False)
+
+    class Meta:
+        model = Doctor
+        fields = [
+            # User fields
+            'first_name', 'last_name', 'middle_name', 'email', 'is_active',
+
+            # Doctor fields
+            'specialty', 'experience', 'degree', 'license_number',
+            'workplace', 'workplace_address', 'consultation_price',
+            'bio', 'achievements', 'hospital', 'is_available',
+            'is_online_consultation', 'work_start_time', 'work_end_time',
+            'work_days', 'verification_status'
+        ]
+
+    def update(self, instance, validated_data):
+        """Update doctor and related user information"""
+        # Extract user data
+        user_data = {}
+        for field in ['first_name', 'last_name', 'middle_name', 'email', 'is_active']:
+            if f'user.{field}' in validated_data:
+                user_data[field] = validated_data.pop(f'user.{field}')
+
+        # Update user fields
+        if user_data:
+            user = instance.user
+            for field, value in user_data.items():
+                setattr(user, field, value)
+            user.save()
+
+        # Update doctor fields
+        return super().update(instance, validated_data)
+
+
+class AdminFilterOptionsSerializer(serializers.Serializer):
+    """Serializer for admin panel filter options"""
+
+    specialties = serializers.DictField()
+    verification_statuses = serializers.DictField()
+    hospital_types = serializers.DictField()
+    user_types = serializers.DictField()
+    regions = serializers.ListField(child=serializers.CharField())
+
+
+class AdminRecentActivitySerializer(serializers.Serializer):
+    """Serializer for recent activity in admin dashboard"""
+
+    activity_type = serializers.CharField()
+    description = serializers.CharField()
+    user_name = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    details = serializers.DictField(required=False)
