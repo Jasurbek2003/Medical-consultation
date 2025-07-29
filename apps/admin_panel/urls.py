@@ -26,7 +26,4 @@ urlpatterns = [
     # Statistics and Reports
     path('statistics/', views.statistics_overview, name='statistics'),
     path('export/', views.export_data, name='export_data'),
-
-    # Settings
-    path('settings/', views.system_settings, name='system_settings'),
 ]

@@ -352,7 +352,8 @@ def hospital_management(request):
     return Response(data)
 
 
-@staff_member_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_hospital_admin(request):
     """Create hospital admin user"""
 
@@ -369,7 +370,7 @@ def create_hospital_admin(request):
             # Check if user with this phone already exists
             if User.objects.filter(phone=phone).exists():
                 messages.error(request, 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan.')
-                return redirect('admin_panel:hospital_management')
+                return Response({'error': 'Telefon raqam allaqachon mavjud'}, status=400)
 
             # Get hospital
             hospital = get_object_or_404(Hospital, id=hospital_id)
@@ -393,17 +394,16 @@ def create_hospital_admin(request):
 
         except Exception as e:
             messages.error(request, f'Xatolik: {str(e)}')
+            return Response({'error': str(e)}, status=500)
 
-        return redirect('admin_panel:hospital_management')
-
-    # GET request - show form
-    hospitals = Hospital.objects.filter(is_active=True)
-    context = {
-        'hospitals': hospitals,
-    }
-
-    return render(request, 'admin_panel/create_hospital_admin.html', context)
-
+        return Response(
+            {
+                'success': True,
+                'message': f'Shifoxona administratori {first_name} {last_name} muvaffaqiyatli yaratildi.'
+            },
+            status=201
+        )
+    return Response({'error': 'Invalid request method'}, status=405)
 
 @staff_member_required
 def statistics_overview(request):
@@ -536,20 +536,3 @@ def export_data(request):
 
     else:
         return JsonResponse({'error': 'Invalid format type'}, status=400)
-
-
-@staff_member_required
-def system_settings(request):
-    """System settings page"""
-
-    if request.method == 'POST':
-        # Handle settings update
-        # This would typically involve a Settings model
-        messages.success(request, 'Sozlamalar muvaffaqiyatli yangilandi.')
-        return redirect('admin_panel:system_settings')
-
-    context = {
-        # Add system settings here
-    }
-
-    return render(request, 'admin_panel/settings.html', context)
