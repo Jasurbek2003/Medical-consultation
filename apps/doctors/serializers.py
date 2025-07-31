@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation
 from .services.translation_service import TahrirchiTranslationService
+from ..consultations.models import Consultation
 
 User = get_user_model()
 
@@ -90,21 +91,126 @@ class DoctorDetailSerializer(DoctorSerializer):
 
 
 class DoctorUpdateSerializer(serializers.ModelSerializer):
-    """Doctor profile update serializer"""
+    """Serializer for doctor management in admin panel"""
+
+    # User information
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    user_is_active = serializers.BooleanField(source='user.is_active', read_only=True)
+    user_is_verified = serializers.BooleanField(source='user.is_verified', read_only=True)
+    user_created_at = serializers.DateTimeField(source='user.created_at', read_only=True)
+
+    # Hospital information
+    hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
+    hospital_id = serializers.IntegerField(source='hospital.id', read_only=True, allow_null=True)
+
+    # Display fields
+    specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
+    verification_status_display = serializers.CharField(
+        source='get_verification_status_display',
+        read_only=True
+    )
+
+    # Statistics
+    consultation_count = serializers.SerializerMethodField()
+    success_rate = serializers.SerializerMethodField()
+
+    # Approval information
+    approved_by_name = serializers.CharField(
+        source='approved_by.get_full_name',
+        read_only=True,
+        allow_null=True
+    )
+    rejected_by_name = serializers.CharField(
+        source='rejected_by.get_full_name',
+        read_only=True,
+        allow_null=True
+    )
 
     class Meta:
         model = Doctor
         fields = [
-            'bio', 'education', 'achievements', 'consultation_price',
-            'is_available', 'is_online_consultation', 'work_start_time',
-            'work_end_time', 'work_days', 'languages', 'photo'
+            'user_id', 'first_name', 'last_name', 'full_name',
+            'phone', 'email', 'avatar', 'user_is_active', 'user_is_verified',
+            'user_created_at',
+
+            # Doctor specific
+            'specialty', 'specialty_display', 'experience', 'degree',
+            'license_number', 'workplace', 'workplace_address',
+            'consultation_price', 'bio', 'achievements',
+            'rating', 'total_reviews', 'total_consultations',
+
+            # Hospital
+            'hospital', 'hospital_name', 'hospital_id',
+
+            # Availability
+            'is_available', 'is_online_consultation',
+            'work_start_time', 'work_end_time', 'work_days',
+
+            # Verification
+            'verification_status', 'verification_status_display',
+            'approved_by_name',
+            'rejected_by_name',
+
+            # Statistics
+            'consultation_count', 'success_rate',
+
+            # Timestamps
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'user_id', 'rating', 'total_reviews', 'total_consultations',
+            'created_at', 'updated_at'
         ]
 
+    def get_consultation_count(self, obj):
+        """Get total consultation count"""
+        return Consultation.objects.filter(doctor=obj).count()
+
+    def get_success_rate(self, obj):
+        """Calculate success rate based on completed consultations"""
+        total = Consultation.objects.filter(doctor=obj).count()
+        completed = Consultation.objects.filter(
+            doctor=obj,
+            status='completed'
+        ).count()
+
+        if total == 0:
+            return 0
+        return round((completed / total) * 100, 2)
+
+    def validate_license_number(self, value):
+        """Validate license number uniqueness"""
+        if value:
+            existing_doctor = Doctor.objects.filter(license_number=value)
+            if self.instance:
+                existing_doctor = existing_doctor.exclude(id=self.instance.id)
+
+            if existing_doctor.exists():
+                raise serializers.ValidationError(
+                    "Bu litsenziya raqami allaqachon ishlatilgan"
+                )
+        return value
+
     def validate_consultation_price(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Konsultatsiya narxi manfiy bo'lishi mumkin emas")
-        if value > 10000000:  # 10 million
-            raise serializers.ValidationError("Konsultatsiya narxi juda yuqori")
+        """Validate consultation price"""
+        if value is not None and value < 0:
+            raise serializers.ValidationError(
+                "Konsultatsiya narxi 0 dan kichik bo'lishi mumkin emas"
+            )
+        return value
+
+    def validate_experience(self, value):
+        """Validate experience years"""
+        if value is not None and (value < 0 or value > 60):
+            raise serializers.ValidationError(
+                "Tajriba 0 dan 60 yil orasida bo'lishi kerak"
+            )
         return value
 
 

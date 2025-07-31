@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from . import api_views
+from .api_views import DoctorProfileUpdateView
 from .serializers import translate_text_api
 from .views import batch_translate_api, translate_all_doctors_api, get_translation_languages
 
@@ -14,6 +15,7 @@ router = DefaultRouter()
 urlpatterns = [
     # Include router URLs
     path('', include(router.urls)),
+    path('edit/', DoctorProfileUpdateView.as_view()),
 
     # Authentication endpoints (NEW)
     path('auth/register/', api_views.DoctorRegistrationView.as_view(), name='doctor_register'),
