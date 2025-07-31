@@ -23,6 +23,8 @@ class DoctorProfileUpdateView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
+        user = self.request.user
+        print(user)
         return get_object_or_404(Doctor, user=self.request.user)
 
 
