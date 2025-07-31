@@ -20,7 +20,7 @@ from ..users.serializers import UserSerializer
 class DoctorProfileUpdateView(generics.UpdateAPIView):
     """Update doctor profile"""
     serializer_class = DoctorUpdateSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return get_object_or_404(Doctor, user=self.request.user)
