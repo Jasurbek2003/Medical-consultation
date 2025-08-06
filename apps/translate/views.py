@@ -1,9 +1,19 @@
+from rest_framework import authentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Translate, Language
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 
 class TranslateApiView(APIView):
+    def get_permissions(self):
+        """
+        Allow anyone to access GET requests, require authentication for other methods
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     @staticmethod
     def get(request, lang):
         all_keys = Translate.objects.all().values_list('key', flat=True)
@@ -52,6 +62,14 @@ class TranslateApiView(APIView):
 
 
 class LanguageApiView(APIView):
+    def get_permissions(self):
+        """
+        Allow anyone to access GET requests, require authentication for other methods
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     @staticmethod
     def get(request):
         languages = Language.objects.all()
@@ -89,6 +107,13 @@ class LanguageApiView(APIView):
 
 
 class TranslateAdminApiView(APIView):
+    def get_permissions(self):
+        """
+        Allow anyone to access GET requests, require authentication for other methods
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     @staticmethod
     def get(request):
