@@ -46,7 +46,7 @@ class DoctorSerializer(serializers.ModelSerializer):
         ]
 
     def get_age(self, obj):
-        """Calculate age based on experience or birth date"""
+        """Calculate age based on experience or birthdate"""
         if hasattr(obj.user, 'birth_date') and obj.user.birth_date:
             today = timezone.now().date()
             return today.year - obj.user.birth_date.year
@@ -295,7 +295,7 @@ class DoctorSpecializationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DoctorSpecialization
-        fields = ['id', 'name', 'description', 'certificate']
+        fields = ['id', 'specialty_name', 'description', 'certificate_image']
 
 
 class DoctorRegistrationSerializer(serializers.ModelSerializer):
@@ -331,7 +331,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
     # Doctor-specific fields
     specialty = serializers.ChoiceField(choices=Doctor.SPECIALTIES, required=True)
     degree = serializers.ChoiceField(choices=Doctor.DEGREES, required=True)
-    license_number = serializers.CharField(max_length=50)
+    license_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
     experience = serializers.IntegerField(min_value=0, max_value=60, required=True)
     education = serializers.CharField(required=True)
     workplace = serializers.CharField(max_length=200, required=True)
@@ -354,7 +354,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
     is_online_consultation = serializers.BooleanField(default=False)
 
     # File uploads
-    diploma_image = serializers.ImageField(required=True)
+    diploma_image = serializers.ImageField(required=False)
     license_image = serializers.ImageField(required=False)
 
     avatar = serializers.ImageField(required=False)
