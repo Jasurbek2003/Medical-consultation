@@ -421,7 +421,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
         doctor_data = {
             'specialty': validated_data.pop('specialty'),
             'degree': validated_data.pop('degree'),
-            'license_number': validated_data.pop('license_number', None),
+            # 'license_number': validated_data.pop('license_number', None),
             'experience': validated_data.pop('experience'),
             'education': validated_data.pop('education'),
             'workplace': validated_data.pop('workplace'),
@@ -436,6 +436,8 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
             'diploma_image': validated_data.pop('diploma_image'),
             'license_image': validated_data.pop('license_image', None),
         }
+        if "license_number" in validated_data:
+            doctor_data['license_number'] = validated_data.pop('license_number', None)
 
         # Remove password fields
         validated_data.pop('password_confirm')
