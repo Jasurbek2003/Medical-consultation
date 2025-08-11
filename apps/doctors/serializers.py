@@ -433,7 +433,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
             'work_end_time': validated_data.pop('work_end_time', None),
             'work_days': validated_data.pop('work_days', ''),
             'is_online_consultation': validated_data.pop('is_online_consultation', False),
-            'diploma_image': validated_data.pop('diploma_image'),
+            'diploma_image': validated_data.pop('diploma_image', None),
             'license_image': validated_data.pop('license_image', None),
         }
         if "license_number" in validated_data:
