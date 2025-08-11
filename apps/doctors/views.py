@@ -296,7 +296,7 @@ class DoctorViewSet(viewsets.ModelViewSet):
             count=Count('id')
         ).order_by('-count')
 
-        # Top rated doctors
+        # Top-rated doctors
         top_doctors = Doctor.objects.filter(
             verification_status='approved'
         ).order_by('-rating', '-total_reviews')[:10]
