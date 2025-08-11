@@ -421,7 +421,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
         doctor_data = {
             'specialty': validated_data.pop('specialty'),
             'degree': validated_data.pop('degree'),
-            'license_number': validated_data.pop('license_number'),
+            'license_number': validated_data.pop('license_number', None),
             'experience': validated_data.pop('experience'),
             'education': validated_data.pop('education'),
             'workplace': validated_data.pop('workplace'),
