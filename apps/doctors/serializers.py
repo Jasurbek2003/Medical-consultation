@@ -354,7 +354,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
     is_online_consultation = serializers.BooleanField(default=False)
 
     # File uploads
-    diploma_image = serializers.ImageField(required=False)
+    diploma_image = serializers.FileField(required=False)
     license_image = serializers.ImageField(required=False)
 
     avatar = serializers.ImageField(required=False)
@@ -409,7 +409,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_license_number(self, value):
         """Check if license number already exists"""
-        if value and Doctor.objects.filter(license_number=value).exists() :
+        if value and Doctor.objects.filter(license_number=value).exists():
             raise serializers.ValidationError(
                 "Doctor with this license number already exists."
             )
