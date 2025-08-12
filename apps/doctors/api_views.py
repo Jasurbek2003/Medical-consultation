@@ -27,6 +27,18 @@ class DoctorProfileUpdateView(generics.UpdateAPIView):
         print(user)
         return get_object_or_404(Doctor, user=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        doctor = self.get_object()
+        serializer = self.get_serializer(doctor, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response({
+            'success': True,
+            'message': 'Doctor profile updated successfully',
+            'doctor': serializer.data
+        })
+
 
 class DoctorPhotoUploadView(APIView):
     """Upload doctor photo"""
