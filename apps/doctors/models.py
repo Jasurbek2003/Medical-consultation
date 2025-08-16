@@ -44,7 +44,7 @@ class Doctor(models.Model):
         ('pending', 'Kutilmoqda'),
         ('approved', 'Tasdiqlangan'),
         ('rejected', 'Rad etilgan'),
-        ('suspended', 'To\'xtatilgan'),
+        ('suspended', "To'xtatilgan"),
     ]
 
     # User relationship (One-to-One)
