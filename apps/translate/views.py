@@ -11,6 +11,7 @@ class TranslateApiView(APIView):
         Allow anyone to access GET requests, require authentication for other methods
         """
         if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
+            print(self.request.user)
             return [AllowAny()]
         return [IsAuthenticated()]
 
