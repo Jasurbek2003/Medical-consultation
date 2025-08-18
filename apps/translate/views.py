@@ -13,7 +13,9 @@ class TranslateApiView(APIView):
         if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             print(self.request.user)
             return [AllowAny()]
-        return [IsAuthenticated()]
+        # return [IsAuthenticated()]
+        return False
+
 
     @staticmethod
     def get(request, lang):
@@ -69,7 +71,8 @@ class LanguageApiView(APIView):
         """
         if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             return [AllowAny()]
-        return [IsAuthenticated()]
+        # return [IsAuthenticated()]
+        return False
 
     @staticmethod
     def get(request):
@@ -114,8 +117,8 @@ class TranslateAdminApiView(APIView):
         """
         if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             return [AllowAny()]
-        return [IsAuthenticated()]
-
+        # return [IsAuthenticated()]
+        return False
     @staticmethod
     def get(request):
         all_keys_2 = Translate.objects.all().values("key", "id")
