@@ -712,6 +712,7 @@ Immediately go to the nearest hospitals or call emergency services: 103
     def _get_recommended_doctors(self, specialty, user_context=None, limit=5):
         """Tavsiya etilgan shifokorlarni olish"""
         try:
+            print(specialty)
             doctors = Doctor.objects.filter(
                 specialty=specialty,
                 is_available=True
