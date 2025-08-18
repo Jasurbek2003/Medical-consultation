@@ -86,7 +86,6 @@ class Doctor(models.Model):
 
     license_number = models.CharField(
         max_length=50,
-        unique=True,
         verbose_name="Litsenziya raqami",
         blank=True,
         null=True,
