@@ -10,7 +10,7 @@ class TranslateApiView(APIView):
         """
         Allow anyone to access GET requests, require authentication for other methods
         """
-        if self.request.method == 'GET' or self.request.method == 'POST' and self.request.user.username == "akbar" or self.request.method == 'POST':
+        if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             return [AllowAny()]
         return [IsAuthenticated()]
 
@@ -66,7 +66,7 @@ class LanguageApiView(APIView):
         """
         Allow anyone to access GET requests, require authentication for other methods
         """
-        if self.request.method == 'GET' or self.request.method == 'POST' and self.request.user.username == "akbar" or self.request.method == 'POST':
+        if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             return [AllowAny()]
         return [IsAuthenticated()]
 
@@ -111,7 +111,7 @@ class TranslateAdminApiView(APIView):
         """
         Allow anyone to access GET requests, require authentication for other methods
         """
-        if self.request.method == 'GET' or self.request.method == 'POST' and self.request.user.username == "akbar" or self.request.method == 'POST':
+        if self.request.method == 'GET' or (self.request.method == 'POST' and self.request.user.username == "akbar"):
             return [AllowAny()]
         return [IsAuthenticated()]
 
