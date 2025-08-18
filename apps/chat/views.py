@@ -712,17 +712,19 @@ Immediately go to the nearest hospitals or call emergency services: 103
     def _get_recommended_doctors(self, specialty, user_context=None, limit=5):
         """Tavsiya etilgan shifokorlarni olish"""
         try:
+            print("Getting recommended doctors for specialty:", specialty)
             doctors = Doctor.objects.filter(
                 specialty=specialty,
                 is_available=True
             ).order_by('-rating', 'consultation_price')[:limit]
+            print(doctors)
 
             doctors_data = []
             for doctor in doctors:
+                print(type(doctor))
                 doctors_data.append({
                     'id': doctor.id,
-                    'name': "Dr." + doctor.full_name,
-                    'full_name': doctor.full_name(),
+                    'name': doctor.user.get_full_name() or doctor.user.username,
                     'specialty_display': doctor.get_specialty_display(),
                     'experience': doctor.experience,
                     'rating': float(doctor.rating),
@@ -731,12 +733,12 @@ Immediately go to the nearest hospitals or call emergency services: 103
                     'workplace': doctor.workplace,
                     'phone': doctor.phone,
                     'is_online_consultation': doctor.is_online_consultation,
-                    'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}",
+                    'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}" if doctor.work_start_time and doctor.work_end_time else 'N/A',
                     'photo_url': doctor.user.avatar.url if doctor.user.avatar else None,
                     'bio': doctor.bio or '',
                     'detail_url': f'/doctors/{doctor.id}/'
                 })
-
+            print("Recommended doctors data:", doctors_data)
             return doctors_data
 
         except Exception as e:
