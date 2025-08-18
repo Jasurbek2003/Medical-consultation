@@ -712,7 +712,6 @@ Immediately go to the nearest hospitals or call emergency services: 103
     def _get_recommended_doctors(self, specialty, user_context=None, limit=5):
         """Tavsiya etilgan shifokorlarni olish"""
         try:
-            print(specialty)
             doctors = Doctor.objects.filter(
                 specialty=specialty,
                 is_available=True
@@ -722,20 +721,18 @@ Immediately go to the nearest hospitals or call emergency services: 103
             for doctor in doctors:
                 doctors_data.append({
                     'id': doctor.id,
-                    'name': doctor.get_short_name(),
-                    'full_name': doctor.get_full_name(),
+                    'name': "Dr." + doctor.full_name,
+                    'full_name': doctor.full_name(),
                     'specialty_display': doctor.get_specialty_display(),
                     'experience': doctor.experience,
                     'rating': float(doctor.rating),
                     'total_reviews': doctor.total_reviews,
                     'consultation_price': float(doctor.consultation_price),
                     'workplace': doctor.workplace,
-                    'region': doctor.region,
-                    'district': doctor.district,
                     'phone': doctor.phone,
                     'is_online_consultation': doctor.is_online_consultation,
                     'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}",
-                    'photo_url': doctor.photo.url if doctor.photo else None,
+                    'photo_url': doctor.user.avatar.url if doctor.user.avatar else None,
                     'bio': doctor.bio or '',
                     'detail_url': f'/doctors/{doctor.id}/'
                 })
