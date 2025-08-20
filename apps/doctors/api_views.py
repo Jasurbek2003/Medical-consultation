@@ -291,10 +291,12 @@ class PublicDoctorDetailView(generics.RetrieveAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
-        return Doctor.objects.filter(
+        doctor =  Doctor.objects.filter(
             verification_status='approved',
             user__is_active=True
         )
+
+        return doctor
 
     def retrieve(self, request, *args, **kwargs):
         response = super().retrieve(request, *args, **kwargs)

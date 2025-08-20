@@ -13,6 +13,7 @@ class Hospital(models.Model):
         ('polyclinic', 'Poliklinika'),
         ('hospital', 'Kasalxona'),
         ('medical_center', 'Tibbiy markaz'),
+        ('labaratory', 'Laboratoriya'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
