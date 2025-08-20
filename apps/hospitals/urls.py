@@ -6,27 +6,18 @@ app_name = 'hospital_admin'
 
 urlpatterns = [
     # Dashboard
-    path('', views.dashboard, name='dashboard'),
+    path('dashboard/', views.HospitalDashboardAPIView.as_view(), name='api_dashboard'),
 
-    # Doctor Management
-    path('doctors/', views.doctors_list, name='doctors_list'),
-    path('doctors/<uuid:doctor_id>/', views.doctor_detail, name='doctor_detail'),
-    # path('doctors/statistics/', views.s, name='doctor_statistics'),
-    path('ajax/doctor-stats/<uuid:doctor_id>/', views.ajax_doctor_stats, name='ajax_doctor_stats'),
-    path('ajax/doctor-availability/<uuid:doctor_id>/', views.doctor_availability_toggle,
-         name='doctor_availability_toggle'),
+    # Doctor management
+    path('doctors/', views.HospitalDoctorsListAPIView.as_view(), name='api_doctors_list'),
+    path('doctors/<int:doctor_id>/', views.DoctorDetailWithBillingAPIView.as_view(), name='api_doctor_detail'),
+    path('doctors/<int:doctor_id>/access-check/', views.DoctorViewAccessCheckAPIView.as_view(),
+         name='api_doctor_access_check'),
 
-    # Consultations
-    path('consultations/', views.consultations_overview, name='consultations_overview'),
+    # Revenue analytics
+    path('analytics/revenue/', views.HospitalRevenueAnalyticsAPIView.as_view(), name='api_revenue_analytics'),
 
-    # Hospital Management
-    path('hospital/profile/', views.hospital_profile, name='hospital_profile'),
-    path('profile/', views.my_profile, name='my_profile'),
-
-    # Reports and Analytics
-    # path('reports/', views.reports_and_analytics, name='reports_and_analytics'),
-    # path('export/', views.export_hospital_data, name='export_hospital_data'),
-
-    # Notifications
-    path('notifications/', views.notification_center, name='notification_center'),
+    # Payment integration
+    path('payments/gateways/', views.PaymentIntegrationAPIView.as_view(), name='api_payment_gateways'),
+    path('payments/create/', views.PaymentIntegrationAPIView.as_view(), name='api_create_payment'),
 ]

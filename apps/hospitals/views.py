@@ -1,436 +1,524 @@
 from datetime import timedelta
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
-from django.contrib import messages
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Count, Avg, Q
+from django.db.models import Count, Q, Sum
 from django.core.paginator import Paginator
-from django.contrib.auth import get_user_model
-from functools import wraps
+from decimal import Decimal
 
-from apps.doctors.models import Doctor, DoctorViewStatistics
-from apps.hospitals.models import Hospital
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+
+from apps.doctors.models import Doctor
 from apps.consultations.models import Consultation
+from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
+from apps.billing.services import BillingService
+from apps.payments.models import Payment, PaymentGateway
+from apps.doctors.serializers import DoctorSerializer
 
-User = get_user_model()
 
+class HospitalAdminRequiredPermission(permissions.BasePermission):
+    """Custom permission to check if user is hospital admin"""
 
-def hospital_admin_required(view_func):
-    """Decorator to ensure user is hospital admin"""
-
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        # Check if user is authenticated
+    def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            messages.error(request, 'Bu sahifaga kirish uchun tizimga kiring.')
-            return redirect('users:login')
-
-        # Check if user is hospital admin
+            return False
         if not request.user.is_hospital_admin():
-            messages.error(request, 'Bu sahifaga faqat shifoxona adminlari kira oladi.')
-            return redirect('users:login')
-
-        # Check if user has assigned hospital
+            return False
         if not request.user.managed_hospital:
-            messages.error(request, 'Sizga shifoxona tayinlanmagan.')
-            return redirect('users:login')
-
-        return view_func(request, *args, **kwargs)
-
-    return wrapper
+            return False
+        return True
 
 
-@hospital_admin_required
-def dashboard(request):
-    """Hospital admin dashboard"""
 
-    hospital = request.user.managed_hospital
+class HospitalDashboardAPIView(APIView):
+    """Hospital admin dashboard API"""
+    permission_classes = [HospitalAdminRequiredPermission]
 
-    # Get hospital statistics
-    total_doctors = Doctor.objects.filter(hospital=hospital).count()
-    active_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        is_available=True,
-        verification_status='approved'
-    ).count()
-    pending_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        verification_status='pending'
-    ).count()
+    @staticmethod
+    def get(request):
+        """Get hospital dashboard data"""
+        hospital = request.user.managed_hospital
 
-    # Get recent consultations
-    recent_consultations = Consultation.objects.filter(
-        doctor__hospital=hospital
-    ).order_by('-created_at')[:10]
+        # Get hospital statistics
+        total_doctors = Doctor.objects.filter(hospital=hospital).count()
+        active_doctors = Doctor.objects.filter(
+            hospital=hospital,
+            is_available=True,
+            verification_status='approved'
+        ).count()
+        pending_doctors = Doctor.objects.filter(
+            hospital=hospital,
+            verification_status='pending'
+        ).count()
 
-    # Get top doctors by rating
-    top_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        verification_status='approved'
-    ).order_by('-rating')[:5]
+        # Get recent consultations
+        recent_consultations = Consultation.objects.filter(
+            doctor__hospital=hospital
+        ).order_by('-created_at')[:10]
 
-    # Monthly statistics
-    current_month = timezone.now().replace(day=1)
-    monthly_consultations = Consultation.objects.filter(
-        doctor__hospital=hospital,
-        created_at__gte=current_month
-    ).count()
+        # Get top doctors by rating
+        top_doctors = Doctor.objects.filter(
+            hospital=hospital,
+            verification_status='approved'
+        ).order_by('-rating')[:5]
 
-    context = {
-        'hospital': hospital,
-        'total_doctors': total_doctors,
-        'active_doctors': active_doctors,
-        'pending_doctors': pending_doctors,
-        'monthly_consultations': monthly_consultations,
-        'top_doctors': top_doctors,
-        'recent_consultations': recent_consultations,
-    }
+        # Monthly statistics
+        current_month = timezone.now().replace(day=1)
+        monthly_consultations = Consultation.objects.filter(
+            doctor__hospital=hospital,
+            created_at__gte=current_month
+        ).count()
 
-    return render(request, 'hospital_admin/dashboard.html', context)
+        # Revenue statistics (new in v3)
+        monthly_revenue = DoctorViewCharge.objects.filter(
+            doctor__hospital=hospital,
+            created_at__gte=current_month
+        ).aggregate(
+            total=Sum('amount_charged')
+        )['total'] or Decimal('0.00')
+
+        return Response({
+            'success': True,
+            'hospital': {
+                'id': hospital.id,
+                'name': hospital.name,
+                'type': hospital.hospital_type
+            },
+            'statistics': {
+                'total_doctors': total_doctors,
+                'active_doctors': active_doctors,
+                'pending_doctors': pending_doctors,
+                'monthly_consultations': monthly_consultations,
+                'monthly_revenue': float(monthly_revenue)
+            },
+            'top_doctors': DoctorSerializer(top_doctors, many=True).data,
+            'recent_consultations': [
+                {
+                    'id': c.id,
+                    'patient_name': c.patient.get_full_name(),
+                    'doctor_name': c.doctor.user.get_full_name(),
+                    'status': c.status,
+                    'created_at': c.created_at
+                } for c in recent_consultations
+            ]
+        })
 
 
-@hospital_admin_required
-def doctors_list(request):
-    """List of doctors in hospital"""
+class HospitalDoctorsListAPIView(APIView):
+    """Hospital doctors list with filters API"""
+    permission_classes = [HospitalAdminRequiredPermission]
 
-    hospital = request.user.managed_hospital
+    @staticmethod
+    def get(request):
+        """Get hospital doctors with filters"""
+        hospital = request.user.managed_hospital
 
-    # Filter parameters
-    status_filter = request.GET.get('status', 'all')
-    specialty_filter = request.GET.get('specialty', 'all')
-    search_query = request.GET.get('search', '')
+        # Filter parameters
+        status_filter = request.GET.get('status', 'all')
+        specialty_filter = request.GET.get('specialty', 'all')
+        search_query = request.GET.get('search', '')
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 15))
 
-    # Base queryset
-    doctors = Doctor.objects.filter(hospital=hospital).select_related('user')
+        # Base queryset
+        doctors = Doctor.objects.filter(hospital=hospital).select_related('user')
 
-    # Apply filters
-    if status_filter == 'active':
-        doctors = doctors.filter(is_available=True, verification_status='approved')
-    elif status_filter == 'inactive':
-        doctors = doctors.filter(is_available=False)
-    elif status_filter == 'pending':
-        doctors = doctors.filter(verification_status='pending')
-    elif status_filter == 'approved':
-        doctors = doctors.filter(verification_status='approved')
+        # Apply filters
+        if status_filter == 'active':
+            doctors = doctors.filter(is_available=True, verification_status='approved')
+        elif status_filter == 'inactive':
+            doctors = doctors.filter(is_available=False)
+        elif status_filter == 'pending':
+            doctors = doctors.filter(verification_status='pending')
+        elif status_filter == 'approved':
+            doctors = doctors.filter(verification_status='approved')
 
-    if specialty_filter != 'all':
-        doctors = doctors.filter(specialty=specialty_filter)
+        if specialty_filter != 'all':
+            doctors = doctors.filter(specialty=specialty_filter)
 
-    if search_query:
-        doctors = doctors.filter(
-            Q(user__first_name__icontains=search_query) |
-            Q(user__last_name__icontains=search_query) |
-            Q(user__phone__icontains=search_query) |
-            Q(license_number__icontains=search_query)
+        if search_query:
+            doctors = doctors.filter(
+                Q(user__first_name__icontains=search_query) |
+                Q(user__last_name__icontains=search_query) |
+                Q(user__phone__icontains=search_query) |
+                Q(license_number__icontains=search_query)
+            )
+
+        # Pagination
+        paginator = Paginator(doctors, per_page)
+        doctors_page = paginator.get_page(page)
+
+        # Get filter options
+        specialties = Doctor.SPECIALTIES if hasattr(Doctor, 'SPECIALTIES') else []
+
+        return Response({
+            'success': True,
+            'doctors': DoctorSerializer(doctors_page, many=True).data,
+            'pagination': {
+                'current_page': doctors_page.number,
+                'total_pages': doctors_page.paginator.num_pages,
+                'has_next': doctors_page.has_next(),
+                'has_previous': doctors_page.has_previous(),
+                'total_items': doctors_page.paginator.count,
+            },
+            'filters': {
+                'specialties': dict(specialties),
+                'current_status': status_filter,
+                'current_specialty': specialty_filter,
+                'search_query': search_query,
+            }
+        })
+
+
+class DoctorDetailWithBillingAPIView(APIView):
+    """Doctor detail view with billing integration (NEW in v3)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def get(request, doctor_id):
+        """Get doctor details with billing check"""
+        try:
+            doctor = get_object_or_404(Doctor, id=doctor_id, verification_status='approved')
+
+            # Check if billing is enabled
+            settings = BillingSettings.get_settings()
+
+            # If user is hospital admin viewing their own doctor, no charge
+            if (hasattr(request.user, 'managed_hospital') and
+                    request.user.managed_hospital and
+                    doctor.hospital == request.user.managed_hospital):
+                return Response({
+                    'success': True,
+                    'doctor': DoctorSerializer(doctor).data,
+                    'charged': False,
+                    'message': 'Hospital admin access - no charge'
+                })
+
+            if not settings.enable_billing:
+                # Return doctor data without charging
+                return Response({
+                    'success': True,
+                    'doctor': DoctorSerializer(doctor).data,
+                    'charged': False,
+                    'message': 'Billing disabled - free access'
+                })
+
+            # Check if user has already viewed this doctor today
+            today = timezone.now().date()
+            already_viewed = DoctorViewCharge.objects.filter(
+                user=request.user,
+                doctor=doctor,
+                created_at__date=today
+            ).exists()
+
+            if already_viewed:
+                return Response({
+                    'success': True,
+                    'doctor': DoctorSerializer(doctor).data,
+                    'charged': False,
+                    'message': 'Already viewed today - free access'
+                })
+
+            # Check free views
+            free_views_used = BillingService.get_daily_free_views_used(request.user)
+            if free_views_used < settings.free_views_per_day:
+                # Free view available
+                return Response({
+                    'success': True,
+                    'doctor': DoctorSerializer(doctor).data,
+                    'charged': False,
+                    'free_view_used': True,
+                    'free_views_remaining': settings.free_views_per_day - free_views_used - 1,
+                    'message': 'Free view used'
+                })
+
+            # Need to charge for view
+            try:
+                charge_result = BillingService.charge_for_doctor_view(request.user, doctor)
+
+                return Response({
+                    'success': True,
+                    'doctor': DoctorSerializer(doctor).data,
+                    'charged': True,
+                    'amount_charged': charge_result['amount_charged'],
+                    'new_balance': charge_result['new_balance'],
+                    'message': 'Successfully charged for doctor view'
+                })
+
+            except ValueError as e:
+                return Response({
+                    'success': False,
+                    'error': str(e),
+                    'requires_payment': True
+                }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Error retrieving doctor: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class DoctorViewAccessCheckAPIView(APIView):
+    """Check if user can access doctor without charging (NEW in v3)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, doctor_id):
+        """Check access without charging"""
+        try:
+            doctor = get_object_or_404(Doctor, id=doctor_id, verification_status='approved')
+
+            # Check billing settings
+            settings = BillingSettings.get_settings()
+
+            if not settings.enable_billing:
+                return Response({
+                    'has_access': True,
+                    'reason': 'billing_disabled',
+                    'charge_required': False
+                })
+
+            # Check if already viewed today
+            today = timezone.now().date()
+            already_viewed = DoctorViewCharge.objects.filter(
+                user=request.user,
+                doctor=doctor,
+                created_at__date=today
+            ).exists()
+
+            if already_viewed:
+                return Response({
+                    'has_access': True,
+                    'reason': 'already_viewed_today',
+                    'charge_required': False
+                })
+
+            # Check free views
+            free_views_used = BillingService.get_daily_free_views_used(request.user)
+            if free_views_used < settings.free_views_per_day:
+                return Response({
+                    'has_access': True,
+                    'reason': 'free_view_available',
+                    'charge_required': False,
+                    'free_views_remaining': settings.free_views_per_day - free_views_used
+                })
+
+            # Check wallet balance
+            wallet, created = UserWallet.objects.get_or_create(user=request.user)
+            billing_rule = settings.get_billing_rule('doctor_view')
+
+            if billing_rule and wallet.balance >= billing_rule.amount:
+                return Response({
+                    'has_access': True,
+                    'reason': 'sufficient_balance',
+                    'charge_required': True,
+                    'charge_amount': float(billing_rule.amount),
+                    'current_balance': float(wallet.balance)
+                })
+
+            return Response({
+                'has_access': False,
+                'reason': 'insufficient_balance',
+                'charge_required': True,
+                'charge_amount': float(billing_rule.amount) if billing_rule else 0,
+                'current_balance': float(wallet.balance),
+                'required_top_up': float(billing_rule.amount - wallet.balance) if billing_rule else 0
+            })
+
+        except Exception as e:
+            return Response({
+                'has_access': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PaymentIntegrationAPIView(APIView):
+    """Payment integration for wallet top-up (NEW in v3)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get available payment gateways"""
+        gateways = PaymentGateway.objects.filter(is_active=True)
+
+        return Response({
+            'success': True,
+            'gateways': [
+                {
+                    'id': g.id,
+                    'name': g.name,
+                    'display_name': g.display_name,
+                    'description': g.description,
+                    'min_amount': float(g.min_amount),
+                    'max_amount': float(g.max_amount),
+                    'supported_currencies': g.supported_currencies,
+                    'default_currency': g.default_currency
+                } for g in gateways
+            ]
+        })
+
+    def post(self, request):
+        """Create payment for wallet top-up"""
+        try:
+            gateway_id = request.data.get('gateway_id')
+            amount = Decimal(str(request.data.get('amount', 0)))
+            currency = request.data.get('currency', 'UZS')
+
+            gateway = get_object_or_404(PaymentGateway, id=gateway_id, is_active=True)
+
+            # Validate amount
+            if not gateway.is_amount_valid(amount):
+                return Response({
+                    'success': False,
+                    'error': f'Amount must be between {gateway.min_amount} and {gateway.max_amount}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create payment
+            payment = Payment.objects.create(
+                user=request.user,
+                gateway=gateway,
+                payment_type='wallet_topup',
+                amount=amount,
+                currency=currency,
+                total_amount=gateway.get_total_amount(amount),
+                commission=gateway.calculate_commission(amount)
+            )
+
+            # Generate payment URL based on gateway
+            if gateway.name == 'click':
+                payment_url = self._generate_click_url(payment)
+            elif gateway.name == 'payme':
+                payment_url = self._generate_payme_url(payment)
+            else:
+                payment_url = f"/payments/{payment.id}/redirect/"
+
+            return Response({
+                'success': True,
+                'payment': {
+                    'id': str(payment.id),
+                    'amount': float(payment.amount),
+                    'total_amount': float(payment.total_amount),
+                    'commission': float(payment.commission),
+                    'currency': payment.currency,
+                    'status': payment.status,
+                    'payment_url': payment_url,
+                    'gateway': gateway.display_name
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _generate_click_url(self, payment):
+        """Generate Click payment URL"""
+        from urllib.parse import urlencode
+
+        base_url = "https://my.click.uz/services/pay"
+        params = {
+            'service_id': payment.gateway.service_id,
+            'merchant_id': payment.gateway.merchant_id,
+            'amount': int(payment.total_amount),
+            'transaction_param': str(payment.id),
+            # 'return_url': f"{request.build_absolute_uri('/')}/payments/success/",
+            # 'cancel_url': f"{request.build_absolute_uri('/')}/payments/cancel/"
+        }
+
+        return f"{base_url}?{urlencode(params)}"
+
+    def _generate_payme_url(self, payment):
+        """Generate Payme payment URL"""
+        import base64
+
+        # Payme merchant and account info
+        merchant_id = payment.gateway.merchant_id
+        account = {
+            'payment_id': str(payment.id)
+        }
+
+        # Encode account info
+        account_encoded = base64.b64encode(
+            str(account).encode('utf-8')
+        ).decode('utf-8')
+
+        return f"https://checkout.paycom.uz/{merchant_id}?a={account_encoded}&ac.payment_id={payment.id}&l=uz"
+
+
+class HospitalRevenueAnalyticsAPIView(APIView):
+    """Hospital revenue analytics (NEW in v3)"""
+    permission_classes = [HospitalAdminRequiredPermission]
+
+    @staticmethod
+    def get(request):
+        """Get hospital revenue analytics"""
+        hospital = request.user.managed_hospital
+        days = int(request.GET.get('days', 30))
+
+        # Date range
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+
+        # Revenue from doctor views
+        view_charges = DoctorViewCharge.objects.filter(
+            doctor__hospital=hospital,
+            created_at__date__range=[start_date, end_date]
         )
 
-    # Pagination
-    paginator = Paginator(doctors, 15)
-    page_number = request.GET.get('page')
-    doctors_page = paginator.get_page(page_number)
+        # Daily revenue
+        daily_revenue = view_charges.extra(
+            {'date': 'date(created_at)'}
+        ).values('date').annotate(
+            total=Sum('amount_charged'),
+            views=Count('id')
+        ).order_by('date')
 
-    # Get filter options
-    specialties = Doctor.SPECIALTIES if hasattr(Doctor, 'SPECIALTIES') else []
+        # Top doctors by revenue
+        top_doctors = view_charges.values(
+            'doctor__id',
+            'doctor__user__first_name',
+            'doctor__user__last_name',
+            'doctor__specialty'
+        ).annotate(
+            total_revenue=Sum('amount_charged'),
+            view_count=Count('id')
+        ).order_by('-total_revenue')[:10]
 
-    context = {
-        'doctors': doctors_page,
-        'hospital': hospital,
-        'specialties': specialties,
-        'current_status': status_filter,
-        'current_specialty': specialty_filter,
-        'search_query': search_query,
-    }
+        # Total statistics
+        total_revenue = view_charges.aggregate(
+            total=Sum('amount_charged')
+        )['total'] or Decimal('0.00')
 
-    return render(request, 'hospital_admin/doctors_list.html', context)
+        total_views = view_charges.count()
 
-
-@hospital_admin_required
-def doctor_detail(request, doctor_id):
-    """Doctor detail page for hospital admin"""
-
-    hospital = request.user.managed_hospital
-    doctor = get_object_or_404(Doctor, id=doctor_id, hospital=hospital)
-
-    # Get doctor statistics
-    total_consultations = Consultation.objects.filter(doctor=doctor).count()
-    monthly_consultations = Consultation.objects.filter(
-        doctor=doctor,
-        created_at__month=timezone.now().month,
-        created_at__year=timezone.now().year
-    ).count()
-
-    # Get recent consultations
-    recent_consultations = Consultation.objects.filter(
-        doctor=doctor
-    ).order_by('-created_at')[:10]
-
-    context = {
-        'hospital': hospital,
-        'doctor': doctor,
-        'total_consultations': total_consultations,
-        'monthly_consultations': monthly_consultations,
-        'recent_consultations': recent_consultations,
-    }
-
-    return render(request, 'hospital_admin/doctor_detail.html', context)
-
-
-@hospital_admin_required
-def consultations_overview(request):
-    """Consultations overview for hospital admin"""
-
-    hospital = request.user.managed_hospital
-
-    # Filter parameters
-    status_filter = request.GET.get('status', 'all')
-    doctor_filter = request.GET.get('doctor', 'all')
-    date_filter = request.GET.get('date', 'all')
-
-    # Base queryset
-    consultations = Consultation.objects.filter(doctor__hospital=hospital)
-
-    # Apply filters
-    if status_filter != 'all':
-        consultations = consultations.filter(status=status_filter)
-
-    if doctor_filter != 'all':
-        consultations = consultations.filter(doctor_id=doctor_filter)
-
-    if date_filter == 'today':
-        consultations = consultations.filter(created_at__date=timezone.now().date())
-    elif date_filter == 'week':
-        week_ago = timezone.now().date() - timezone.timedelta(days=7)
-        consultations = consultations.filter(created_at__date__gte=week_ago)
-    elif date_filter == 'month':
-        consultations = consultations.filter(
-            created_at__month=timezone.now().month,
-            created_at__year=timezone.now().year
-        )
-
-    # Pagination
-    paginator = Paginator(consultations.order_by('-created_at'), 20)
-    page_number = request.GET.get('page')
-    consultations_page = paginator.get_page(page_number)
-
-    # Statistics
-    consultation_stats = {
-        'total': consultations.count(),
-        'by_status': consultations.values('status').annotate(count=Count('id')),
-    }
-
-    # Get doctors for filter
-    hospital_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        verification_status='approved'
-    ).select_related('user')
-
-    context = {
-        'consultations': consultations_page,
-        'hospital': hospital,
-        'hospital_doctors': hospital_doctors,
-        'consultation_stats': consultation_stats,
-        'current_status': status_filter,
-        'current_doctor': doctor_filter,
-        'current_date': date_filter,
-    }
-
-    return render(request, 'hospital_admin/consultations.html', context)
-
-
-@hospital_admin_required
-def hospital_profile(request):
-    """Hospital profile management"""
-
-    hospital = request.user.managed_hospital
-
-    if request.method == 'POST':
-        # Update hospital information (limited fields)
-        hospital.description = request.POST.get('description', hospital.description)
-        hospital.services = request.POST.get('services', hospital.services)
-        hospital.working_hours = request.POST.get('working_hours', hospital.working_hours)
-
-        # Handle logo upload
-        if 'logo' in request.FILES:
-            hospital.logo = request.FILES['logo']
-
-        hospital.save()
-        messages.success(request, 'Shifoxona ma\'lumotlari yangilandi.')
-        return redirect('hospital_admin:hospital_profile')
-
-    context = {
-        'hospital': hospital,
-    }
-
-    return render(request, 'hospital_admin/hospital_profile.html', context)
-
-
-@hospital_admin_required
-def my_profile(request):
-    """Hospital admin profile management"""
-
-    user = request.user
-
-    if request.method == 'POST':
-        # Update admin profile (limited fields)
-        user.first_name = request.POST.get('first_name', user.first_name)
-        user.last_name = request.POST.get('last_name', user.last_name)
-        user.email = request.POST.get('email', user.email)
-        user.region = request.POST.get('region', user.region)
-        user.district = request.POST.get('district', user.district)
-        user.address = request.POST.get('address', user.address)
-
-        # Handle avatar upload
-        if 'avatar' in request.FILES:
-            user.avatar = request.FILES['avatar']
-
-        # Update notification preferences
-        user.email_notifications = 'email_notifications' in request.POST
-        user.sms_notifications = 'sms_notifications' in request.POST
-
-        user.save()
-        messages.success(request, 'Profil ma\'lumotlari yangilandi.')
-        return redirect('hospital_admin:my_profile')
-
-    context = {
-        'user': user,
-    }
-
-    return render(request, 'hospital_admin/my_profile.html', context)
-
-
-@hospital_admin_required
-def notification_center(request):
-    """Notification center for hospital admin"""
-
-    hospital = request.user.managed_hospital
-
-    # Get recent activities and notifications
-    notifications = []
-
-    # New doctor applications
-    pending_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        verification_status='pending'
-    ).count()
-
-    if pending_doctors > 0:
-        notifications.append({
-            'type': 'doctor_application',
-            'title': 'Yangi shifokor so\'rovlari',
-            'message': f'{pending_doctors} ta yangi shifokor tasdiqlashni kutmoqda',
-            'count': pending_doctors,
-            'url': 'hospital_admin:doctors_list',
-            'created_at': timezone.now(),
+        return Response({
+            'success': True,
+            'period': {
+                'start_date': start_date,
+                'end_date': end_date,
+                'days': days
+            },
+            'totals': {
+                'revenue': float(total_revenue),
+                'views': total_views,
+                'average_per_view': float(total_revenue / total_views) if total_views > 0 else 0
+            },
+            'daily_revenue': [
+                {
+                    'date': item['date'],
+                    'revenue': float(item['total']),
+                    'views': item['views']
+                } for item in daily_revenue
+            ],
+            'top_doctors': [
+                {
+                    'doctor_id': item['doctor__id'],
+                    'name': f"{item['doctor__user__first_name']} {item['doctor__user__last_name']}",
+                    'specialty': item['doctor__specialty'],
+                    'revenue': float(item['total_revenue']),
+                    'views': item['view_count']
+                } for item in top_doctors
+            ]
         })
-
-    # Recent consultations
-    recent_consultations = Consultation.objects.filter(
-        doctor__hospital=hospital,
-        created_at__date=timezone.now().date()
-    ).count()
-
-    if recent_consultations > 0:
-        notifications.append({
-            'type': 'consultation',
-            'title': 'Bugungi konsultatsiyalar',
-            'message': f'Bugun {recent_consultations} ta konsultatsiya bo\'ldi',
-            'count': recent_consultations,
-            'url': 'hospital_admin:consultations_overview',
-            'created_at': timezone.now(),
-        })
-
-    # Low-rated doctors (rating < 3.0)
-    low_rated_doctors = Doctor.objects.filter(
-        hospital=hospital,
-        verification_status='approved',
-        rating__lt=3.0,
-        total_reviews__gte=5  # Only if they have enough reviews
-    ).count()
-
-    if low_rated_doctors > 0:
-        notifications.append({
-            'type': 'warning',
-            'title': 'Past reytingli shifokorlar',
-            'message': f'{low_rated_doctors} ta shifokorning reytingi pastlashgan',
-            'count': low_rated_doctors,
-            'url': 'hospital_admin:doctor_statistics',
-            'created_at': timezone.now(),
-        })
-
-    context = {
-        'hospital': hospital,
-        'notifications': notifications,
-    }
-
-    return render(request, 'hospital_admin/notifications.html', context)
-
-
-@hospital_admin_required
-def ajax_doctor_stats(request, doctor_id):
-    """AJAX endpoint for doctor statistics"""
-
-    hospital = request.user.managed_hospital
-    doctor = get_object_or_404(Doctor, id=doctor_id, hospital=hospital)
-
-    # Get statistics for the last 30 days
-    thirty_days_ago = timezone.now().date() - timedelta(days=30)
-
-    # Daily view statistics
-    daily_stats = DoctorViewStatistics.objects.filter(
-        doctor=doctor,
-        date__gte=thirty_days_ago
-    ).order_by('date')
-
-    view_data = []
-    for stat in daily_stats:
-        view_data.append({
-            'date': stat.date.strftime('%Y-%m-%d'),
-            'views': stat.daily_views,
-            'unique_visitors': stat.unique_visitors
-        })
-
-    # Consultation statistics
-    consultations = Consultation.objects.filter(doctor=doctor)
-    consultation_data = {
-        'total': consultations.count(),
-        'this_month': consultations.filter(
-            created_at__date__gte=thirty_days_ago
-        ).count(),
-        'by_status': {}
-    }
-
-    # Group by status
-    status_counts = consultations.values('status').annotate(count=Count('id'))
-    for item in status_counts:
-        consultation_data['by_status'][item['status']] = item['count']
-
-    response_data = {
-        'doctor_id': doctor.id,
-        'doctor_name': doctor.full_name if hasattr(doctor,
-                                                   'full_name') else f"{doctor.user.first_name} {doctor.user.last_name}",
-        'view_data': view_data,
-        'consultation_data': consultation_data,
-        'rating': doctor.rating,
-        'total_reviews': doctor.total_reviews,
-        'success_rate': getattr(doctor, 'success_rate', 0),
-    }
-
-    return JsonResponse(response_data)
-
-
-@hospital_admin_required
-def doctor_availability_toggle(request, doctor_id):
-    """Toggle doctor availability (AJAX)"""
-
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Invalid method'}, status=405)
-
-    hospital = request.user.managed_hospital
-    doctor = get_object_or_404(Doctor, id=doctor_id, hospital=hospital)
-
-    # Hospital admin cannot directly change doctor availability
-    # They can only view statistics and send notifications
-    return JsonResponse({
-        'error': 'Shifokor mavjudligini faqat shifokor o\'zi o\'zgartira oladi'
-    }, status=403)
