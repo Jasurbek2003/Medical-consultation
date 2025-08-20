@@ -52,7 +52,7 @@ class UserAdmin(BaseUserAdmin):
             'classes': ('collapse',)
         }),
         ('Ruxsatlar', {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions', "user_type"),
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions', "user_type", "managed_hospital"),
             'classes': ('collapse',)
         }),
         ('Meta', {
