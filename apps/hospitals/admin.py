@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Hospital
+from .models import Hospital, HospitalService
 
 
 @admin.register(Hospital)
@@ -76,7 +76,6 @@ class HospitalAdmin(admin.ModelAdmin):
         }),
         ('Xizmatlar va ish vaqti', {
             'fields': (
-                'services',
                 'working_hours',
                 # 'emergency_services'
             )
@@ -219,4 +218,66 @@ class HospitalAdmin(admin.ModelAdmin):
     #     )
     #
     # feature_hospitals.short_description = 'Tanlangan shifoxonalarni ajratish'
+
+@admin.register(HospitalService)
+class HospitalServiceAdmin(admin.ModelAdmin):
+    list_display = [
+        'name',
+        'hospital',
+        'description',
+        'is_active',
+        'created_at'
+    ]
+
+    list_filter = [
+        'hospital',
+        'is_active',
+        'created_at'
+    ]
+
+    search_fields = [
+        'name',
+        'description'
+    ]
+
+    readonly_fields = [
+        'id',
+        'created_at',
+        'updated_at'
+    ]
+
+    fieldsets = (
+        ('Asosiy ma\'lumotlar', {
+            'fields': (
+                'name',
+                'hospital',
+                'description'
+            )
+        }),
+        ('Holat', {
+            'fields': (
+                'is_active',
+            )
+        }),
+        ('Tizim ma\'lumotlari', {
+            'fields': (
+                'created_at',
+                'updated_at'
+            ),
+            'classes': ('collapse',)
+        })
+    )
+
+    list_per_page = 25
+    ordering = ['-created_at']
+    date_hierarchy = 'created_at'
+
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        queryset = super().get_queryset(request)
+        return queryset.select_related('hospital')
+
+
+
+
 
