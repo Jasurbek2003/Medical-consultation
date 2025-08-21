@@ -106,7 +106,7 @@ class HospitalDashboardAPIView(APIView):
                 'pending_doctors': pending_doctors,
                 "total_services": HospitalService.objects.filter(hospital=hospital).count(),
                 "founded_year": hospital.founded_year,
-                'specialzations': len(hospital.specialzations.split(",")) if hospital.specialzations else 0,
+                'specialization': len(hospital.specialization.split(",")) if hospital.specialization else 0,
             },
             'top_doctors': DoctorSerializer(top_doctors, many=True).data,
         })
