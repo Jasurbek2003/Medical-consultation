@@ -30,7 +30,41 @@ class HospitalAdminRequiredPermission(permissions.BasePermission):
             return False
         return True
 
+class HospitalProfileAPIView(APIView):
+    """Hospital admin dashboard API"""
+    permission_classes = [HospitalAdminRequiredPermission]
 
+    @staticmethod
+    def get(request):
+        """Get hospital profile data"""
+        hospital = request.user.managed_hospital
+
+        if not hospital:
+            return Response({
+                'success': False,
+                'error': 'Hospital not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            'success': True,
+            'hospital': {
+                'id': hospital.id,
+                'name': hospital.name,
+                'type': hospital.hospital_type,
+                'address': hospital.address,
+                'phone': hospital.phone,
+                'email': hospital.email,
+                'founded_year': hospital.founded_year,
+                'region': hospital.region,
+                'district': hospital.district,
+                'description': hospital.description,
+                'working_hours': hospital.working_hours,
+                'logo': hospital.logo.url if hospital.logo else None,
+                'website': hospital.website,
+                'created_at': hospital.created_at.isoformat(),
+                'updated_at': hospital.updated_at.isoformat()
+            }
+        })
 
 class HospitalDashboardAPIView(APIView):
     """Hospital admin dashboard API"""
