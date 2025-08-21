@@ -66,6 +66,63 @@ class HospitalProfileAPIView(APIView):
             }
         })
 
+    def put(self, request):
+        """Update hospital profile data"""
+        hospital = request.user.managed_hospital
+
+        if not hospital:
+            return Response({
+                'success': False,
+                'error': 'Hospital not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        name = request.data.get('name', hospital.name)
+        address = request.data.get('address', hospital.address)
+        phone = request.data.get('phone', hospital.phone)
+        email = request.data.get('email', hospital.email)
+        founded_year = request.data.get('founded_year', hospital.founded_year)
+        region = request.data.get('region', hospital.region)
+        district = request.data.get('district', hospital.district)
+        description = request.data.get('description', hospital.description)
+        working_hours = request.data.get('working_hours', hospital.working_hours)
+        website = request.data.get('website', hospital.website)
+
+        # Update fields
+        hospital.name = name
+        hospital.address = address
+        hospital.phone = phone
+        hospital.email = email
+        hospital.founded_year = founded_year
+        hospital.region = region
+        hospital.district = district
+        hospital.description = description
+        hospital.working_hours = working_hours
+        hospital.website = website
+
+        # Save changes
+        hospital.save()
+
+        return Response({
+            'success': True,
+            'hospital': {
+                'id': hospital.id,
+                'name': hospital.name,
+                'type': hospital.hospital_type,
+                'address': hospital.address,
+                'phone': hospital.phone,
+                'email': hospital.email,
+                'founded_year': hospital.founded_year,
+                'region': hospital.region,
+                'district': hospital.district,
+                'description': hospital.description,
+                'working_hours': hospital.working_hours,
+                'logo': hospital.logo.url if hospital.logo else None,
+                'website': hospital.website,
+                'created_at': hospital.created_at.isoformat(),
+                'updated_at': hospital.updated_at.isoformat()
+            }
+        })
+
 class HospitalDashboardAPIView(APIView):
     """Hospital admin dashboard API"""
     permission_classes = [HospitalAdminRequiredPermission]
