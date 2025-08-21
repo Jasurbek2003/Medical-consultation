@@ -48,7 +48,6 @@ class Hospital(models.Model):
 
     # Additional info
     description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
-    services = models.TextField(blank=True, null=True, verbose_name="Xizmatlar")
     working_hours = models.CharField(max_length=100, blank=True, null=True, verbose_name="Ish vaqti")
 
     # System fields
@@ -176,3 +175,39 @@ class HospitalStatistics(models.Model):
 
     def __str__(self):
         return f"{self.hospital.name} - {self.date}"
+
+class HospitalService(models.Model):
+    """Shifoxona xizmatlari"""
+
+    hospital = models.ForeignKey(
+        Hospital,
+        on_delete=models.CASCADE,
+        related_name='services',
+        verbose_name="Shifoxona"
+    )
+
+    name = models.CharField(max_length=255, verbose_name="Xizmat nomi")
+    description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Narxi"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Faol")
+    duration = models.PositiveIntegerField(
+        default=30,
+        verbose_name="Davomiyligi (daqiqa)",
+        help_text="Xizmatning davomiyligi daqiqalarda"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+
+    class Meta:
+        verbose_name = "Shifoxona xizmati"
+        verbose_name_plural = "Shifoxona xizmatlari"
+        unique_together = ['hospital', 'name']
+
+    def __str__(self):
+        return f"{self.hospital.name} - {self.name}"
