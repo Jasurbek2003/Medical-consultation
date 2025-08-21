@@ -40,6 +40,12 @@ class Hospital(models.Model):
         verbose_name="Tashkil etilgan yili",
         validators=[MinValueValidator(1900), MaxValueValidator(2100)]
     )
+    specialization = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Ixtisoslashuvi",
+        help_text="Shifoxonaning asosiy ixtisoslashuvi yoki xizmatlari haqida ma'lumot"
+    )
 
     # Address
     region = models.CharField(max_length=100, verbose_name="Viloyat")

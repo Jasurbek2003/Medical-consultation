@@ -1,17 +1,17 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Count, Q, Sum
 from django.core.paginator import Paginator
-from decimal import Decimal
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from apps.doctors.models import Doctor
-from apps.consultations.models import Consultation
+from apps.hospitals.models import HospitalService
 from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
 from apps.billing.services import BillingService
 from apps.payments.models import Payment, PaymentGateway
@@ -87,31 +87,11 @@ class HospitalDashboardAPIView(APIView):
             verification_status='pending'
         ).count()
 
-        # Get recent consultations
-        recent_consultations = Consultation.objects.filter(
-            doctor__hospital=hospital
-        ).order_by('-created_at')[:10]
-
         # Get top doctors by rating
         top_doctors = Doctor.objects.filter(
             hospital=hospital,
             verification_status='approved'
         ).order_by('-rating')[:5]
-
-        # Monthly statistics
-        current_month = timezone.now().replace(day=1)
-        monthly_consultations = Consultation.objects.filter(
-            doctor__hospital=hospital,
-            created_at__gte=current_month
-        ).count()
-
-        # Revenue statistics (new in v3)
-        monthly_revenue = DoctorViewCharge.objects.filter(
-            doctor__hospital=hospital,
-            created_at__gte=current_month
-        ).aggregate(
-            total=Sum('amount_charged')
-        )['total'] or Decimal('0.00')
 
         return Response({
             'success': True,
@@ -124,19 +104,11 @@ class HospitalDashboardAPIView(APIView):
                 'total_doctors': total_doctors,
                 'active_doctors': active_doctors,
                 'pending_doctors': pending_doctors,
-                'monthly_consultations': monthly_consultations,
-                'monthly_revenue': float(monthly_revenue)
+                "total_services": HospitalService.objects.filter(hospital=hospital).count(),
+                "founded_year": hospital.founded_year,
+                'specialzations': len(hospital.specialzations.split(",")) if hospital.specialzations else 0,
             },
             'top_doctors': DoctorSerializer(top_doctors, many=True).data,
-            'recent_consultations': [
-                {
-                    'id': c.id,
-                    'patient_name': c.patient.get_full_name(),
-                    'doctor_name': c.doctor.user.get_full_name(),
-                    'status': c.status,
-                    'created_at': c.created_at
-                } for c in recent_consultations
-            ]
         })
 
 
