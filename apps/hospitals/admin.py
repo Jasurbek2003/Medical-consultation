@@ -70,6 +70,7 @@ class HospitalAdmin(admin.ModelAdmin):
                 'phone',
                 'email',
                 'website',
+                'founded_year'
                 # 'social_media'
             )
         }),

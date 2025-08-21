@@ -34,6 +34,12 @@ class Hospital(models.Model):
     )
     email = models.EmailField(blank=True, null=True, verbose_name="Email")
     website = models.URLField(blank=True, null=True, verbose_name="Veb-sayt")
+    founded_year = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Tashkil etilgan yili",
+        validators=[MinValueValidator(1900), MaxValueValidator(2100)]
+    )
 
     # Address
     region = models.CharField(max_length=100, verbose_name="Viloyat")
