@@ -548,6 +548,7 @@ class ServiceAPIView(APIView):
                     'name': service.name,
                     'description': service.description,
                     'price': float(service.price),
+                    'duration': service.duration,
                     'is_active': service.is_active
                 } for service in services
             ]
@@ -560,6 +561,7 @@ class ServiceAPIView(APIView):
         name = request.data.get('name')
         description = request.data.get('description', '')
         price = Decimal(str(request.data.get('price', 0.00)))
+        duration = Decimal(str(request.data.get('duration', 0.00)))
 
         if not name or not price:
             return Response({
@@ -583,7 +585,8 @@ class ServiceAPIView(APIView):
             hospital=hospital,
             name=name,
             description=description,
-            price=price
+            price=price,
+            duration=duration,
         )
 
         return Response({
@@ -593,7 +596,8 @@ class ServiceAPIView(APIView):
                 'name': service.name,
                 'description': service.description,
                 'price': float(service.price),
-                'is_active': service.is_active
+                'is_active': service.is_active,
+                'duration': service.duration,
             }
         })
 
@@ -607,6 +611,7 @@ class ServiceAPIView(APIView):
         name = request.data.get('name', service.name)
         description = request.data.get('description', service.description)
         price = Decimal(str(request.data.get('price', service.price)))
+        duration = Decimal(str(request.data.get('duration', service.duration)))
 
         if not name or not price:
             return Response({
@@ -617,6 +622,7 @@ class ServiceAPIView(APIView):
         service.name = name
         service.description = description
         service.price = price
+        service.duration = duration
         service.save()
 
         return Response({
@@ -626,7 +632,8 @@ class ServiceAPIView(APIView):
                 'name': service.name,
                 'description': service.description,
                 'price': float(service.price),
-                'is_active': service.is_active
+                'is_active': service.is_active,
+                'duration': service.duration,
             }
         })
 
