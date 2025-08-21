@@ -534,10 +534,23 @@ class ServiceAPIView(APIView):
     permission_classes = [HospitalAdminRequiredPermission]
 
     @staticmethod
-    def get(request):
+    def get(request, service_id=None):
         """Get list of hospital services"""
         hospital = request.user.managed_hospital
-
+        if service_id:
+            # Get specific service
+            service = get_object_or_404(HospitalService, id=service_id, hospital=hospital)
+            return Response({
+                'success': True,
+                'service': {
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description,
+                    'price': float(service.price),
+                    'duration': service.duration,
+                    'is_active': service.is_active
+                }
+            })
         services = HospitalService.objects.filter(hospital=hospital).order_by('name')
 
         return Response({

@@ -604,3 +604,60 @@ class ChatMessageTranslation(models.Model):
 
     def __str__(self):
         return f"Xabar {self.message.id} tarjimalari"
+
+class DoctorServiceName(models.Model):
+    """Shifokor xizmatlari nomlari"""
+
+    name = models.CharField(max_length=255, unique=True, verbose_name="Xizmat nomi")
+    description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+
+    class Meta:
+        verbose_name = "Shifokor xizmat nomi"
+        verbose_name_plural = "Shifokor xizmat nomlari"
+
+    def __str__(self):
+        return self.name
+
+class DoctorService(models.Model):
+    """Shifokor xizmatlari"""
+
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='services',
+        verbose_name="Shifokor"
+    )
+
+    name = models.ForeignKey(
+        DoctorServiceName,
+        on_delete=models.CASCADE,
+        related_name='doctor_services',
+        verbose_name="Xizmat nomi"
+    )
+    description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Narxi"
+    )
+    duration = models.PositiveIntegerField(
+        default=30,
+        verbose_name="Davomiyligi (daqiqa)",
+        help_text="Xizmatning davomiyligi daqiqalarda"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Faol")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+
+    class Meta:
+        verbose_name = "Shifokor xizmati"
+        verbose_name_plural = "Shifokor xizmatlari"
+        unique_together = ['doctor', 'name']
+
+    def __str__(self):
+        return f"{self.doctor.full_name} - {self.name}"
