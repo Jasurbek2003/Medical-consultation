@@ -528,3 +528,117 @@ class HospitalRevenueAnalyticsAPIView(APIView):
                 } for item in top_doctors
             ]
         })
+
+class ServiceAPIView(APIView):
+    """List hospital services (NEW in v3)"""
+    permission_classes = [HospitalAdminRequiredPermission]
+
+    @staticmethod
+    def get(request):
+        """Get list of hospital services"""
+        hospital = request.user.managed_hospital
+
+        services = HospitalService.objects.filter(hospital=hospital).order_by('name')
+
+        return Response({
+            'success': True,
+            'services': [
+                {
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description,
+                    'price': float(service.price),
+                    'is_active': service.is_active
+                } for service in services
+            ]
+        })
+
+    def post(self, request):
+        """Create a new hospital service"""
+        hospital = request.user.managed_hospital
+
+        name = request.data.get('name')
+        description = request.data.get('description', '')
+        price = Decimal(str(request.data.get('price', 0.00)))
+
+        if not name or not price:
+            return Response({
+                'success': False,
+                'error': 'Name and price are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        if price < 0:
+            return Response({
+                'success': False,
+                'error': 'Price cannot be negative'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if service with this name already exists
+        if HospitalService.objects.filter(hospital=hospital, name=name).exists():
+            return Response({
+                'success': False,
+                'error': 'Service with this name already exists'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        service = HospitalService.objects.create(
+            hospital=hospital,
+            name=name,
+            description=description,
+            price=price
+        )
+
+        return Response({
+            'success': True,
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'price': float(service.price),
+                'is_active': service.is_active
+            }
+        })
+
+
+    def put(self, request, service_id):
+        """Update an existing hospital service"""
+        hospital = request.user.managed_hospital
+
+        service = get_object_or_404(HospitalService, id=service_id, hospital=hospital)
+
+        name = request.data.get('name', service.name)
+        description = request.data.get('description', service.description)
+        price = Decimal(str(request.data.get('price', service.price)))
+
+        if not name or not price:
+            return Response({
+                'success': False,
+                'error': 'Name and price are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        service.name = name
+        service.description = description
+        service.price = price
+        service.save()
+
+        return Response({
+            'success': True,
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'price': float(service.price),
+                'is_active': service.is_active
+            }
+        })
+
+    def delete(self, request, service_id):
+        """Delete a hospital service"""
+        hospital = request.user.managed_hospital
+
+        service = get_object_or_404(HospitalService, id=service_id, hospital=hospital)
+
+        service.delete()
+
+        return Response({
+            'success': True,
+            'message': 'Service deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)

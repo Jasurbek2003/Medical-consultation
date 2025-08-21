@@ -8,6 +8,7 @@ urlpatterns = [
     # Dashboard
     path('dashboard/', views.HospitalDashboardAPIView.as_view(), name='api_dashboard'),
     path('profile/', views.HospitalProfileAPIView.as_view(), name='api_dashboard'),
+    path('service/', views.ServiceAPIView.as_view(), name='api_dashboard'),
 
     # Doctor management
     path('doctors/', views.HospitalDoctorsListAPIView.as_view(), name='api_doctors_list'),
