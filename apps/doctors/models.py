@@ -103,26 +103,26 @@ class Doctor(models.Model):
         verbose_name="Konsultatsiya narxi"
     )
 
-    # Professional documents
-    diploma_image = models.FileField(
-        upload_to='doctors/diplomas/',
-        blank=True,
-        null=True,
-        verbose_name="Diploma rasmi"
-    )
-
-    license_image = models.ImageField(
-        upload_to='doctors/licenses/',
-        blank=True,
-        null=True,
-        verbose_name="Litsenziya rasmi"
-    )
-
-    certificate_images = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name="Sertifikat rasmlari"
-    )
+    # # Professional documents
+    # diploma_image = models.FileField(
+    #     upload_to='doctors/diplomas/',
+    #     blank=True,
+    #     null=True,
+    #     verbose_name="Diploma rasmi"
+    # )
+    #
+    # license_image = models.ImageField(
+    #     upload_to='doctors/licenses/',
+    #     blank=True,
+    #     null=True,
+    #     verbose_name="Litsenziya rasmi"
+    # )
+    #
+    # certificate_images = models.JSONField(
+    #     default=list,
+    #     blank=True,
+    #     verbose_name="Sertifikat rasmlari"
+    # )
 
     # Schedule and availability
     is_available = models.BooleanField(default=True, verbose_name="Mavjud")
@@ -342,6 +342,45 @@ class Doctor(models.Model):
             return self.translations.get_available_languages()
         except DoctorTranslation.DoesNotExist:
             return []
+
+
+class DoctorFiles(models.Model):
+    """Shifokor professional hujjatlari"""
+
+    doctor = models.OneToOneField(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='files',
+        verbose_name="Shifokor"
+    )
+
+    FILE_TYPES = [
+        ('diploma', 'Diploma'),
+        ('license', 'Litsenziya'),
+        ('certificate', 'Sertifikat'),
+    ]
+
+    file_type = models.CharField(
+        max_length=20,
+        choices=FILE_TYPES,
+        verbose_name="Hujjat turi"
+    )
+    file = models.FileField(
+        upload_to='doctors/documents/',
+        verbose_name="Hujjat fayli",
+        help_text="PDF, JPG, PNG formatlarida bo'lishi mumkin"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Yuklangan sana")
+
+    class Meta:
+        verbose_name = "Shifokor hujjati"
+        verbose_name_plural = "Shifokor hujjatlari"
+        unique_together = ['doctor', 'file_type']
+
+    def __str__(self):
+        return f"{self.doctor.full_name} - {self.get_file_type_display()}"
+
+
 
 class DoctorSchedule(models.Model):
     """Shifokor ish jadvali"""

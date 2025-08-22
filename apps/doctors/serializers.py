@@ -61,6 +61,9 @@ class DoctorDetailSerializer(DoctorSerializer):
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     address = serializers.CharField(source='user.address', read_only=True)
 
+    files = serializers.SerializerMethodField()
+
+
     class Meta(DoctorSerializer.Meta):
         fields = DoctorSerializer.Meta.fields + [
             'middle_name', 'bio', 'education', 'achievements',

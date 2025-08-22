@@ -807,3 +807,4 @@ class HospitalListAPIView(APIView):
                 } for hospital in hospitals
             ]
         })
+
