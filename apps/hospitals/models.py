@@ -182,6 +182,7 @@ class HospitalStatistics(models.Model):
     def __str__(self):
         return f"{self.hospital.name} - {self.date}"
 
+
 class HospitalService(models.Model):
     """Shifoxona xizmatlari"""
 
@@ -217,3 +218,40 @@ class HospitalService(models.Model):
 
     def __str__(self):
         return f"{self.hospital.name} - {self.name}"
+
+
+class Regions(models.Model):
+    """Viloyatlar modeli"""
+
+    name = models.CharField(max_length=100, unique=True, verbose_name="Viloyat nomi")
+
+    class Meta:
+        verbose_name = "Viloyat"
+        verbose_name_plural = "Viloyatlar"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+
+class Districts(models.Model):
+    """Tumanlar modeli"""
+
+    region = models.ForeignKey(
+        Regions,
+        on_delete=models.CASCADE,
+        related_name='districts',
+        verbose_name="Viloyat"
+    )
+    name = models.CharField(max_length=100, verbose_name="Tuman nomi")
+
+    class Meta:
+        verbose_name = "Tuman"
+        verbose_name_plural = "Tumanlar"
+        unique_together = ['region', 'name']
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.region.name} - {self.name}"
+

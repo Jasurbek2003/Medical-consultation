@@ -23,4 +23,8 @@ urlpatterns = [
     # Payment integration
     path('payments/gateways/', views.PaymentIntegrationAPIView.as_view(), name='api_payment_gateways'),
     path('payments/create/', views.PaymentIntegrationAPIView.as_view(), name='api_create_payment'),
+
+    # Location data
+    path('locations/regions/', views.RegionsListAPIView.as_view(), name='api_regions'),
+    path('locations/districts/', views.DistrictsListAPIView.as_view(), name='api_districts'),
 ]

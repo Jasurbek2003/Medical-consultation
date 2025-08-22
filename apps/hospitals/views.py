@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from apps.doctors.models import Doctor
-from apps.hospitals.models import HospitalService
+from apps.hospitals.models import HospitalService, Regions, Districts
 from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
 from apps.billing.services import BillingService
 from apps.payments.models import Payment, PaymentGateway
@@ -719,3 +719,47 @@ class ServiceAPIView(APIView):
             'success': True,
             'message': 'Service deleted successfully'
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+class RegionsListAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @staticmethod
+    def get(request):
+        """Get list of regions"""
+
+        regions = Regions.objects.all().order_by('name')
+
+        return Response({
+            'success': True,
+            'regions': [
+                {
+                    'id': region.id,
+                    'name': region.name
+                } for region in regions
+            ]
+        })
+
+class DistrictsListAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @staticmethod
+    def get(request, region_id=None):
+        """Get list of districts, optionally filtered by region"""
+
+        if region_id:
+            districts = Regions.objects.filter(id=region_id).first().districts.all().order_by('name')
+        else:
+            districts = Districts.objects.all().order_by('name')
+
+        return Response({
+            'success': True,
+            'districts': [
+                {
+                    'id': district.id,
+                    'name': district.name,
+                    'region_id': district.region.id,
+                    'region_name': district.region.name
+                } for district in districts
+            ]
+        })

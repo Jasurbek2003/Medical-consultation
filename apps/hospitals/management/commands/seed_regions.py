@@ -1,0 +1,911 @@
+from django.core.management.base import BaseCommand
+from apps.hospitals.models import Districts, Regions
+
+
+class Command(BaseCommand):
+    help = 'Seed regions and districts data'
+
+    def handle(self, *args, **options):
+        data = [
+            {
+                "id": 1,
+                "name": "Andijon viloyati",
+                "districts": [
+                    {
+                        "item": "Oltinko'l tumani",
+                        "value": "Oltinko'l tumani"
+                    },
+                    {
+                        "item": "Andijon tumani",
+                        "value": "Andijon tumani"
+                    },
+                    {
+                        "item": "Asaka tumani",
+                        "value": "Asaka tumani"
+                    },
+                    {
+                        "item": "Baliqchi tumani",
+                        "value": "Baliqchi tumani"
+                    },
+                    {
+                        "item": "Bo'z tumani",
+                        "value": "Bo'z tumani"
+                    },
+                    {
+                        "item": "Buloqboshi tumani",
+                        "value": "Buloqboshi tumani"
+                    },
+                    {
+                        "item": "Jalaquduq tumani",
+                        "value": "Jalaquduq tumani"
+                    },
+                    {
+                        "item": "Izboskan tumani",
+                        "value": "Izboskan tumani"
+                    },
+                    {
+                        "item": "Qo\u2018rg\u2018ontepa tumani",
+                        "value": "Qo\u2018rg\u2018ontepa tumani"
+                    },
+                    {
+                        "item": "Marhamat tumani",
+                        "value": "Marhamat tumani"
+                    },
+                    {
+                        "item": "Paxtaobod tumani",
+                        "value": "Paxtaobod tumani"
+                    },
+                    {
+                        "item": "Ulug'nor tumani",
+                        "value": "Ulug'nor tumani"
+                    },
+                    {
+                        "item": "Xo\u2018jaobod tumani",
+                        "value": "Xo\u2018jaobod tumani"
+                    },
+                    {
+                        "item": "Shahrixon tumani",
+                        "value": "Shahrixon tumani"
+                    },
+                    {
+                        "item": "Andijon shahri",
+                        "value": "Andijon shahri"
+                    },
+                    {
+                        "item": "Xonobod shahri",
+                        "value": "Xonobod shahri"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "name": "Buxoro viloyati",
+                "districts": [
+                    {
+                        "item": "Olat tumani",
+                        "value": "Olat tumani"
+                    },
+                    {
+                        "item": "Buxoro tumani",
+                        "value": "Buxoro tumani"
+                    },
+                    {
+                        "item": "Vobkent tumani",
+                        "value": "Vobkent tumani"
+                    },
+                    {
+                        "item": "G\u2018ijduvon tumani",
+                        "value": "G\u2018ijduvon tumani"
+                    },
+                    {
+                        "item": "Jondorskiy tumani",
+                        "value": "Jondorskiy tumani"
+                    },
+                    {
+                        "item": "Kaganskiy tumani",
+                        "value": "Kaganskiy tumani"
+                    },
+                    {
+                        "item": "Qorako'l tumani",
+                        "value": "Qorako'l tumani"
+                    },
+                    {
+                        "item": "Qorovulbozor tumani",
+                        "value": "Qorovulbozor tumani"
+                    },
+                    {
+                        "item": "Peshkun tumani",
+                        "value": "Peshkun tumani"
+                    },
+                    {
+                        "item": "Romitanskiy tumani",
+                        "value": "Romitanskiy tumani"
+                    },
+                    {
+                        "item": "Shofirkon tumani",
+                        "value": "Shofirkon tumani"
+                    },
+                    {
+                        "item": "Buxoro shahri",
+                        "value": "Buxoro shahri"
+                    },
+                    {
+                        "item": "Kogon shahri",
+                        "value": "Kogon shahri"
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "name": "Jizzax viloyati",
+                "districts": [
+                    {
+                        "item": "Arnasoy tumani",
+                        "value": "Arnasoy tumani"
+                    },
+                    {
+                        "item": "Baxmal tumani",
+                        "value": "Baxmal tumani"
+                    },
+                    {
+                        "item": "G\u2018allaorol tumani",
+                        "value": "G\u2018allaorol tumani"
+                    },
+                    {
+                        "item": "Do'stlik tumani",
+                        "value": "Do'stlik tumani"
+                    },
+                    {
+                        "item": "Zomin tumani",
+                        "value": "Zomin tumani"
+                    },
+                    {
+                        "item": "Zarbdor tumani",
+                        "value": "Zarbdor tumani"
+                    },
+                    {
+                        "item": "Zafarobod tumani",
+                        "value": "Zafarobod tumani"
+                    },
+                    {
+                        "item": "Mirzacho'l tumani",
+                        "value": "Mirzacho'l tumani"
+                    },
+                    {
+                        "item": "Paxtakor tumani",
+                        "value": "Paxtakor tumani"
+                    },
+                    {
+                        "item": "Farish tumani",
+                        "value": "Farish tumani"
+                    },
+                    {
+                        "item": "Sharaf-Rashidov tumani",
+                        "value": "Sharaf-Rashidov tumani"
+                    },
+                    {
+                        "item": "Yangiobod tumani",
+                        "value": "Yangiobod tumani"
+                    },
+                    {
+                        "item": "Jizzax shahri",
+                        "value": "Jizzax shahri"
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "name": "Qashqadaryo viloyati",
+                "districts": [
+                    {
+                        "item": "G'uzor tumani",
+                        "value": "G'uzor tumani"
+                    },
+                    {
+                        "item": "Dehqonobod tumani",
+                        "value": "Dehqonobod tumani"
+                    },
+                    {
+                        "item": "Qamashin tumani",
+                        "value": "Qamashin tumani"
+                    },
+                    {
+                        "item": "Qarshi tumani",
+                        "value": "Qarshi tumani"
+                    },
+                    {
+                        "item": "Koson tumani",
+                        "value": "Koson tumani"
+                    },
+                    {
+                        "item": "Kasbi tumani",
+                        "value": "Kasbi tumani"
+                    },
+                    {
+                        "item": "Kitob tumani",
+                        "value": "Kitob tumani"
+                    },
+                    {
+                        "item": "Ko\u02bbkdala tumani",
+                        "value": "Ko\u02bbkdala tumani"
+                    },
+                    {
+                        "item": "Mirishkor tumani",
+                        "value": "Mirishkor tumani"
+                    },
+                    {
+                        "item": "Muborak tumani",
+                        "value": "Muborak tumani"
+                    },
+                    {
+                        "item": "Nishon tumani",
+                        "value": "Nishon tumani"
+                    },
+                    {
+                        "item": "Chiroqchi tumani",
+                        "value": "Chiroqchi tumani"
+                    },
+                    {
+                        "item": "Shahrisabz tumani",
+                        "value": "Shahrisabz tumani"
+                    },
+                    {
+                        "item": "Yakkabog' tumani",
+                        "value": "Yakkabog' tumani"
+                    },
+                    {
+                        "item": "Qarshi shahri",
+                        "value": "Qarshi shahri"
+                    }
+                ]
+            },
+            {
+                "id": 5,
+                "name": "Navoiy viloyati",
+                "districts": [
+                    {
+                        "item": "Kanimehskiy tumani",
+                        "value": "Kanimehskiy tumani"
+                    },
+                    {
+                        "item": "Karmaninskiy tumani",
+                        "value": "Karmaninskiy tumani"
+                    },
+                    {
+                        "item": "Qiziltepa tumani",
+                        "value": "Qiziltepa tumani"
+                    },
+                    {
+                        "item": "Navbahor tumani",
+                        "value": "Navbahor tumani"
+                    },
+                    {
+                        "item": "Nurota tumani",
+                        "value": "Nurota tumani"
+                    },
+                    {
+                        "item": "Tamdi tumani",
+                        "value": "Tamdi tumani"
+                    },
+                    {
+                        "item": "Uchquduq tumani",
+                        "value": "Uchquduq tumani"
+                    },
+                    {
+                        "item": "Xatirchin tumani",
+                        "value": "Xatirchin tumani"
+                    },
+                    {
+                        "item": "Zarafshon shahri",
+                        "value": "Zarafshon shahri"
+                    },
+                    {
+                        "item": "Navoiy shahri",
+                        "value": "Navoiy shahri"
+                    }
+                ]
+            },
+            {
+                "id": 6,
+                "name": "Namangan viloyati",
+                "districts": [
+                    {
+                        "item": "Kosonsoy tumani",
+                        "value": "Kosonsoy tumani"
+                    },
+                    {
+                        "item": "Mingbuloq tumani",
+                        "value": "Mingbuloq tumani"
+                    },
+                    {
+                        "item": "Namangan tumani",
+                        "value": "Namangan tumani"
+                    },
+                    {
+                        "item": "Norin tumani",
+                        "value": "Norin tumani"
+                    },
+                    {
+                        "item": "Pop tumani",
+                        "value": "Pop tumani"
+                    },
+                    {
+                        "item": "To\u02bbraqo\u02bbrg\u02bbon tumani",
+                        "value": "To\u02bbraqo\u02bbrg\u02bbon tumani"
+                    },
+                    {
+                        "item": "Uychin tumani",
+                        "value": "Uychin tumani"
+                    },
+                    {
+                        "item": "Uchqo'rg'on tumani",
+                        "value": "Uchqo'rg'on tumani"
+                    },
+                    {
+                        "item": "Chortoq tumani",
+                        "value": "Chortoq tumani"
+                    },
+                    {
+                        "item": "Chust tumani",
+                        "value": "Chust tumani"
+                    },
+                    {
+                        "item": "Yangiqo'rg'on tumani",
+                        "value": "Yangiqo'rg'on tumani"
+                    },
+                    {
+                        "item": "Namangan shahri",
+                        "value": "Namangan shahri"
+                    }
+                ]
+            },
+            {
+                "id": 7,
+                "name": "Samarqand viloyati",
+                "districts": [
+                    {
+                        "item": "Oqdaryo tumani",
+                        "value": "Oqdaryo tumani"
+                    },
+                    {
+                        "item": "Bulung'ur tumani",
+                        "value": "Bulung'ur tumani"
+                    },
+                    {
+                        "item": "Djambaiskiy tumani",
+                        "value": "Djambaiskiy tumani"
+                    },
+                    {
+                        "item": "Ishtixon tumani",
+                        "value": "Ishtixon tumani"
+                    },
+                    {
+                        "item": "Kattaqo\u2018rg\u2018on tumani",
+                        "value": "Kattaqo\u2018rg\u2018on tumani"
+                    },
+                    {
+                        "item": "Qo\u2018shrobod tumani",
+                        "value": "Qo\u2018shrobod tumani"
+                    },
+                    {
+                        "item": "Narpay tumani",
+                        "value": "Narpay tumani"
+                    },
+                    {
+                        "item": "Nurobod tumani",
+                        "value": "Nurobod tumani"
+                    },
+                    {
+                        "item": "Payariq tumani",
+                        "value": "Payariq tumani"
+                    },
+                    {
+                        "item": "Pastdarg'om tumani",
+                        "value": "Pastdarg'om tumani"
+                    },
+                    {
+                        "item": "Paxtachi tumani",
+                        "value": "Paxtachi tumani"
+                    },
+                    {
+                        "item": "Samarqand tumani",
+                        "value": "Samarqand tumani"
+                    },
+                    {
+                        "item": "Taylak tumani",
+                        "value": "Taylak tumani"
+                    },
+                    {
+                        "item": "Urgut tumani",
+                        "value": "Urgut tumani"
+                    },
+                    {
+                        "item": "Kattaqo'rg'on shahri",
+                        "value": "Kattaqo'rg'on shahri"
+                    },
+                    {
+                        "item": "Samarqand shahri",
+                        "value": "Samarqand shahri"
+                    }
+                ]
+            },
+            {
+                "id": 8,
+                "name": "Surxondaryo viloyati",
+                "districts": [
+                    {
+                        "item": "Oltinsoy tumani",
+                        "value": "Oltinsoy tumani"
+                    },
+                    {
+                        "item": "Angora tumani",
+                        "value": "Angora tumani"
+                    },
+                    {
+                        "item": "Boysun tumani",
+                        "value": "Boysun tumani"
+                    },
+                    {
+                        "item": "Bandixon tumani",
+                        "value": "Bandixon tumani"
+                    },
+                    {
+                        "item": "Denov tumani",
+                        "value": "Denov tumani"
+                    },
+                    {
+                        "item": "Jarqo'rg'on tumani",
+                        "value": "Jarqo'rg'on tumani"
+                    },
+                    {
+                        "item": "Qiziriq tumani",
+                        "value": "Qiziriq tumani"
+                    },
+                    {
+                        "item": "Qumqo'rg'on tumani",
+                        "value": "Qumqo'rg'on tumani"
+                    },
+                    {
+                        "item": "Muzrobod tumani",
+                        "value": "Muzrobod tumani"
+                    },
+                    {
+                        "item": "Sariasi tumani",
+                        "value": "Sariasi tumani"
+                    },
+                    {
+                        "item": "Termiz tumani",
+                        "value": "Termiz tumani"
+                    },
+                    {
+                        "item": "Uzun tumani",
+                        "value": "Uzun tumani"
+                    },
+                    {
+                        "item": "Sherobod tumani",
+                        "value": "Sherobod tumani"
+                    },
+                    {
+                        "item": "Shurchin tumani",
+                        "value": "Shurchin tumani"
+                    },
+                    {
+                        "item": "Termiz shahri",
+                        "value": "Termiz shahri"
+                    }
+                ]
+            },
+            {
+                "id": 9,
+                "name": "Sirdaryo viloyati",
+                "districts": [
+                    {
+                        "item": "Oqoltin tumani",
+                        "value": "Oqoltin tumani"
+                    },
+                    {
+                        "item": "Bayutskiy tumani",
+                        "value": "Bayutskiy tumani"
+                    },
+                    {
+                        "item": "Guliston tumani",
+                        "value": "Guliston tumani"
+                    },
+                    {
+                        "item": "Mirzaobod tumani",
+                        "value": "Mirzaobod tumani"
+                    },
+                    {
+                        "item": "Sayxunobod tumani",
+                        "value": "Sayxunobod tumani"
+                    },
+                    {
+                        "item": "Sardob tumani",
+                        "value": "Sardob tumani"
+                    },
+                    {
+                        "item": "Sirdaryo tumani",
+                        "value": "Sirdaryo tumani"
+                    },
+                    {
+                        "item": "Xovost tumani",
+                        "value": "Xovost tumani"
+                    },
+                    {
+                        "item": "Guliston shahri",
+                        "value": "Guliston shahri"
+                    },
+                    {
+                        "item": "Shirin shahri",
+                        "value": "Shirin shahri"
+                    },
+                    {
+                        "item": "Yangiyer shahri",
+                        "value": "Yangiyer shahri"
+                    }
+                ]
+            },
+            {
+                "id": 10,
+                "name": "Toshkent viloyati",
+                "districts": [
+                    {
+                        "item": "Oqqo'rg'on tumani",
+                        "value": "Oqqo'rg'on tumani"
+                    },
+                    {
+                        "item": "Oxangaron tumani",
+                        "value": "Oxangaron tumani"
+                    },
+                    {
+                        "item": "Bekobod tumani",
+                        "value": "Bekobod tumani"
+                    },
+                    {
+                        "item": "Bo\u02bbstonliq tumani",
+                        "value": "Bo\u02bbstonliq tumani"
+                    },
+                    {
+                        "item": "Bukinskiy tumani",
+                        "value": "Bukinskiy tumani"
+                    },
+                    {
+                        "item": "Zangiota tumani",
+                        "value": "Zangiota tumani"
+                    },
+                    {
+                        "item": "Qibray tumani",
+                        "value": "Qibray tumani"
+                    },
+                    {
+                        "item": "Quyichirchiq tumani",
+                        "value": "Quyichirchiq tumani"
+                    },
+                    {
+                        "item": "Parkent tumani",
+                        "value": "Parkent tumani"
+                    },
+                    {
+                        "item": "Pskentskiy tumani",
+                        "value": "Pskentskiy tumani"
+                    },
+                    {
+                        "item": "Toshkent tumani",
+                        "value": "Toshkent tumani"
+                    },
+                    {
+                        "item": "O\u2018rtachirchiq tumani",
+                        "value": "O\u2018rtachirchiq tumani"
+                    },
+                    {
+                        "item": "Chinoz tumani",
+                        "value": "Chinoz tumani"
+                    },
+                    {
+                        "item": "Yuqorichirchiq tumani",
+                        "value": "Yuqorichirchiq tumani"
+                    },
+                    {
+                        "item": "Yangiyo'l tumani",
+                        "value": "Yangiyo'l tumani"
+                    },
+                    {
+                        "item": "Olmaliq shahri",
+                        "value": "Olmaliq shahri"
+                    },
+                    {
+                        "item": "Angren shahri",
+                        "value": "Angren shahri"
+                    },
+                    {
+                        "item": "Bekobod shahri",
+                        "value": "Bekobod shahri"
+                    },
+                    {
+                        "item": "Chirchiq shahri",
+                        "value": "Chirchiq shahri"
+                    }
+                ]
+            },
+            {
+                "id": 11,
+                "name": "Farg'ona viloyati",
+                "districts": [
+                    {
+                        "item": "Oltiariq tumani",
+                        "value": "Oltiariq tumani"
+                    },
+                    {
+                        "item": "Bag'dod tumani",
+                        "value": "Bag'dod tumani"
+                    },
+                    {
+                        "item": "Beshariq tumani",
+                        "value": "Beshariq tumani"
+                    },
+                    {
+                        "item": "Buvayda tumani",
+                        "value": "Buvayda tumani"
+                    },
+                    {
+                        "item": "Dang\u2018ara tumani",
+                        "value": "Dang\u2018ara tumani"
+                    },
+                    {
+                        "item": "Quva tumani",
+                        "value": "Quva tumani"
+                    },
+                    {
+                        "item": "Kushtepinskiy tumani",
+                        "value": "Kushtepinskiy tumani"
+                    },
+                    {
+                        "item": "Rishton tumani",
+                        "value": "Rishton tumani"
+                    },
+                    {
+                        "item": "So'x tumani",
+                        "value": "So'x tumani"
+                    },
+                    {
+                        "item": "Toshloq tumani",
+                        "value": "Toshloq tumani"
+                    },
+                    {
+                        "item": "O'zbekiston tumani",
+                        "value": "O'zbekiston tumani"
+                    },
+                    {
+                        "item": "Uchko'prik tumani",
+                        "value": "Uchko'prik tumani"
+                    },
+                    {
+                        "item": "Furqat tumani",
+                        "value": "Furqat tumani"
+                    },
+                    {
+                        "item": "Yozyovon tumani",
+                        "value": "Yozyovon tumani"
+                    },
+                    {
+                        "item": "Qo'qon shahri",
+                        "value": "Qo'qon shahri"
+                    },
+                    {
+                        "item": "Quvasoy shahri",
+                        "value": "Quvasoy shahri"
+                    },
+                    {
+                        "item": "Marg'ilon shahri",
+                        "value": "Marg'ilon shahri"
+                    },
+                    {
+                        "item": "Farg'ona shahri",
+                        "value": "Farg'ona shahri"
+                    }
+                ]
+            },
+            {
+                "id": 12,
+                "name": "Xorazm viloyati",
+                "districts": [
+                    {
+                        "item": "Bagatskiy tumani",
+                        "value": "Bagatskiy tumani"
+                    },
+                    {
+                        "item": "Gurlenskiy tumani",
+                        "value": "Gurlenskiy tumani"
+                    },
+                    {
+                        "item": "Qo'shko'pir tumani",
+                        "value": "Qo'shko'pir tumani"
+                    },
+                    {
+                        "item": "Urganch tumani",
+                        "value": "Urganch tumani"
+                    },
+                    {
+                        "item": "Xazorasp tumani",
+                        "value": "Xazorasp tumani"
+                    },
+                    {
+                        "item": "Xankin tumani",
+                        "value": "Xankin tumani"
+                    },
+                    {
+                        "item": "Xiva tumani",
+                        "value": "Xiva tumani"
+                    },
+                    {
+                        "item": "Shavatskiy tumani",
+                        "value": "Shavatskiy tumani"
+                    },
+                    {
+                        "item": "Yangiariq tumani",
+                        "value": "Yangiariq tumani"
+                    },
+                    {
+                        "item": "Yangibozor tumani",
+                        "value": "Yangibozor tumani"
+                    },
+                    {
+                        "item": "Urganch shahri",
+                        "value": "Urganch shahri"
+                    }
+                ]
+            },
+            {
+                "id": 13,
+                "name": "Qoraqalpog'iston Respublikasi",
+                "districts": [
+                    {
+                        "item": "Amudaryo tumani",
+                        "value": "Amudaryo tumani"
+                    },
+                    {
+                        "item": "Beruniy tumani",
+                        "value": "Beruniy tumani"
+                    },
+                    {
+                        "item": "Karauzyakskiy tumani",
+                        "value": "Karauzyakskiy tumani"
+                    },
+                    {
+                        "item": "Kegeyli tumani",
+                        "value": "Kegeyli tumani"
+                    },
+                    {
+                        "item": "Qo'ng'irot tumani",
+                        "value": "Qo'ng'irot tumani"
+                    },
+                    {
+                        "item": "Qonliqo\u2018l tumani",
+                        "value": "Qonliqo\u2018l tumani"
+                    },
+                    {
+                        "item": "Mo\u02bbynoq tumani",
+                        "value": "Mo\u02bbynoq tumani"
+                    },
+                    {
+                        "item": "Nukus tumani",
+                        "value": "Nukus tumani"
+                    },
+                    {
+                        "item": "Taxiatosh tumani",
+                        "value": "Taxiatosh tumani"
+                    },
+                    {
+                        "item": "Taxtako'pir tumani",
+                        "value": "Taxtako'pir tumani"
+                    },
+                    {
+                        "item": "To\u02bbrtko\u02bbl tumani",
+                        "value": "To\u02bbrtko\u02bbl tumani"
+                    },
+                    {
+                        "item": "Xo\u2018jayli tumani",
+                        "value": "Xo\u2018jayli tumani"
+                    },
+                    {
+                        "item": "Chimboy tumani",
+                        "value": "Chimboy tumani"
+                    },
+                    {
+                        "item": "Shumanay tumani",
+                        "value": "Shumanay tumani"
+                    },
+                    {
+                        "item": "Ellikqal'a tumani",
+                        "value": "Ellikqal'a tumani"
+                    },
+                    {
+                        "item": "Nukus shahri",
+                        "value": "Nukus shahri"
+                    }
+                ]
+            },
+            {
+                "id": 14,
+                "name": "Toshkent shahri",
+                "districts": [
+                    {
+                        "item": "Olmazor tumani",
+                        "value": "Olmazor tumani"
+                    },
+                    {
+                        "item": "Bektemir tumani",
+                        "value": "Bektemir tumani"
+                    },
+                    {
+                        "item": "Mirobod tumani",
+                        "value": "Mirobod tumani"
+                    },
+                    {
+                        "item": "Mirzo Ulug'bek tumani",
+                        "value": "Mirzo Ulug'bek tumani"
+                    },
+                    {
+                        "item": "Sergeli tumani",
+                        "value": "Sergeli tumani"
+                    },
+                    {
+                        "item": "Uchtepa tumani",
+                        "value": "Uchtepa tumani"
+                    },
+                    {
+                        "item": "Yashnobod tumani",
+                        "value": "Yashnobod tumani"
+                    },
+                    {
+                        "item": "Chilonzor tumani",
+                        "value": "Chilonzor tumani"
+                    },
+                    {
+                        "item": "Shayxontohur tumani",
+                        "value": "Shayxontohur tumani"
+                    },
+                    {
+                        "item": "Yunusobod tumani",
+                        "value": "Yunusobod tumani"
+                    },
+                    {
+                        "item": "Yakkasaroy tumani",
+                        "value": "Yakkasaroy tumani"
+                    },
+                    {
+                        "item": "Yangi xayot tumani",
+                        "value": "Yangi xayot tumani"
+                    }
+                ]
+            }
+        ]
+
+        for region_data in data:
+            region, created = Regions.objects.get_or_create(
+                name=region_data["name"]
+            )
+
+            if created:
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created region: {region.name}")
+                )
+            else:
+                self.stdout.write(f"Region already exists: {region.name}")
+
+            for district_data in region_data["districts"]:
+                district, created = Districts.objects.get_or_create(
+                    name=district_data["value"],
+                    region=region
+                )
+
+                if created:
+                    self.stdout.write(
+                        self.style.SUCCESS(f"Created district: {district.name} in region: {region.name}")
+                    )
+                else:
+                    self.stdout.write(f"District already exists: {district.name}")
+
+        self.stdout.write(
+            self.style.SUCCESS("All regions and districts have been processed.")
+        )

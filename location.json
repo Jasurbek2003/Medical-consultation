@@ -1,7 +1,4 @@
-from apps.hospitals.models import Districts, Regions
-
-
-data = [
+[
   {
     "id": 1,
     "name": "Andijon viloyati",
@@ -875,18 +872,3 @@ data = [
     ]
   }
 ]
-
-for region_data in data:
-    region, created = Regions.objects.get_or_create(
-        name=region_data["name"]
-    )
-    for district_data in region_data["districts"]:
-        Districts.objects.get_or_create(
-            name=district_data["value"],
-            region=region
-        )
-        print(f"Created district: {district_data['value']} in region: {region.name}")
-
-    print(f"Created region: {region.name}")
-
-print("All regions and districts have been created.")
