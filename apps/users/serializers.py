@@ -139,6 +139,7 @@ class UserSerializer(serializers.ModelSerializer):
     bmi = serializers.FloatField(source='get_bmi', read_only=True)
     bmi_category = serializers.CharField(source='get_bmi_category', read_only=True)
 
+
     class Meta:
         model = User
         fields = [

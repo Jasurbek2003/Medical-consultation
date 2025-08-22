@@ -7,7 +7,7 @@ from django.utils.translation import get_language
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
-from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation
+from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles
 from .services.translation_service import TahrirchiTranslationService
 from ..consultations.models import Consultation
 
@@ -61,14 +61,24 @@ class DoctorDetailSerializer(DoctorSerializer):
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     address = serializers.CharField(source='user.address', read_only=True)
 
-    files = serializers.SerializerMethodField()
+    files = serializers.SerializerMethodField(
+        method_name='get_doctor_files',
+        read_only=True
+    )
+
+    @staticmethod
+    def get_doctor_files(obj):
+        return DoctorFiles.objects.filter(
+            doctor=obj,
+        )
+
 
 
     class Meta(DoctorSerializer.Meta):
         fields = DoctorSerializer.Meta.fields + [
             'middle_name', 'bio', 'education', 'achievements',
             'address', 'workplace_address', 'work_days',
-            'schedules', 'specializations', 'recent_reviews'
+            'schedules', 'specializations', 'recent_reviews', 'files'
         ]
 
     def get_schedules(self, obj):
@@ -134,6 +144,7 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
         read_only=True,
         allow_null=True
     )
+
 
     class Meta:
         model = Doctor
@@ -272,6 +283,17 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
 
     avatar = serializers.ImageField(source='user.avatar', read_only=True)
 
+    files = serializers.SerializerMethodField(
+        method_name='get_doctor_files',
+        read_only=True
+    )
+
+    @staticmethod
+    def get_doctor_files(obj):
+        return DoctorFiles.objects.filter(
+            doctor=obj,
+        )
+
     class Meta:
         model = Doctor
         fields = [
@@ -279,7 +301,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'experience', 'degree', 'rating', 'total_reviews',
             'consultation_price', 'is_available', 'is_online_consultation',
             'hospital_name', 'workplace', 'verification_status',
-            'total_consultations', 'success_rate', 'avatar'
+            'total_consultations', 'success_rate', 'avatar', 'files'
         ]
 
 

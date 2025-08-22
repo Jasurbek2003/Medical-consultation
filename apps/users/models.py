@@ -110,8 +110,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     current_medications = models.TextField(blank=True, null=True, verbose_name="Hozirgi dorilar")
 
     # Address information
-    region = models.CharField(max_length=100, blank=True, null=True, verbose_name="Viloyat")
-    district = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tuman")
+    region = models.ForeignKey('hospitals.Regions', on_delete=models.SET_NULL, blank=True, null=True,)
+    district = models.ForeignKey('hospitals.Districts', on_delete=models.SET_NULL, blank=True, null=True,)
     address = models.TextField(blank=True, null=True, verbose_name="Manzil")
 
     # Emergency contact
