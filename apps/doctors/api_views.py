@@ -32,11 +32,15 @@ class DoctorProfileUpdateView(generics.UpdateAPIView):
         serializer = self.get_serializer(doctor, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        user_serializer = UserSerializer(doctor.user, data=request.data, partial=True)
+        user_serializer.is_valid(raise_exception=True)
+        user_serializer.save()
 
         return Response({
             'success': True,
             'message': 'Doctor profile updated successfully',
-            'doctor': serializer.data
+            'doctor': serializer.data,
+            'user': user_serializer.data
         })
 
 
