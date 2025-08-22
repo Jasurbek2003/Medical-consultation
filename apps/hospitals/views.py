@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from apps.doctors.models import Doctor
-from apps.hospitals.models import HospitalService, Regions, Districts
+from apps.hospitals.models import HospitalService, Regions, Districts, Hospital
 from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
 from apps.billing.services import BillingService
 from apps.payments.models import Payment, PaymentGateway
@@ -761,5 +761,49 @@ class DistrictsListAPIView(APIView):
                     'region_id': district.region.id,
                     'region_name': district.region.name
                 } for district in districts
+            ]
+        })
+
+class HospitalListAPIView(APIView):
+    """List all hospitals (NEW in v3)"""
+    permission_classes = [permissions.AllowAny]
+
+    @staticmethod
+    def get(request):
+        """Get list of hospitals with basic info"""
+        hospitals = Hospital.objects.filter(is_active=True).order_by('name')
+
+        if "search" in request.GET:
+            search_query = request.GET.get("search", "")
+            hospitals = hospitals.filter(
+                Q(name__icontains=search_query) |
+                Q(address__icontains=search_query) |
+                Q(region__icontains=search_query) |
+                Q(district__icontains=search_query)
+            )
+
+        if "region" in request.GET:
+            region = request.GET.get("region", "")
+            hospitals = hospitals.filter(region__iexact=region)
+
+        if "district" in request.GET:
+            district = request.GET.get("district", "")
+            hospitals = hospitals.filter(district__iexact=district)
+
+        return Response({
+            'success': True,
+            'hospitals': [
+                {
+                    'id': hospital.id,
+                    'name': hospital.name,
+                    'type': hospital.hospital_type,
+                    'address': hospital.address,
+                    'phone': hospital.phone,
+                    'email': hospital.email,
+                    'region': hospital.region,
+                    'district': hospital.district,
+                    'logo': hospital.logo.url if hospital.logo else None,
+                    'website': hospital.website
+                } for hospital in hospitals
             ]
         })

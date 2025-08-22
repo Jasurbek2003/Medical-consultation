@@ -28,4 +28,7 @@ urlpatterns = [
     path('locations/regions/', views.RegionsListAPIView.as_view(), name='api_regions'),
     path('locations/districts/', views.DistrictsListAPIView.as_view(), name='api_districts'),
     path('locations/districts/<int:region_id>', views.DistrictsListAPIView.as_view(), name='api_districts'),
+
+
+    path('list/', views.HospitalListAPIView.as_view(), name='api_hospital_list'),
 ]
