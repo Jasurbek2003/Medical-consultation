@@ -7,7 +7,7 @@ from .views import (
     DoctorListView, DoctorDetailView, DoctorRegistrationView,
     DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
     DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
-    DoctorProfileView
+    DoctorProfileView, DoctorAvailabilityToggleView
 )
 
 # Router for ViewSets
