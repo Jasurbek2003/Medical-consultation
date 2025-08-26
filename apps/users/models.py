@@ -1,3 +1,4 @@
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
@@ -27,7 +28,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(username, password, **extra_fields)
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, PermissionsMixin, models.Model):
     """Kengaytirilgan foydalanuvchi modeli"""
 
     USER_TYPES = [
@@ -283,6 +284,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         # Call the parent save method
         super().save(*args, **kwargs)
+
+    def set_password(self, raw_password):
+        """Parolni o'rnatish va username ni telefon raqamga moslashtirish"""
+        self.password = make_password(raw_password)
+        self.save()
+
+
 
 class UserMedicalHistory(models.Model):
     """Foydalanuvchi tibbiy tarixi"""

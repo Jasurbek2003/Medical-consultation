@@ -1,681 +1,717 @@
-from rest_framework import viewsets, status, permissions, filters
-from rest_framework.decorators import action, api_view, permission_classes
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Avg, Count
-from django.utils import timezone
-from datetime import timedelta
+from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .filters import DoctorFilter
-from .models import Doctor, DoctorSchedule, DoctorViewStatistics, DoctorSpecialization, DoctorTranslation
+from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService
 from .serializers import (
-    DoctorSerializer, DoctorDetailSerializer, DoctorScheduleSerializer,
-    DoctorStatisticsSerializer, DoctorUpdateSerializer, DoctorSpecializationSerializer, DoctorTranslationSerializer
+    DoctorSerializer, DoctorRegistrationSerializer, DoctorUpdateSerializer,
+    DoctorProfileSerializer, DoctorFilesSerializer, DoctorFileUploadSerializer,
+    DoctorLocationUpdateSerializer, RegionSerializer, DistrictSerializer,
+    DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer
 )
-from .services.translation_service import DoctorTranslationService, TahrirchiTranslationService
+from .filters import DoctorFilter
+from ..hospitals.models import Districts, Regions
 
-
-class DoctorSpecializationViewSet(viewsets.ModelViewSet):
-    """Doctor specialization management"""
-
-    serializer_class = DoctorSpecializationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-
-        if user.is_admin():
-            return DoctorSpecialization.objects.all()
-        elif user.is_hospital_admin():
-            return DoctorSpecialization.objects.filter(
-                doctor__hospital=user.managed_hospital
-            )
-        elif user.is_doctor():
-            return DoctorSpecialization.objects.filter(doctor__user=user)
-        else:
-            # Patients can view all specializations for available doctors
-            return DoctorSpecialization.objects.filter(
-                doctor__verification_status='approved',
-                doctor__is_available=True
-            )
-
-    def perform_create(self, serializer):
-        # Only doctor can create their own specializations
-        if self.request.user.is_doctor():
-            serializer.save(doctor=self.request.user.doctor_profile)
-        else:
-            raise PermissionError("Faqat shifokorlar mutaxassislik qo'sha oladi")
-
-    @action(detail=False, methods=['get'])
-    def my_specializations(self, request):
-        """Get current doctor's specializations"""
-        if not request.user.is_doctor():
-            return Response({
-                'error': 'Faqat shifokorlar ko\'ra oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        specializations = DoctorSpecialization.objects.filter(
-            doctor=request.user.doctor_profile
-        )
-
-        serializer = DoctorSpecializationSerializer(specializations, many=True)
-        return Response(serializer.data)
 
 class DoctorViewSet(viewsets.ModelViewSet):
-    """Doctor API with role-based access and statistics"""
+    """Complete CRUD operations for doctors"""
 
-    queryset = Doctor.objects.select_related('user', 'hospital').prefetch_related('schedules')
+    queryset = Doctor.objects.select_related(
+        'user', 'hospital', 'translations',
+    ).prefetch_related('files', 'schedules', 'specializations')
+
     serializer_class = DoctorSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = DoctorFilter
-    search_fields = ['user__first_name', 'user__last_name', 'specialty', 'workplace']
-    ordering_fields = ['rating', 'experience', 'consultation_price', 'created_at']
+    search_fields = [
+        'user__first_name', 'user__last_name', 'specialty',
+        'workplace', 'bio', 'region__name', 'district__name'
+    ]
+    ordering_fields = [
+        'rating', 'total_reviews', 'consultation_price',
+        'experience', 'created_at', 'total_consultations'
+    ]
     ordering = ['-rating', '-total_reviews']
 
     def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return DoctorDetailSerializer
-        elif self.action == 'update_profile':
+        """Return appropriate serializer based on action"""
+        if self.action == 'create':
+            return DoctorRegistrationSerializer
+        elif self.action in ['update', 'partial_update']:
             return DoctorUpdateSerializer
-        elif self.action == 'statistics':
-            return DoctorStatisticsSerializer
+        elif self.action == 'retrieve':
+            return DoctorProfileSerializer
+        elif self.action == 'upload_file':
+            return DoctorFileUploadSerializer
+        elif self.action == 'update_location':
+            return DoctorLocationUpdateSerializer
         return DoctorSerializer
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        """Filter queryset based on user permissions"""
+        queryset = self.queryset
         user = self.request.user
+
+        if not user.is_authenticated:
+            # Public access - only show approved doctors
+            return queryset.filter(verification_status='approved')
 
         if user.is_admin():
             # Admin can see all doctors
             return queryset
         elif user.is_hospital_admin():
-            # Hospital admin can only see doctors in their hospital
+            print(queryset.filter(hospital=user.managed_hospital))
+            # Hospital admin can see their hospital's doctors
             return queryset.filter(hospital=user.managed_hospital)
         elif user.is_doctor():
-            # Doctors can see all verified doctors + their own profile
+            # Doctors can see their own profile and approved doctors
             return queryset.filter(
-                Q(verification_status='approved', user__is_active=True) |
-                Q(user=user)
+                Q(user=user) | Q(verification_status='approved')
             )
         else:
-            # Patients can only see verified, available doctors
-            return queryset.filter(
-                verification_status='approved',
-                user__is_active=True,
-                is_available=True
-            )
+            # Patients can only see approved doctors
+            return queryset.filter(verification_status='approved')
 
-    def retrieve(self, request, *args, **kwargs):
-        """Get doctor detail and increment view count"""
-        doctor = self.get_object()
+    def perform_create(self, serializer):
+        """Handle doctor creation with file uploads"""
+        doctor = serializer.save()
 
-        # Increment view statistics (only for non-doctor users viewing other doctors)
-        if not request.user.is_doctor() or request.user.doctor_profile != doctor:
-            doctor.increment_profile_views()
+        # Track profile view for the creator
+        if hasattr(doctor, 'profile_views'):
+            doctor.profile_views += 1
+            doctor.save(update_fields=['profile_views'])
 
-            # Record daily statistics
-            today = timezone.now().date()
-            stats, created = DoctorViewStatistics.objects.get_or_create(
-                doctor=doctor,
-                date=today,
-                defaults={'daily_views': 0, 'unique_visitors': 0}
-            )
-            stats.daily_views += 1
-
-            # Track unique visitors (simple implementation)
-            if not hasattr(request, '_doctor_views_today'):
-                request._doctor_views_today = set()
-
-            if doctor.id not in request._doctor_views_today:
-                stats.unique_visitors += 1
-                request._doctor_views_today.add(doctor.id)
-
-            stats.save()
-
-        serializer = self.get_serializer(doctor)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def my_profile(self, request):
-        """Get current doctor's profile"""
-        if not request.user.is_doctor():
-            return Response({
-                'error': 'Faqat shifokorlar ko\'ra oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            doctor = request.user.doctor_profile
-            serializer = DoctorDetailSerializer(doctor)
-            return Response(serializer.data)
-        except Doctor.DoesNotExist:
-            return Response({
-                'error': 'Shifokor profili topilmadi'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=False, methods=['post'])
-    def update_my_profile(self, request):
-        """Update current doctor's profile"""
-        if not request.user.is_doctor():
-            return Response({
-                'error': 'Faqat shifokorlar o\'zgartira oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            doctor = request.user.doctor_profile
-            serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
-
-            if serializer.is_valid():
-                serializer.save()
-                return Response({
-                    'message': 'Profil muvaffaqiyatli yangilandi',
-                    'doctor': DoctorDetailSerializer(doctor).data
-                })
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        except Doctor.DoesNotExist:
-            return Response({
-                'error': 'Shifokor profili topilmadi'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=True, methods=['get'])
-    def statistics(self, request, pk=None):
-        """Get doctor statistics"""
-        doctor = self.get_object()
-
-        # Check permissions
-        if not self.can_view_statistics(request.user, doctor):
-            return Response({
-                'error': 'Statistikalarni ko\'rish uchun ruxsat yo\'q'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        # Calculate statistics
-        today = timezone.now().date()
-        week_ago = today - timedelta(days=7)
-        month_ago = today - timedelta(days=30)
-
-        # View statistics
-        view_stats = {
-            'total_views': doctor.profile_views,
-            'weekly_views': doctor.weekly_views,
-            'monthly_views': doctor.monthly_views,
-            'daily_stats': []
-        }
-
-        # Get daily view statistics for the last 30 days
-        daily_stats = DoctorViewStatistics.objects.filter(
-            doctor=doctor,
-            date__gte=month_ago
-        ).order_by('date')
-
-        for stat in daily_stats:
-            view_stats['daily_stats'].append({
-                'date': stat.date,
-                'views.py': stat.daily_views,
-                'unique_visitors': stat.unique_visitors
-            })
-
-        # Consultation statistics
-        from apps.consultations.models import Consultation
-        consultations = Consultation.objects.filter(doctor=doctor)
-
-        consultation_stats = {
-            'total': doctor.total_consultations,
-            'successful': doctor.successful_consultations,
-            'success_rate': doctor.success_rate,
-            'this_week': consultations.filter(
-                created_at__gte=timezone.now() - timedelta(days=7)
-            ).count(),
-            'this_month': consultations.filter(
-                created_at__gte=timezone.now() - timedelta(days=30)
-            ).count(),
-            'by_status': {}
-        }
-
-        # Group consultations by status
-        status_counts = consultations.values('status').annotate(count=Count('id'))
-        for item in status_counts:
-            consultation_stats['by_status'][item['status']] = item['count']
-
-        # Rating and review statistics
-        rating_stats = {
-            'average_rating': doctor.rating,
-            'total_reviews': doctor.total_reviews,
-            'rating_distribution': {}
-        }
-
-        # Get rating distribution
-        from apps.consultations.models import Review
-        rating_dist = Review.objects.filter(
-            doctor=doctor,
-            is_active=True
-        ).values('rating').annotate(count=Count('id'))
-
-        for item in rating_dist:
-            rating_stats['rating_distribution'][item['rating']] = item['count']
-
-        # Revenue statistics (if needed)
-        revenue_stats = {
-            'total_potential': doctor.total_consultations * doctor.consultation_price,
-            'this_month_potential': consultation_stats['this_month'] * doctor.consultation_price
-        }
-
-        response_data = {
-            'doctor_id': doctor.id,
-            'doctor_name': doctor.full_name,
-            'view_statistics': view_stats,
-            'consultation_statistics': consultation_stats,
-            'rating_statistics': rating_stats,
-            'revenue_statistics': revenue_stats,
-            'last_updated': timezone.now()
-        }
-
-        return Response(response_data)
-
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
-    def admin_statistics(self, request):
-        """Get overall doctor statistics for admin"""
-        if not request.user.is_admin():
-            return Response({
-                'error': 'Faqat adminlar ko\'ra oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        # Overall statistics
-        total_doctors = Doctor.objects.count()
-        verified_doctors = Doctor.objects.filter(verification_status='approved').count()
-        pending_doctors = Doctor.objects.filter(verification_status='pending').count()
-        active_doctors = Doctor.objects.filter(
-            verification_status='approved',
-            is_available=True,
-            user__is_active=True
-        ).count()
-
-        # Specialty distribution
-        specialty_stats = Doctor.objects.values('specialty').annotate(
-            count=Count('id')
-        ).order_by('-count')
-
-        # Top-rated doctors
-        top_doctors = Doctor.objects.filter(
-            verification_status='approved'
-        ).order_by('-rating', '-total_reviews')[:10]
-
-        # Most viewed doctors
-        most_viewed = Doctor.objects.filter(
-            verification_status='approved'
-        ).order_by('-profile_views')[:10]
-
-        response_data = {
-            'overview': {
-                'total_doctors': total_doctors,
-                'verified_doctors': verified_doctors,
-                'pending_doctors': pending_doctors,
-                'active_doctors': active_doctors,
-                'verification_rate': round((verified_doctors / total_doctors * 100), 2) if total_doctors > 0 else 0
-            },
-            'specialty_distribution': list(specialty_stats),
-            'top_rated_doctors': DoctorSerializer(top_doctors, many=True).data,
-            'most_viewed_doctors': DoctorSerializer(most_viewed, many=True).data
-        }
-
-        return Response(response_data)
-
-    @action(detail=False, methods=['get'])
-    def hospital_statistics(self, request):
-        """Get doctor statistics for hospital admin"""
-        if not request.user.is_hospital_admin():
-            return Response({
-                'error': 'Faqat shifoxona adminlari ko\'ra oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        hospital = request.user.managed_hospital
-        if not hospital:
-            return Response({
-                'error': 'Shifoxona tayinlanmagan'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        doctors = Doctor.objects.filter(hospital=hospital)
-
-        # Hospital doctor statistics
-        stats = {
-            'total_doctors': doctors.count(),
-            'active_doctors': doctors.filter(
-                is_available=True,
-                verification_status='approved'
-            ).count(),
-            'pending_approval': doctors.filter(
-                verification_status='pending'
-            ).count(),
-            'average_rating': doctors.filter(
-                verification_status='approved'
-            ).aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0,
-            'total_consultations': sum(d.total_consultations for d in doctors),
-            'total_views': sum(d.profile_views for d in doctors),
-            'doctors_list': DoctorSerializer(doctors, many=True).data
-        }
-
-        return Response(stats)
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
-    def approve(self, request, pk=None):
-        """Approve doctor (Admin only)"""
-        if not request.user.is_admin():
-            return Response({
-                'error': 'Faqat adminlar tasdiqlashi mumkin'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        doctor = self.get_object()
-        doctor.approve(request.user)
-
-        return Response({
-            'message': 'Shifokor muvaffaqiyatli tasdiqlandi',
-            'doctor': DoctorSerializer(doctor).data
-        })
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
-    def reject(self, request, pk=None):
-        """Reject doctor (Admin only)"""
-        if not request.user.is_admin():
-            return Response({
-                'error': 'Faqat adminlar rad etishi mumkin'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        doctor = self.get_object()
-        reason = request.data.get('reason', '')
-
-        doctor.reject(reason)
-
-        return Response({
-            'message': 'Shifokor rad etildi',
-            'reason': reason
-        })
-
-    @action(detail=True, methods=['post'])
-    def toggle_availability(self, request, pk=None):
-        """Toggle doctor availability"""
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_file(self, request, pk=None):
+        """Upload a file for a doctor"""
         doctor = self.get_object()
 
         # Check permissions
         if not (request.user.is_admin() or
-                (request.user.is_doctor() and request.user.doctor_profile == doctor)):
-            return Response({
-                'error': 'Ruxsat berilmagan'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        doctor.is_available = not doctor.is_available
-        doctor.save()
-
-        return Response({
-            'message': f'Mavjudlik {"yoqildi" if doctor.is_available else "o\'chirildi"}',
-            'is_available': doctor.is_available
-        })
-
-    def can_view_statistics(self, user, doctor):
-        """Check if user can view doctor statistics"""
-        if user.is_admin():
-            return True
-        elif user.is_hospital_admin():
-            return doctor.hospital == user.managed_hospital
-        elif user.is_doctor():
-            return user.doctor_profile == doctor
-        else:
-            return False
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def translate_profile(self, request, pk=None):
-        """Translate doctor profile to all languages"""
-        doctor = self.get_object()
-
-        # Check permissions - only doctor themselves or admin can translate
-        if request.user != doctor.user and not request.user.is_staff:
+                (request.user.is_doctor() and request.user.doctor_profile == doctor) or
+                (request.user.is_hospital_admin() and doctor.hospital == request.user.managed_hospital)):
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        source_lang = request.data.get('source_language', 'uzn_Latn')
+        serializer = DoctorFileUploadSerializer(data=request.data)
+        if serializer.is_valid():
+            # Check if file type already exists
+            file_type = serializer.validated_data['file_type']
+            existing_file = DoctorFiles.objects.filter(
+                doctor=doctor,
+                file_type=file_type
+            ).first()
 
-        try:
-            translation_service = DoctorTranslationService()
-
-            # Get translations
-            translations = translation_service.translate_doctor_profile(doctor, source_lang)
-
-            # Save translations
-            translation_obj = translation_service.save_doctor_translations(doctor, translations)
-
-            if translation_obj:
-                serializer = DoctorTranslationSerializer(translation_obj)
-                return Response({
-                    'message': 'Profile translated successfully',
-                    'translations': serializer.data
-                }, status=status.HTTP_200_OK)
-            else:
+            if existing_file:
+                # Update existing file
+                existing_file.file = serializer.validated_data['file']
+                existing_file.save()
                 return Response(
-                    {'error': 'Failed to save translations'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    DoctorFilesSerializer(existing_file, context={'request': request}).data
+                )
+            else:
+                # Create new file
+                file_obj = serializer.save(doctor=doctor)
+                return Response(
+                    DoctorFilesSerializer(file_obj, context={'request': request}).data,
+                    status=status.HTTP_201_CREATED
                 )
 
-        except Exception as e:
-            return Response(
-                {'error': f'Translation failed: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
-    def get_translations(self, request, pk=None):
-        """Get doctor profile translations"""
+    @action(detail=True, methods=['delete'])
+    def delete_file(self, request, pk=None):
+        """Delete a doctor's file"""
         doctor = self.get_object()
-        language = request.query_params.get('language')
+        file_type = request.query_params.get('file_type')
 
-        try:
-            translation_obj = doctor.translations
-
-            if language:
-                # Get specific language translations
-                translated_data = {}
-                for field_name in ['bio', 'education', 'achievements', 'workplace', 'workplace_address']:
-                    translated_data[field_name] = translation_obj.get_translation(
-                        field_name, language, getattr(doctor, field_name, '')
-                    )
-
-                return Response({
-                    'language': language,
-                    'translations': translated_data
-                })
-            else:
-                # Get all translations
-                serializer = DoctorTranslationSerializer(translation_obj)
-                return Response(serializer.data)
-
-        except DoctorTranslation.DoesNotExist:
+        if not file_type:
             return Response(
-                {'error': 'No translations found for this doctor'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
-    def update_translation(self, request, pk=None):
-        """Update specific translation for doctor"""
-        doctor = self.get_object()
-
-        # Check permissions
-        if request.user != doctor.user and not request.user.is_staff:
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        field_name = request.data.get('field_name')
-        language = request.data.get('language')
-        translation = request.data.get('translation')
-
-        if not all([field_name, language, translation]):
-            return Response(
-                {'error': 'field_name, language, and translation are required'},
+                {'error': 'file_type parameter is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            translation_obj, created = DoctorTranslation.objects.get_or_create(
-                doctor=doctor,
-                defaults={'translations': {}}
-            )
-
-            # Update specific translation
-            translation_obj.set_translation(field_name, language, translation)
-            translation_obj.is_auto_translated = False  # Mark as manually edited
-            translation_obj.save()
-
-            return Response({
-                'message': 'Translation updated successfully',
-                'field_name': field_name,
-                'language': language,
-                'translation': translation
-            })
-
-        except Exception as e:
+        # Check permissions
+        if not (request.user.is_admin() or
+                (request.user.is_doctor() and request.user.doctor_profile == doctor)):
             return Response(
-                {'error': f'Failed to update translation: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
             )
+
+        try:
+            file_obj = DoctorFiles.objects.get(doctor=doctor, file_type=file_type)
+            file_obj.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except DoctorFiles.DoesNotExist:
+            return Response(
+                {'error': 'File not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['patch'])
+    def update_location(self, request, pk=None):
+        """Update doctor's location (region/district)"""
+        doctor = self.get_object()
+
+        # Check permissions
+        if not (request.user.is_admin() or
+                (request.user.is_doctor() and request.user.doctor_profile == doctor) or
+                (request.user.is_hospital_admin() and doctor.hospital == request.user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = DoctorLocationUpdateSerializer(
+            doctor,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files for a doctor"""
+        doctor = self.get_object()
+        files = DoctorFiles.objects.filter(doctor=doctor)
+        serializer = DoctorFilesSerializer(
+            files,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def search_by_location(self, request):
+        """Search doctors by region and district"""
+        region_id = request.query_params.get('region')
+        district_id = request.query_params.get('district')
+
+        queryset = self.get_queryset()
+
+        if region_id:
+            queryset = queryset.filter(region_id=region_id)
+
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
+
+        # Apply pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def track_view(self, request, pk=None):
+        """Track profile view"""
+        doctor = self.get_object()
+
+        # Update view counts
+        doctor.profile_views += 1
+
+        # Update weekly and monthly views (you can implement more sophisticated tracking)
+        doctor.weekly_views += 1
+        doctor.monthly_views += 1
+
+        doctor.save(update_fields=['profile_views', 'weekly_views', 'monthly_views'])
+
+        return Response({'message': 'View tracked successfully'})
+
+
+class RegionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Regions API"""
+
+    queryset = Regions.objects.all().order_by('name')
+    serializer_class = RegionSerializer
+    permission_classes = [permissions.AllowAny]
+
+    @action(detail=True, methods=['get'])
+    def districts(self, request, pk=None):
+        """Get districts for a region"""
+        region = self.get_object()
+        districts = Districts.objects.filter(region=region).order_by('name')
+        serializer = DistrictSerializer(districts, many=True)
+        return Response(serializer.data)
+
+
+class DistrictViewSet(viewsets.ReadOnlyModelViewSet):
+    """Districts API"""
+
+    queryset = Districts.objects.select_related('region').all().order_by('name')
+    serializer_class = DistrictSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['region']
+
+
+class DoctorFilesViewSet(viewsets.ModelViewSet):
+    """Doctor Files management"""
+
+    serializer_class = DoctorFilesSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        """Filter files based on user permissions"""
+        user = self.request.user
+
+        if user.is_admin():
+            return DoctorFiles.objects.all()
+        elif user.is_doctor():
+            return DoctorFiles.objects.filter(doctor__user=user)
+        elif user.is_hospital_admin():
+            return DoctorFiles.objects.filter(doctor__hospital=user.managed_hospital)
+        else:
+            return DoctorFiles.objects.none()
+
+    def perform_create(self, serializer):
+        """Set doctor when creating file"""
+        doctor_id = self.request.data.get('doctor')
+        if doctor_id:
+            doctor = get_object_or_404(Doctor, id=doctor_id)
+
+            # Check permissions
+            user = self.request.user
+            if not (user.is_admin() or
+                    (user.is_doctor() and user.doctor_profile == doctor) or
+                    (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+                raise PermissionError("You don't have permission to upload files for this doctor")
+
+            serializer.save(doctor=doctor)
+        else:
+            raise ValueError("Doctor ID is required")
+
 
 class DoctorScheduleViewSet(viewsets.ModelViewSet):
-    """Doctor schedule management"""
+    """Doctor Schedule management"""
 
     serializer_class = DoctorScheduleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """Filter schedules based on user permissions"""
         user = self.request.user
 
         if user.is_admin():
             return DoctorSchedule.objects.all()
-        elif user.is_hospital_admin():
-            return DoctorSchedule.objects.filter(
-                doctor__hospital=user.managed_hospital
-            )
         elif user.is_doctor():
             return DoctorSchedule.objects.filter(doctor__user=user)
+        elif user.is_hospital_admin():
+            return DoctorSchedule.objects.filter(doctor__hospital=user.managed_hospital)
         else:
-            # Patients can view all schedules for available doctors
+            # Patients can see all approved doctor schedules
             return DoctorSchedule.objects.filter(
-                doctor__verification_status='approved',
-                doctor__is_available=True,
-                is_available=True
+                doctor__verification_status='approved'
             )
 
-    def perform_create(self, serializer):
-        # Only doctor can create their own schedule
-        if self.request.user.is_doctor():
-            serializer.save(doctor=self.request.user.doctor_profile)
+
+class DoctorSpecializationViewSet(viewsets.ModelViewSet):
+    """Doctor Specialization management"""
+
+    serializer_class = DoctorSpecializationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter specializations based on user permissions"""
+        user = self.request.user
+
+        if user.is_admin():
+            return DoctorSpecialization.objects.all()
+        elif user.is_doctor():
+            return DoctorSpecialization.objects.filter(doctor__user=user)
+        elif user.is_hospital_admin():
+            return DoctorSpecialization.objects.filter(doctor__hospital=user.managed_hospital)
         else:
-            raise PermissionError("Faqat shifokorlar jadval yarata oladi")
+            # Patients can see all verified specializations
+            return DoctorSpecialization.objects.filter(is_verified=True)
 
-    @action(detail=False, methods=['get'])
-    def my_schedule(self, request):
-        """Get current doctor's schedule"""
-        if not request.user.is_doctor():
-            return Response({
-                'error': 'Faqat shifokorlar ko\'ra oladi'
-            }, status=status.HTTP_403_FORBIDDEN)
 
-        schedules = DoctorSchedule.objects.filter(
-            doctor=request.user.doctor_profile
-        ).order_by('weekday')
+# Legacy API Views for backward compatibility
+class DoctorListView(generics.ListAPIView):
+    """List all approved doctors"""
 
-        serializer = DoctorScheduleSerializer(schedules, many=True)
+    queryset = Doctor.objects.filter(verification_status='approved').select_related(
+        'user', 'hospital',
+    ).prefetch_related('files')
+
+    serializer_class = DoctorSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = DoctorFilter
+    search_fields = [
+        'user__first_name', 'user__last_name', 'specialty',
+        'workplace', 'bio', 'region__name', 'district__name'
+    ]
+    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience']
+    ordering = ['-rating']
+
+
+class DoctorDetailView(generics.RetrieveAPIView):
+    """Doctor detail view"""
+
+    queryset = Doctor.objects.select_related(
+        'user', 'hospital'
+    ).prefetch_related('files', 'specializations', 'translations', 'services')
+
+    serializer_class = DoctorProfileSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def retrieve(self, request, *args, **kwargs):
+        print("retrieve called")
+        """Override retrieve to track views"""
+        instance = self.get_object()
+
+        # Track profile view if user is authenticated
+        if request.user.is_authenticated:
+            instance.profile_views += 1
+            instance.weekly_views += 1
+            instance.monthly_views += 1
+            instance.save(update_fields=['profile_views', 'weekly_views', 'monthly_views'])
+
+        serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def batch_translate_api(request):
-    """API endpoint for batch translating multiple texts"""
+class DoctorRegistrationView(generics.CreateAPIView):
+    """Doctor registration endpoint"""
 
-    texts = request.data.get('texts', [])
-    source_lang = request.data.get('source_lang', 'uzn_Latn')
-    target_lang = request.data.get('target_lang', 'rus_Cyrl')
+    serializer_class = DoctorRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
 
-    if not texts or not isinstance(texts, list):
-        return Response(
-            {'error': 'texts must be a non-empty list'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    def create(self, request, *args, **kwargs):
+        print("create called")
+        """Custom create with file handling"""
+        serializer = self.get_serializer(data=request.data)
 
-    if len(texts) > 100:  # Limit batch size
-        return Response(
-            {'error': 'Maximum 100 texts allowed per batch'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        if serializer.is_valid():
+            doctor = serializer.save()
 
-    try:
-        translator = TahrirchiTranslationService()
-        translated_texts = translator.batch_translate(texts, source_lang, target_lang)
+            return Response({
+                'message': 'Doctor registered successfully',
+                'doctor_id': doctor.id,
+                'verification_status': doctor.verification_status
+            }, status=status.HTTP_201_CREATED)
 
-        results = []
-        for i, (original, translated) in enumerate(zip(texts, translated_texts)):
-            results.append({
-                'index': i,
-                'original_text': original,
-                'translated_text': translated or original,  # Fallback to original
-                'success': translated is not None
-            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DoctorLocationUpdateView(generics.UpdateAPIView):
+    """Update doctor location"""
+
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorLocationUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        """Get doctor object with permission check"""
+        obj = super().get_object()
+        user = self.request.user
+
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == obj) or
+                (user.is_hospital_admin() and obj.hospital == user.managed_hospital)):
+            raise PermissionError("You don't have permission to update this doctor")
+
+        return obj
+
+
+class DoctorFileUploadView(generics.CreateAPIView):
+    """Upload doctor files"""
+
+    serializer_class = DoctorFileUploadSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def create(self, request, *args, **kwargs):
+        """Create or update doctor file"""
+        doctor_id = request.data.get('doctor')
+
+        if not doctor_id:
+            return Response(
+                {'error': 'Doctor ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+
+            file_obj = serializer.save(doctor=doctor)
+
+            return Response(
+                DoctorFilesSerializer(file_obj, context={'request': request}).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DoctorServiceCreateView(generics.CreateAPIView):
+    """Create doctor service"""
+
+    serializer_class = DoctorServiceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def create(self, request, *args, **kwargs):
+        """Create a service for a doctor"""
+        doctor_id = request.data.get('doctor')
+        if not doctor_id:
+            return Response(
+                {'error': 'Doctor ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            service = serializer.save(doctor=doctor)
+            return Response(
+                {'message': 'Service created successfully', 'service_id': service.id},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class DoctorFileDeleteView(generics.DestroyAPIView):
+    """Delete doctor file"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        """Delete a doctor's file"""
+        file_id = request.data.get('file')
+        if not file_id:
+            return Response(
+                {'error': 'File ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            file_obj = DoctorFiles.objects.get(id=file_id)
+        except DoctorFiles.DoesNotExist:
+            return Response(
+                {'error': 'File not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        doctor = file_obj.doctor
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        file_obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+class DoctorSearchView(generics.ListAPIView):
+    """Advanced doctor search with location filtering"""
+
+    serializer_class = DoctorSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = DoctorFilter
+    search_fields = [
+        'user__first_name', 'user__last_name', 'specialty',
+        'workplace', 'bio', 'region__name', 'district__name'
+    ]
+    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience']
+
+    def get_queryset(self):
+        """Custom queryset with location filtering"""
+        queryset = Doctor.objects.filter(
+            verification_status='approved'
+        ).select_related(
+            'user', 'hospital', 'region', 'district'
+        ).prefetch_related('files')
+
+        # Location filtering
+        region_id = self.request.query_params.get('region')
+        district_id = self.request.query_params.get('district')
+
+        if region_id:
+            queryset = queryset.filter(region_id=region_id)
+
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
+
+        # Specialty filtering
+        specialty = self.request.query_params.get('specialty')
+        if specialty:
+            queryset = queryset.filter(specialty=specialty)
+
+        # Availability filtering
+        available_only = self.request.query_params.get('available_only', 'false').lower()
+        if available_only == 'true':
+            queryset = queryset.filter(is_available=True)
+
+        # Online consultation filtering
+        online_only = self.request.query_params.get('online_only', 'false').lower()
+        if online_only == 'true':
+            queryset = queryset.filter(is_online_consultation=True)
+
+        # Price range filtering
+        min_price = self.request.query_params.get('min_price')
+        max_price = self.request.query_params.get('max_price')
+
+        if min_price:
+            queryset = queryset.filter(consultation_price__gte=min_price)
+
+        if max_price:
+            queryset = queryset.filter(consultation_price__lte=max_price)
+
+        # Experience filtering
+        min_experience = self.request.query_params.get('min_experience')
+        if min_experience:
+            queryset = queryset.filter(experience__gte=min_experience)
+
+        # Rating filtering
+        min_rating = self.request.query_params.get('min_rating')
+        if min_rating:
+            queryset = queryset.filter(rating__gte=min_rating)
+
+        return queryset
+
+
+class DoctorStatsView(generics.RetrieveAPIView):
+    """Doctor statistics view"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        """Get doctor statistics"""
+        try:
+            doctor = Doctor.objects.get(id=pk)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Calculate statistics
+        stats = {
+            'profile_views': doctor.profile_views,
+            'weekly_views': doctor.weekly_views,
+            'monthly_views': doctor.monthly_views,
+            'total_consultations': doctor.total_consultations,
+            'completed_consultations': doctor.consultations.filter(status='completed').count(),
+            'pending_consultations': doctor.consultations.filter(status='pending').count(),
+            'rating': doctor.rating,
+            'total_reviews': doctor.total_reviews,
+            'success_rate': doctor.success_rate if hasattr(doctor, 'success_rate') else 0,
+            'files_count': doctor.files.count(),
+            'schedules_count': doctor.schedules.count(),
+            'specializations_count': doctor.specializations.count()
+        }
+
+        return Response(stats)
+
+
+class LocationAPIView(generics.GenericAPIView):
+    """Location management API"""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        """Get regions and districts"""
+        regions = Regions.objects.all().order_by('name')
+        districts = Districts.objects.select_related('region').all().order_by('name')
+
+        regions_data = RegionSerializer(regions, many=True).data
+        districts_data = DistrictSerializer(districts, many=True).data
 
         return Response({
-            'results': results,
-            'source_language': source_lang,
-            'target_language': target_lang,
-            'total_count': len(texts),
-            'success_count': sum(1 for result in results if result['success'])
+            'regions': regions_data,
+            'districts': districts_data
         })
 
-    except Exception as e:
-        return Response(
-            {'error': f'Batch translation error: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
+class RegionDistrictsView(generics.ListAPIView):
+    """Get districts for a specific region"""
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def translate_all_doctors_api(request):
-    """API endpoint for translating all doctors (admin only)"""
+    serializer_class = DistrictSerializer
+    permission_classes = [permissions.AllowAny]
 
-    batch_size = request.data.get('batch_size', 10)
+    def get_queryset(self):
+        region_id = self.kwargs['region_id']
+        return Districts.objects.filter(region_id=region_id).order_by('name')
 
-    if batch_size > 50:  # Limit batch size
-        batch_size = 50
+    def list(self, request, *args, **kwargs):
+        """Custom list response"""
+        try:
+            region = Regions.objects.get(id=self.kwargs['region_id'])
+        except Regions.DoesNotExist:
+            return Response(
+                {'error': 'Region not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-    try:
-        translation_service = DoctorTranslationService()
-
-        # Run translation in background (you might want to use Celery for this)
-        translation_service.translate_all_doctors(batch_size)
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
 
         return Response({
-            'message': 'Translation of all doctors started successfully',
-            'batch_size': batch_size
+            'region': RegionSerializer(region).data,
+            'districts': serializer.data
         })
-
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to start translation: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['GET'])
-def get_translation_languages(request):
-    """Get list of supported translation languages"""
-
-    from .services.translation_service import TranslationConfig
-
-    config = TranslationConfig()
-
-    return Response({
-        'supported_languages': config.LANGUAGES,
-        'default_source': 'uzn_Latn',
-        'available_targets': list(config.LANGUAGES.values())
-    })

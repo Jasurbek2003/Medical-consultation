@@ -347,7 +347,7 @@ class Doctor(models.Model):
 class DoctorFiles(models.Model):
     """Shifokor professional hujjatlari"""
 
-    doctor = models.OneToOneField(
+    doctor = models.ForeignKey(
         Doctor,
         on_delete=models.CASCADE,
         related_name='files',
@@ -375,7 +375,6 @@ class DoctorFiles(models.Model):
     class Meta:
         verbose_name = "Shifokor hujjati"
         verbose_name_plural = "Shifokor hujjatlari"
-        unique_together = ['doctor', 'file_type']
 
     def __str__(self):
         return f"{self.doctor.full_name} - {self.get_file_type_display()}"

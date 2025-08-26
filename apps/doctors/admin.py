@@ -3,7 +3,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse, path
 from django.utils.html import format_html
 
-from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation
+from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles
 from .services.translation_service import DoctorTranslationService
 
 
@@ -60,14 +60,14 @@ class DoctorAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('👤 Foydalanuvchi Ma\'lumotlari', {
-            'fields': ('user', 'get_diploma_preview'),
+            'fields': ('user',),
             'classes': ('wide',),
             'description': 'Shifokorga biriktirilgan foydalanuvchi'
         }),
-        ('📷 Hujjatlar', {
-            'fields': ('diploma_image', 'license_image'),
-            'classes': ('wide',)
-        }),
+        # ('📷 Hujjatlar', {
+        #     'fields': ('diploma_image', 'license_image'),
+        #     'classes': ('wide',)
+        # }),
         ('🏥 Professional Ma\'lumotlar', {
             'fields': (
                 'specialty', 'degree', 'experience', 'license_number',
@@ -98,6 +98,8 @@ class DoctorAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
+
 
     actions = ['make_available', 'make_unavailable', 'approve_doctors', 'reject_doctors', 'send_notification',
                'translate_selected_doctors']
@@ -748,3 +750,94 @@ class DoctorTranslationAdmin(admin.ModelAdmin):
         messages.success(request, f'🔄 Refreshed {success_count} translation records')
 
     bulk_refresh_translations.short_description = '🔄 Bulk refresh selected translations'
+
+
+@admin.register(DoctorFiles)
+class DoctorFilesAdmin(admin.ModelAdmin):
+    list_display = ['doctor_info', 'uploaded_at', 'file_type']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name']
+    list_filter = ['file_type', 'uploaded_at']
+    list_display_links = ['doctor_info']
+    autocomplete_fields = ['doctor']
+
+    fieldsets = (
+        ('👨‍⚕️ Shifokor', {
+            'fields': ('doctor',),
+        }),
+        ('📁 Fayl Ma\'lumotlari', {
+            'fields': ('file', 'file_type'),
+            'classes': ('wide',)
+        }),
+        ('📅 Vaqt', {
+            'fields': ('uploaded_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ['uploaded_at']
+
+
+    def doctor_info(self, obj):
+        doctor = obj.doctor
+        return format_html(
+            '<div>'
+            '<strong>Dr. {} {}</strong>'
+            '<br><small style="color: #666;">🩺 {} | 📱 {}</small>'
+            '</div>',
+            doctor.user.first_name,
+            doctor.user.last_name,
+            doctor.get_specialty_display(),
+            doctor.user.phone
+        )
+
+    doctor_info.short_description = '👨‍⚕️ Shifokor'
+
+    def uploaded_at(self, obj):
+        return format_html(
+            '<div style="text-align: center;">'
+            '<strong style="color: #333;">{}</strong>'
+            '<br><small style="color: #666;">{}</small>'
+            '</div>',
+            obj.uploaded_at.strftime('%Y-%m-%d'),
+            obj.uploaded_at.strftime('%H:%M')
+        )
+
+    uploaded_at.short_description = '📅 Yuklangan vaqti'
+
+    def file_type(self, obj):
+        type_colors = {
+            'diploma': '#28a745',
+            'license': '#007bff',
+            'certificate': '#ffc107',
+            'other': '#6c757d',
+        }
+        color = type_colors.get(obj.file_type, '#6c757d')
+        type_display = obj.get_file_type_display()
+        return format_html(
+            '<span style="background: {}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">{}</span>',
+            color, type_display
+        )
+    file_type.short_description = '📁 Turi'
+    def get_translation_summary(self, obj):
+        if not obj.translations:
+            return format_html('<p style="color: #6c757d;">No translations available</p>')
+
+        summary_html = '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: #f8f9fa;">'
+        for field_name, lang_translations in obj.translations.items():
+            summary_html += f'<h4 style="color: #495057; margin-top: 10px; margin-bottom: 5px;">📝 {field_name.title()}</h4>'
+            for lang_code, text in lang_translations.items():
+                lang_names = {
+                    'uzn_Latn': '🇺🇿 Uzbek (Latin)',
+                    'rus_Cyrl': '🇷🇺 Russian',
+                    'eng_Latn': '🇬🇧 English',
+                    'uzn_Cyrl': '🇺🇿 Uzbek (Cyrillic)'
+                }
+                lang_display = lang_names.get(lang_code, lang_code)
+                text_preview = (text[:80] + '...') if len(text) > 80 else text
+                summary_html += f'<p style="margin: 4px 0; padding: 6px; background: white; border-left: 3px solid #007bff; border-radius: 4px;"><strong>{lang_display}:</strong> {text_preview}</p>'
+        summary_html += '</div>'
+        return format_html(summary_html)
+
+    get_translation_summary.short_description = '👁️ Translation Summary'
+    get_translation_summary.allow_tags = True
+

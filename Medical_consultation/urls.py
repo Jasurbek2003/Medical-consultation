@@ -3,9 +3,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from apps.doctors.serializers import translate_text_api
-from apps.doctors.views import batch_translate_api, translate_all_doctors_api, get_translation_languages
-
 urlpatterns = [
     # Django Admin
     path('admin/', admin.site.urls),
@@ -22,10 +19,10 @@ urlpatterns = [
     path('api/v1/translate/', include('apps.translate.urls')),
 
     # Translation API endpoints
-    path('api/translate/text/', translate_text_api, name='translate-text'),
-    path('api/translate/batch/', batch_translate_api, name='batch-translate'),
-    path('api/translate/all-doctors/', translate_all_doctors_api, name='translate-all-doctors'),
-    path('api/translate/languages/', get_translation_languages, name='translation-languages'),
+    # path('api/translate/text/', translate_text_api, name='translate-text'),
+    # path('api/translate/batch/', batch_translate_api, name='batch-translate'),
+    # path('api/translate/all-doctors/', translate_all_doctors_api, name='translate-all-doctors'),
+    # path('api/translate/languages/', get_translation_languages, name='translation-languages'),
 ]
 
 # Add media files serving in development

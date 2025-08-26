@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.hospitals.models import Hospital
+from apps.hospitals.models import Hospital, Regions, Districts
 
 
 class HospitalSerializer(serializers.ModelSerializer):
@@ -22,3 +22,21 @@ class HospitalSerializer(serializers.ModelSerializer):
         if not value.startswith('+'):
             raise serializers.ValidationError("Phone number must include country code")
         return value
+
+
+class RegionSerializer(serializers.ModelSerializer):
+    """Viloyat serializer"""
+
+    class Meta:
+        model = Regions
+        fields = ['id', 'name']
+
+
+class DistrictSerializer(serializers.ModelSerializer):
+    """Tuman serializer"""
+
+    region_name = serializers.CharField(source='region.name', read_only=True)
+
+    class Meta:
+        model = Districts
+        fields = ['id', 'name', 'region', 'region_name']
