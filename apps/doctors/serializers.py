@@ -262,6 +262,8 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
             'rating', 'total_reviews', 'total_consultations',
             'success_rate', 'profile_views',
             'weekly_views', 'monthly_views',
+
+            'work_start_time', 'work_end_time',
         ]
 
     def get_consultation_count(self, obj):
