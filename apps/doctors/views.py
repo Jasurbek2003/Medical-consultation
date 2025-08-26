@@ -420,13 +420,7 @@ class DoctorProfileView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
-        print(request.data)
-        if serializer.is_valid():
-            serializer.save()
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        print(request.data.get('district'))
+
         user = request.user
         user.first_name = request.data.get('first_name') if request.data.get('first_name') else user.first_name
         user.last_name = request.data.get('last_name') if request.data.get('last_name') else user.last_name
@@ -438,6 +432,13 @@ class DoctorProfileView(APIView):
         user.gender = request.data.get('gender') if request.data.get('gender') else user.gender
         user.birth_date = request.data.get('birth_date') if request.data.get('birth_date') else user.birth_date
         user.save()
+        serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
+        print(request.data)
+        if serializer.is_valid():
+            serializer.save()
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        print(request.data.get('district'))
         return Response(serializer.data)
 
 
