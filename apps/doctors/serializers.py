@@ -348,6 +348,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     services = DoctorServiceSerializer(many=True, read_only=True)
     translation_fields = ['bio', 'education', 'achievements']
 
+
     #user info
 
     # Statistics
@@ -357,7 +358,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
         fields = [
-            'id', 'first_name','last_name', 'middle_name',
+            'id', 'first_name','last_name', 'middle_name', 'work_days',
             'avatar', 'specialty', 'specialty_display',
             'degree', 'degree_display', 'experience', 'education', 'bio',
             'achievements', 'consultation_price', 'is_available',
