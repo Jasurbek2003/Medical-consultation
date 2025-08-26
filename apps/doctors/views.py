@@ -426,12 +426,20 @@ class DoctorProfileView(APIView):
             serializer.save()
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        user_serializer = DoctorUserUpdateSerializer(request.user, data=request.data, partial=True)
-        if user_serializer.is_valid():
-            user_serializer.save()
-        else:
-            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response(user_serializer.data)
+        user = request.user
+        user.first_name = request.data.get('first_name') if request.data.get('first_name') else user.first_name
+        user.last_name = request.data.get('last_name') if request.data.get('last_name') else user.last_name
+        user.email = request.data.get('email') if request.data.get('email') else user.email
+        user.region = Regions.objects.get(id=request.data.get('region')) if request.data.get('region') else user.region
+        user.district = Districts.objects.get(id=request.data.get('district')) if request.data.get('district') else user.district
+        user.phone = request.data.get('phone') if request.data.get('phone') else user.phone
+        user.address = request.data.get('address') if request.data.get('address') else user.address
+        user.gender = request.data.get('gender') if request.data.get('gender') else user.gender
+        user.birth_date = request.data.get('birth_date') if request.data.get('birth_date') else user.birth_date
+        user.save()
+        return Response(serializer.data)
+
+
 
 
 
