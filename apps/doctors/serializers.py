@@ -318,7 +318,9 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     """Detailed doctor profile serializer for public view"""
 
     # User information
-    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     avatar = serializers.ImageField(source='user.avatar', read_only=True)
 
     # Display fields
@@ -355,7 +357,8 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
         fields = [
-            'id', 'full_name', 'avatar', 'specialty', 'specialty_display',
+            'id', 'first_name','last_name', 'middle_name',
+            'avatar', 'specialty', 'specialty_display',
             'degree', 'degree_display', 'experience', 'education', 'bio',
             'achievements', 'consultation_price', 'is_available',
             'is_online_consultation', 'workplace', 'workplace_address',

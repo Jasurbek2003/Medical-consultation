@@ -404,15 +404,10 @@ class DoctorProfileView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # serializer = DoctorProfileSerializer(doctor, context={'request': request})
-        queryset = Doctor.objects.filter(id=doctor.id).prefetch_related(
-            'files', 'specializations', 'translations', 'services'
-        ).select_related(
-            'user', 'hospital'
-        ).first()
-        serializer = DoctorProfileSerializer(queryset)
-
+        print("doctor profile")
+        serializer = DoctorProfileSerializer(doctor)
         return Response(serializer.data)
+
 
     def put(self, request):
         """Update the authenticated doctor's profile"""
