@@ -6,7 +6,8 @@ from .views import (
     DoctorScheduleViewSet, DoctorSpecializationViewSet,
     DoctorListView, DoctorDetailView, DoctorRegistrationView,
     DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
-    DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView
+    DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
+    DoctorProfileView
 )
 
 # Router for ViewSets
@@ -27,6 +28,7 @@ urlpatterns = [
     # Legacy API endpoints (for backward compatibility)
     path('list/', DoctorListView.as_view(), name='doctor-list'),
     path('<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
+    path('profile/', DoctorProfileView.as_view(), name='doctor-detail'),
     path('register/', DoctorRegistrationView.as_view(), name='doctor-register'),
     path('search/', DoctorSearchView.as_view(), name='doctor-search'),
 

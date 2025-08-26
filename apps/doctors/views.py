@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.views import APIView
 
 from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService
 from .serializers import (
@@ -386,6 +387,42 @@ class DoctorDetailView(generics.RetrieveAPIView):
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+class DoctorProfileView(APIView):
+    """Get or update doctor profile"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get the authenticated doctor's profile"""
+        try:
+            doctor = request.user.doctor_profile
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorProfileSerializer(doctor, context={'request': request})
+        return Response(serializer.data)
+
+    def put(self, request):
+        """Update the authenticated doctor's profile"""
+        try:
+            doctor = request.user.doctor_profile
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DoctorRegistrationView(generics.CreateAPIView):

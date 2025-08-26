@@ -314,13 +314,6 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
         return round((completed / total) * 100, 1)
 
 
-class DoctorServiceSerializer(serializers.ModelSerializer):
-    """Serializer for additional services provided by the doctor"""
-
-    class Meta:
-        model = DoctorService
-        fields = ['id',  'description', 'price']
-
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
     """Detailed doctor profile serializer for public view"""
