@@ -796,3 +796,26 @@ class DoctorAvailabilityToggleView(APIView):
             'message': f'Availability {"enabled" if doctor.is_available else "disabled"}',
             'is_available': doctor.is_available
         })
+
+
+class DoctorSpecialtiesView(APIView):
+    """Get all available specialties"""
+    permission_classes = [permissions.AllowAny]
+
+    @staticmethod
+    def get(request):
+        specialties = []
+        if hasattr(Doctor, 'SPECIALTIES'):
+            for code, name in Doctor.SPECIALTIES:
+                count = Doctor.objects.filter(
+                    specialty=code,
+                    verification_status='approved',
+                    is_available=True
+                ).count()
+                specialties.append({
+                    'code': code,
+                    'name': name,
+                    'doctor_count': count
+                })
+
+        return Response(specialties)
