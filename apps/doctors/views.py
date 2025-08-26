@@ -430,7 +430,7 @@ class DoctorProfileView(APIView):
             user_serializer.save()
         else:
             return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.data)
+        return Response(user_serializer.data)
 
 
 
