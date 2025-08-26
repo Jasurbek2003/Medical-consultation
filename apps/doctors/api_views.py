@@ -313,9 +313,6 @@ class PublicDoctorDetailView(generics.RetrieveAPIView):
         return response
 
 
-class PublicDoctorSearchView(DoctorSearchView):
-    """Public doctor search"""
-    pass
 
 
 class PublicSpecialtiesView(APIView):

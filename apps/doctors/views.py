@@ -752,3 +752,29 @@ class RegionDistrictsView(generics.ListAPIView):
             'region': RegionSerializer(region).data,
             'districts': serializer.data
         })
+
+class DoctorAvailabilityToggleView(APIView):
+    """
+    Toggle Doctor Availability
+
+    POST /api/v1/doctors/auth/toggle-availability/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def post(request):
+        if request.user.user_type != 'doctor':
+            return Response({
+                'success': False,
+                'error': 'User is not a doctor'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        doctor = request.user.doctor_profile
+        doctor.is_available = not doctor.is_available
+        doctor.save()
+
+        return Response({
+            'success': True,
+            'message': f'Availability {"enabled" if doctor.is_available else "disabled"}',
+            'is_available': doctor.is_available
+        })

@@ -1,4 +1,3 @@
-from django.db.models.base import ModelBase
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
@@ -409,3 +408,4 @@ class DoctorLocationUpdateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
