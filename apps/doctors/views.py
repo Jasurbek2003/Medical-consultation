@@ -421,6 +421,7 @@ class DoctorProfileView(APIView):
             )
 
         serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
+        print(request.data)
         if serializer.is_valid():
             serializer.save()
         else:
