@@ -419,8 +419,6 @@ class DoctorProfileView(APIView):
                 {'error': 'Doctor profile not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-
-
         user = request.user
         user.first_name = request.data.get('first_name') if request.data.get('first_name') else user.first_name
         user.last_name = request.data.get('last_name') if request.data.get('last_name') else user.last_name
@@ -433,12 +431,12 @@ class DoctorProfileView(APIView):
         user.birth_date = request.data.get('birth_date') if request.data.get('birth_date') else user.birth_date
         user.save()
         serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
+        print(request.data.get('last_name'))
         print(request.data)
         if serializer.is_valid():
             serializer.save()
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        print(request.data.get('district'))
         return Response(serializer.data)
 
 
