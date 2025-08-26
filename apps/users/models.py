@@ -263,6 +263,8 @@ class User(AbstractBaseUser, PermissionsMixin, models.Model):
 
         return self.is_profile_complete
 
+
+
     def save(self, *args, **kwargs):
         # Username avtomatik yaratish
         if not self.username:

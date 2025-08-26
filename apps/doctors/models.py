@@ -199,15 +199,15 @@ class Doctor(models.Model):
         """Doctor to'liq ismi"""
         return self.user.get_full_name()
 
-    @property
-    def phone(self):
-        """Doctor telefon raqami"""
-        return self.user.phone
 
     @property
     def email(self):
-        """Doctor email manzili"""
         return self.user.email
+
+    @email.setter
+    def email(self, value):
+        self.user.email = value
+        self.user.save()
 
     @property
     def is_verified(self):

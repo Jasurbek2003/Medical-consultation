@@ -17,6 +17,7 @@ from .serializers import (
 )
 from .filters import DoctorFilter
 from ..hospitals.models import Districts, Regions
+from ..users.serializers import UserUpdateSerializer, DoctorUserUpdateSerializer
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
@@ -422,9 +423,15 @@ class DoctorProfileView(APIView):
         serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user_serializer = DoctorUserUpdateSerializer(request.user, data=request.data, partial=True)
+        if user_serializer.is_valid():
+            user_serializer.save()
+        else:
+            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DoctorRegistrationView(generics.CreateAPIView):

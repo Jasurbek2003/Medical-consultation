@@ -237,39 +237,9 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
     user_is_verified = serializers.BooleanField(source='user.is_verified', read_only=True)
     user_created_at = serializers.DateTimeField(source='user.created_at', read_only=True)
 
-    # Hospital information
-    hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
+
     hospital_id = serializers.IntegerField(source='hospital.id', read_only=True, allow_null=True)
 
-    # Location information
-    region_name = serializers.CharField(source='region.name', read_only=True)
-    district_name = serializers.CharField(source='district.name', read_only=True)
-
-    # Display fields
-    specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
-    verification_status_display = serializers.CharField(
-        source='get_verification_status_display',
-        read_only=True
-    )
-
-    # Files
-    files = DoctorFilesSerializer(many=True, read_only=True)
-
-    # Statistics
-    consultation_count = serializers.SerializerMethodField()
-    success_rate = serializers.SerializerMethodField()
-
-    # Approval information
-    approved_by_name = serializers.CharField(
-        source='approved_by.get_full_name',
-        read_only=True,
-        allow_null=True
-    )
-    rejected_by_name = serializers.CharField(
-        source='rejected_by.get_full_name',
-        read_only=True,
-        allow_null=True
-    )
 
     class Meta:
         model = Doctor
@@ -279,25 +249,19 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
             'user_created_at',
 
             # Doctor specific
-            'specialty', 'specialty_display', 'experience', 'degree',
+            'specialty', 'experience', 'degree',
             'license_number', 'education', 'bio', 'achievements',
             'consultation_price', 'is_available', 'is_online_consultation',
-            'workplace', 'workplace_address', 'region', 'region_name',
-            'district', 'district_name', 'verification_status',
-            'verification_status_display', 'files',
+            'workplace', 'workplace_address', 'verification_status',
+
 
             # Hospital
-            'hospital', 'hospital_name', 'hospital_id',
+            'hospital_id',
 
             # Statistics
             'rating', 'total_reviews', 'total_consultations',
-            'consultation_count', 'success_rate', 'profile_views',
+            'success_rate', 'profile_views',
             'weekly_views', 'monthly_views',
-
-            # Approval
-            'approved_by', 'approved_by_name', 'approval_date',
-            'rejected_by', 'rejected_by_name', 'rejection_reason',
-            'rejection_date', 'created_at', 'updated_at'
         ]
 
     def get_consultation_count(self, obj):

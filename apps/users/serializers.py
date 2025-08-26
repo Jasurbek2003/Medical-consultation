@@ -308,6 +308,16 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
         return value
 
+class DoctorUserUpdateSerializer(serializers.ModelSerializer):
+    """User update serializer"""
+
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 'last_name', 'email', 'phone', 'birth_date', 'gender', 'region_id', 'district_id', 'address'
+        ]
+
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     """Password change serializer"""
