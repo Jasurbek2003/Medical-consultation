@@ -347,7 +347,6 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     translation_fields = ['bio', 'education', 'achievements']
 
     #user info
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     # Statistics
     average_rating = serializers.SerializerMethodField()
@@ -364,7 +363,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'verification_status', 'verification_status_display',
             'rating', 'total_reviews', 'total_consultations',
             'average_rating', 'recent_reviews', 'schedules',
-            'specializations', 'files', 'profile_views', 'services', 'user'
+            'specializations', 'files', 'profile_views', 'services'
         ]
 
     def get_average_rating(self, obj):

@@ -404,7 +404,14 @@ class DoctorProfileView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = DoctorProfileSerializer(doctor, context={'request': request})
+        # serializer = DoctorProfileSerializer(doctor, context={'request': request})
+        queryset = Doctor.objects.filter(doctor=doctor).prefetch_related(
+            'files', 'specializations', 'translations', 'services'
+        ).select_related(
+            'user', 'hospital', 'region', 'district'
+        )
+        serializer = DoctorProfileSerializer(queryset, context={'request': request})
+
         return Response(serializer.data)
 
     def put(self, request):
