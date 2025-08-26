@@ -426,6 +426,7 @@ class DoctorProfileView(APIView):
             serializer.save()
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        print(request.data.get('district'))
         user = request.user
         user.first_name = request.data.get('first_name') if request.data.get('first_name') else user.first_name
         user.last_name = request.data.get('last_name') if request.data.get('last_name') else user.last_name
