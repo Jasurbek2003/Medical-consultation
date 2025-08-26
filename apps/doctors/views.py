@@ -405,12 +405,12 @@ class DoctorProfileView(APIView):
             )
 
         # serializer = DoctorProfileSerializer(doctor, context={'request': request})
-        queryset = Doctor.objects.filter(doctor=doctor).prefetch_related(
+        queryset = Doctor.objects.filter(id=doctor.id).prefetch_related(
             'files', 'specializations', 'translations', 'services'
         ).select_related(
-            'user', 'hospital', 'region', 'district'
-        )
-        serializer = DoctorProfileSerializer(queryset, context={'request': request})
+            'user', 'hospital'
+        ).first()
+        serializer = DoctorProfileSerializer(queryset)
 
         return Response(serializer.data)
 
