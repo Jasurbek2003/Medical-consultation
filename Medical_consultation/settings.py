@@ -199,6 +199,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.0.29:5173",
     "https://inaf.avlo.app",
     "https://med-admin.quloqai.uz",
+    "https://admin.medikon.uz",
+    "https://medikon.uz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
