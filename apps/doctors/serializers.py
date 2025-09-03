@@ -61,7 +61,6 @@ class DoctorSerializer(serializers.ModelSerializer):
     """Basic doctor serializer"""
 
     # User information
-    full_name = serializers.CharField(source='get_full_name', read_only=True)
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     verification_status_display = serializers.CharField(
         source='get_verification_status_display',
@@ -76,23 +75,35 @@ class DoctorSerializer(serializers.ModelSerializer):
 
     # Hospital information
     hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
+    hospital_id = serializers.IntegerField(source='hospital.id', read_only=True)
     avatar = serializers.ImageField(source='user.avatar', read_only=True)
 
     files = DoctorFilesSerializer(many=True, read_only=True)
     services = DoctorServiceSerializer(many=True, read_only=True)
+
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    middle_name = serializers.CharField(source='user.middle_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+
+
 
 
 
     class Meta:
         model = Doctor
         fields = [
-            'id', 'full_name', 'specialty', 'specialty_display',
+            'id', 'specialty', 'specialty_display',
             'experience', 'degree', 'rating', 'total_reviews',
             'consultation_price', 'is_available', 'is_online_consultation',
             'hospital_name', 'workplace', 'verification_status',
             'verification_status_display', 'total_consultations',
-            'success_rate', 'avatar', 'region_name',
-             'district_name', 'region_id', 'district_id', 'files', 'services'
+            'success_rate', 'avatar', 'region_name', 'hospital_id',
+            'district_name', 'region_id', 'district_id', 'files', 'services',
+            'work_start_time', 'work_end_time', 'work_days',
+            'first_name', 'last_name', 'middle_name', 'phone', 'full_name',
+
         ]
 
 

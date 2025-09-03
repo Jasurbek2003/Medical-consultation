@@ -253,5 +253,5 @@ class Districts(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.region.name} - {self.name}"
+        return f"{self.name}"
 
