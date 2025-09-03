@@ -625,55 +625,55 @@ Immediately go to the nearest hospitals or call emergency services: 103
             }
             response += emergency_warnings.get(language, emergency_warnings['uz'])
 
-        if doctors:
-            response += template['doctors_header'].format(specialty=specialty_display)
-            for i, doctor in enumerate(doctors[:3], 1):
-                online_badge = template['online_badge'] if doctor.get('is_online_consultation') else ""
-
-                doctor_info_templates = {
-                    'uz': """{i}. **{name}**{online_badge}
-   - Tajriba: {experience} yil
-   - Reyting: {rating}/5 ⭐ ({total_reviews} sharh)
-   - Narx: {consultation_price:,.0f} so'm
-   - Ish joyi: {workplace}
-   - Telefon: {phone}
-
-""",
-                    'ru': """{i}. **{name}**{online_badge}
-   - Опыт: {experience} лет
-   - Рейтинг: {rating}/5 ⭐ ({total_reviews} отзывов)
-   - Цена: {consultation_price:,.0f} сум
-   - Место работы: {workplace}
-   - Телефон: {phone}
-
-""",
-                    'en': """{i}. **{name}**{online_badge}
-   - Experience: {experience} years
-   - Rating: {rating}/5 ⭐ ({total_reviews} reviews)
-   - Price: {consultation_price:,.0f} sum
-   - Workplace: {workplace}
-   - Phone: {phone}
-
-"""
-                }
-
-                doctor_template = doctor_info_templates.get(language, doctor_info_templates['uz'])
-                response += doctor_template.format(
-                    i=i,
-                    name=doctor['name'],
-                    online_badge=online_badge,
-                    experience=doctor['experience'],
-                    rating=doctor['rating'],
-                    total_reviews=doctor['total_reviews'],
-                    consultation_price=doctor['consultation_price'],
-                    workplace=doctor['workplace'],
-                    phone=doctor['phone']
-                )
-        else:
-            response += template['no_doctors'].format(specialty=specialty_display)
-
-        if advice:
-            response += template['advice_header'].format(advice=advice)
+#         if doctors:
+#             response += template['doctors_header'].format(specialty=specialty_display)
+#             for i, doctor in enumerate(doctors[:3], 1):
+#                 online_badge = template['online_badge'] if doctor.get('is_online_consultation') else ""
+#
+#                 doctor_info_templates = {
+#                     'uz': """{i}. **{name}**{online_badge}
+#    - Tajriba: {experience} yil
+#    - Reyting: {rating}/5 ⭐ ({total_reviews} sharh)
+#    - Narx: {consultation_price:,.0f} so'm
+#    - Ish joyi: {workplace}
+#    - Telefon: {phone}
+#
+# """,
+#                     'ru': """{i}. **{name}**{online_badge}
+#    - Опыт: {experience} лет
+#    - Рейтинг: {rating}/5 ⭐ ({total_reviews} отзывов)
+#    - Цена: {consultation_price:,.0f} сум
+#    - Место работы: {workplace}
+#    - Телефон: {phone}
+#
+# """,
+#                     'en': """{i}. **{name}**{online_badge}
+#    - Experience: {experience} years
+#    - Rating: {rating}/5 ⭐ ({total_reviews} reviews)
+#    - Price: {consultation_price:,.0f} sum
+#    - Workplace: {workplace}
+#    - Phone: {phone}
+#
+# """
+#                 }
+#
+#                 doctor_template = doctor_info_templates.get(language, doctor_info_templates['uz'])
+#                 response += doctor_template.format(
+#                     i=i,
+#                     name=doctor['name'],
+#                     online_badge=online_badge,
+#                     experience=doctor['experience'],
+#                     rating=doctor['rating'],
+#                     total_reviews=doctor['total_reviews'],
+#                     consultation_price=doctor['consultation_price'],
+#                     workplace=doctor['workplace'],
+#                     phone=doctor['phone']
+#                 )
+#         else:
+#             response += template['no_doctors'].format(specialty=specialty_display)
+#
+#         if advice:
+#             response += template['advice_header'].format(advice=advice)
 
         response += template['footer']
 
