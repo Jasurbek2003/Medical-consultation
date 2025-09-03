@@ -312,6 +312,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     region_id = serializers.IntegerField(source='user.region_id', read_only=True)
     district_name = serializers.CharField(source='user.district', read_only=True)
     district_id = serializers.IntegerField(source='user.district_id', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
 
     # Hospital information
     hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
@@ -343,7 +344,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'rating', 'total_reviews', 'total_consultations',
             'average_rating', 'recent_reviews', 'schedules',
             'specializations', 'files', 'profile_views', 'services', 'hospital_id', 'license_number', 'work_start_time',
-            'work_end_time',
+            'work_end_time', 'phone',
         ]
 
     def get_average_rating(self, obj):
