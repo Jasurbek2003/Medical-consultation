@@ -66,6 +66,7 @@ class Hospital(models.Model):
     # Additional info
     description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
     working_hours = models.CharField(max_length=100, blank=True, null=True, verbose_name="Ish vaqti")
+    working_days = models.CharField(max_length=100, blank=True, null=True, verbose_name="Ish kunlari")
 
     # System fields
     is_active = models.BooleanField(default=True, verbose_name="Faol")
