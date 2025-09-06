@@ -48,8 +48,19 @@ class Hospital(models.Model):
     )
 
     # Address
-    region = models.CharField(max_length=100, verbose_name="Viloyat")
-    district = models.CharField(max_length=100, verbose_name="Tuman")
+    region = models.ForeignKey(
+        'Regions',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+    district = models.ForeignKey(
+        'Districts',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        verbose_name="Tuman"
+    )
     address = models.TextField(verbose_name="Manzil")
 
     # Additional info
@@ -69,6 +80,10 @@ class Hospital(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(5.0)],
         verbose_name="Reyting"
     )
+
+    # lattitude and longitude for map location
+    latitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
+    longitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Uzunlik")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")

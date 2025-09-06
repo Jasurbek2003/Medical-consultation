@@ -132,13 +132,19 @@ class TahrirchiTranslationService:
         translations = {source_lang: text}
 
         for lang_name, lang_code in self.config.LANGUAGES.items():
-            if lang_code != source_lang:  # FIXED: Complete the condition
-                translated = self.translate_text(text, source_lang, lang_code)
-                if translated:
-                    translations[lang_code] = translated
-                else:
-                    logger.warning(f"Failed to translate to {lang_code}: {text[:50]}...")
-                    translations[lang_code] = text  # Fallback to original text
+            translated = self.translate_text(text, source_lang, lang_code)
+            if translated:
+                translations[lang_code] = translated
+            else:
+                logger.warning(f"Failed to translate to {lang_code}: {text[:50]}...")
+                translations[lang_code] = text  # Fallback to original text
+            # if lang_code != source_lang:  # FIXED: Complete the condition
+            #     translated = self.translate_text(text, source_lang, lang_code)
+            #     if translated:
+            #         translations[lang_code] = translated
+            #     else:
+            #         logger.warning(f"Failed to translate to {lang_code}: {text[:50]}...")
+            #         translations[lang_code] = text  # Fallback to original text
 
         return translations
 

@@ -103,26 +103,8 @@ class Doctor(models.Model):
         verbose_name="Konsultatsiya narxi"
     )
 
-    # # Professional documents
-    # diploma_image = models.FileField(
-    #     upload_to='doctors/diplomas/',
-    #     blank=True,
-    #     null=True,
-    #     verbose_name="Diploma rasmi"
-    # )
-    #
-    # license_image = models.ImageField(
-    #     upload_to='doctors/licenses/',
-    #     blank=True,
-    #     null=True,
-    #     verbose_name="Litsenziya rasmi"
-    # )
-    #
-    # certificate_images = models.JSONField(
-    #     default=list,
-    #     blank=True,
-    #     verbose_name="Sertifikat rasmlari"
-    # )
+    lattitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
+    longitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Uzunlik")
 
     # Schedule and availability
     is_available = models.BooleanField(default=True, verbose_name="Mavjud")
