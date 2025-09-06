@@ -342,7 +342,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
                 field_translations = {}
                 for lang_item in TranslationConfig.LANGUAGES:
                     lang_code = lang_item[0] if isinstance(lang_item, tuple) else lang_item
-                    translated_value = getattr(translations.translations, f"{field}_{lang_code}", "")
+                    translated_value = getattr(translations.translations, f"{field}", "")
                     field_translations[lang_code] = translated_value
                 translation_data[field] = field_translations
             return translation_data
