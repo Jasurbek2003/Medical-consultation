@@ -88,9 +88,25 @@ class DoctorSerializer(serializers.ModelSerializer):
     phone = serializers.CharField(source='user.phone', read_only=True)
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
 
+    translations = serializers.SerializerMethodField()
 
-
-
+    def get_translations(self, obj):
+        """Get translations for bio and achievements"""
+        try:
+            return DoctorTranslation.objects.get(doctor=obj).translations
+        except DoctorTranslation.DoesNotExist:
+            return {
+                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                       for lang_item in TranslationConfig.LANGUAGES},
+                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'education': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'workplace': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'workplace_address': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+            }
 
     class Meta:
         model = Doctor
@@ -103,7 +119,7 @@ class DoctorSerializer(serializers.ModelSerializer):
             'success_rate', 'avatar', 'region_name', 'hospital_id',
             'district_name', 'region_id', 'district_id', 'files', 'services',
             'work_start_time', 'work_end_time', 'work_days',
-            'first_name', 'last_name', 'middle_name', 'phone', 'full_name',
+            'first_name', 'last_name', 'middle_name', 'phone', 'full_name', 'translations'
 
         ]
 
