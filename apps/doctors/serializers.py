@@ -338,7 +338,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         try:
             translations = DoctorTranslation.objects.get(doctor=obj)
             translation_data = {}
-            for field in ['bio', 'achievements']:
+            for field in ['bio', 'achievements', 'education', 'workplace', 'workplace_address']:
                 field_translations = {}
                 for lang_item in TranslationConfig.LANGUAGES:
                     lang_code = lang_item[0] if isinstance(lang_item, tuple) else lang_item
@@ -351,7 +351,13 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
                 'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
                        for lang_item in TranslationConfig.LANGUAGES},
                 'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
-                                for lang_item in TranslationConfig.LANGUAGES}
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'education': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'workplace': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
+                'workplace_address': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                for lang_item in TranslationConfig.LANGUAGES},
             }
 
 
