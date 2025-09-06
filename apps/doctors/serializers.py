@@ -4,8 +4,9 @@ from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 
 from .models import (
-    Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService,
+    Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorTranslation,
 )
+from .services.translation_service import TranslationConfig
 from ..hospitals.models import Regions, Districts
 
 User = get_user_model()
@@ -300,6 +301,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     avatar = serializers.ImageField(source='user.avatar', read_only=True)
 
+
     # Display fields
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     degree_display = serializers.CharField(source='get_degree_display', read_only=True)
@@ -325,11 +327,34 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     profile_views = serializers.IntegerField(read_only=True)
     total_reviews = serializers.IntegerField(read_only=True)
     services = DoctorServiceSerializer(many=True, read_only=True)
-    translation_fields = ['bio', 'education', 'achievements']
 
     # Statistics
     average_rating = serializers.SerializerMethodField()
     recent_reviews = serializers.SerializerMethodField()
+    translations = serializers.SerializerMethodField()
+
+    def get_translations(self, obj):
+        """Get translations for bio and achievements"""
+        try:
+            translations = DoctorTranslation.objects.get(doctor=obj)
+            translation_data = {}
+            for field in ['bio', 'achievements']:
+                field_translations = {}
+                for lang_item in TranslationConfig.LANGUAGES:
+                    lang_code = lang_item[0] if isinstance(lang_item, tuple) else lang_item
+                    translated_value = getattr(translations, f"{field}_{lang_code}", "")
+                    field_translations[lang_code] = translated_value
+                translation_data[field] = field_translations
+            return translation_data
+        except DoctorTranslation.DoesNotExist:
+            return {
+                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
+                       for lang_item in TranslationConfig.LANGUAGES},
+                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
+                                for lang_item in TranslationConfig.LANGUAGES}
+            }
+
+
 
     class Meta:
         model = Doctor
@@ -344,7 +369,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'rating', 'total_reviews', 'total_consultations',
             'average_rating', 'recent_reviews', 'schedules',
             'specializations', 'files', 'profile_views', 'services', 'hospital_id', 'license_number', 'work_start_time',
-            'work_end_time', 'phone',
+            'work_end_time', 'phone', 'translations'
         ]
 
     def get_average_rating(self, obj):
