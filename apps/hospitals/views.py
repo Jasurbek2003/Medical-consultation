@@ -55,12 +55,16 @@ class HospitalProfileAPIView(APIView):
                 'phone': hospital.phone,
                 'email': hospital.email,
                 'founded_year': hospital.founded_year,
-                'region': hospital.region,
-                'district': hospital.district,
+                'region_id': hospital.region.id,
+                'region_name': hospital.region.name,
+                'district_id': hospital.district.id,
+                'district_name': hospital.district.name,
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
+                'lattitude': hospital.lattitude,
+                'longitude': hospital.longitude,
                 'created_at': hospital.created_at.isoformat(),
                 'updated_at': hospital.updated_at.isoformat()
             }
@@ -81,11 +85,13 @@ class HospitalProfileAPIView(APIView):
         phone = request.data.get('phone', hospital.phone)
         email = request.data.get('email', hospital.email)
         founded_year = request.data.get('founded_year', hospital.founded_year)
-        region = request.data.get('region', hospital.region)
-        district = request.data.get('district', hospital.district)
+        region = Regions.objects.get(id=request.data.get('region', hospital.region))
+        district = Districts.objects.get(id=request.data.get('district', hospital.district))
         description = request.data.get('description', hospital.description)
         working_hours = request.data.get('working_hours', hospital.working_hours)
         website = request.data.get('website', hospital.website)
+        lattitude = request.data.get('lattitude', hospital.lattitude)
+        longitude = request.data.get('longitude', hospital.longitude)
 
         # Update fields
         hospital.name = name
@@ -98,6 +104,8 @@ class HospitalProfileAPIView(APIView):
         hospital.description = description
         hospital.working_hours = working_hours
         hospital.website = website
+        hospital.lattitude = lattitude
+        hospital.longitude = longitude
 
         # Save changes
         hospital.save()
@@ -112,12 +120,16 @@ class HospitalProfileAPIView(APIView):
                 'phone': hospital.phone,
                 'email': hospital.email,
                 'founded_year': hospital.founded_year,
-                'region': hospital.region,
-                'district': hospital.district,
+                'region_id': hospital.region.id,
+                'region_name': hospital.region.name,
+                'district_id': hospital.district.id,
+                'district_name': hospital.district.name,
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
+                'lattitude': hospital.lattitude,
+                'longitude': hospital.longitude,
                 'created_at': hospital.created_at.isoformat(),
                 'updated_at': hospital.updated_at.isoformat()
             }
