@@ -61,6 +61,7 @@ class HospitalProfileAPIView(APIView):
                 'district_name': hospital.district.name,
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
+                'working_days': hospital.working_days,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
                 'latitude': hospital.latitude,
@@ -89,9 +90,11 @@ class HospitalProfileAPIView(APIView):
         district = Districts.objects.get(id=request.data.get('district', hospital.district))
         description = request.data.get('description', hospital.description)
         working_hours = request.data.get('working_hours', hospital.working_hours)
+        working_days = request.data.get('working_days', hospital.working_days)
         website = request.data.get('website', hospital.website)
         latitude = request.data.get('latitude', hospital.latitude)
         longitude = request.data.get('longitude', hospital.longitude)
+
 
         # Update fields
         hospital.name = name
@@ -103,6 +106,7 @@ class HospitalProfileAPIView(APIView):
         hospital.district = district
         hospital.description = description
         hospital.working_hours = working_hours
+        hospital.working_days = working_days
         hospital.website = website
         hospital.latitude = latitude
         hospital.longitude = longitude
@@ -126,6 +130,7 @@ class HospitalProfileAPIView(APIView):
                 'district_name': hospital.district.name,
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
+                'working_days': hospital.working_days,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
                 'latitude': hospital.latitude,
