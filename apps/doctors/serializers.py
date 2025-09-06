@@ -337,7 +337,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         """Get translations for bio and achievements"""
         try:
             translations = DoctorTranslation.objects.get(doctor=obj)
-            translation_data = {}
+            translation_data = {"all": translations.translations}
             for field in ['bio', 'achievements', 'education', 'workplace', 'workplace_address']:
                 field_translations = {}
                 for lang_item in TranslationConfig.LANGUAGES:
