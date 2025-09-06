@@ -337,7 +337,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'id', 'first_name','last_name', 'middle_name', 'work_days',
             'avatar', 'specialty', 'specialty_display',
             'degree', 'degree_display', 'experience', 'education', 'bio',
-            'achievements', 'consultation_price', 'is_available', 'lattitude', 'longitude',
+            'achievements', 'consultation_price', 'is_available', 'latitude', 'longitude',
             'is_online_consultation', 'workplace', 'workplace_address',
             'region_name', 'district_name', 'hospital_name', 'region_id', 'district_id',
             'verification_status', 'verification_status_display',

@@ -81,7 +81,7 @@ class Hospital(models.Model):
         verbose_name="Reyting"
     )
 
-    # lattitude and longitude for map location
+    # latitude and longitude for map location
     latitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
     longitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Uzunlik")
 

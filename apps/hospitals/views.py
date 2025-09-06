@@ -63,7 +63,7 @@ class HospitalProfileAPIView(APIView):
                 'working_hours': hospital.working_hours,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
-                'lattitude': hospital.lattitude,
+                'latitude': hospital.latitude,
                 'longitude': hospital.longitude,
                 'created_at': hospital.created_at.isoformat(),
                 'updated_at': hospital.updated_at.isoformat()
@@ -90,7 +90,7 @@ class HospitalProfileAPIView(APIView):
         description = request.data.get('description', hospital.description)
         working_hours = request.data.get('working_hours', hospital.working_hours)
         website = request.data.get('website', hospital.website)
-        lattitude = request.data.get('lattitude', hospital.lattitude)
+        latitude = request.data.get('latitude', hospital.latitude)
         longitude = request.data.get('longitude', hospital.longitude)
 
         # Update fields
@@ -104,7 +104,7 @@ class HospitalProfileAPIView(APIView):
         hospital.description = description
         hospital.working_hours = working_hours
         hospital.website = website
-        hospital.lattitude = lattitude
+        hospital.latitude = latitude
         hospital.longitude = longitude
 
         # Save changes
@@ -128,7 +128,7 @@ class HospitalProfileAPIView(APIView):
                 'working_hours': hospital.working_hours,
                 'logo': hospital.logo.url if hospital.logo else None,
                 'website': hospital.website,
-                'lattitude': hospital.lattitude,
+                'latitude': hospital.latitude,
                 'longitude': hospital.longitude,
                 'created_at': hospital.created_at.isoformat(),
                 'updated_at': hospital.updated_at.isoformat()

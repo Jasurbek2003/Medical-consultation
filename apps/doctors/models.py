@@ -103,7 +103,7 @@ class Doctor(models.Model):
         verbose_name="Konsultatsiya narxi"
     )
 
-    lattitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
+    latitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
     longitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Uzunlik")
 
     # Schedule and availability
