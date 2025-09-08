@@ -12,7 +12,7 @@ from rest_framework import status, permissions
 
 from apps.doctors.models import Doctor
 from apps.doctors.services.translation_service import DoctorTranslationService, HospitalTranslationService
-from apps.hospitals.models import HospitalService, Regions, Districts, Hospital
+from apps.hospitals.models import HospitalService, Regions, Districts, Hospital, HospitalTranslation
 from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
 from apps.billing.services import BillingService
 from apps.payments.models import Payment, PaymentGateway
@@ -46,6 +46,9 @@ class HospitalProfileAPIView(APIView):
                 'error': 'Hospital not found'
             }, status=status.HTTP_404_NOT_FOUND)
 
+        translates = HospitalTranslation.objects.get(hospital=hospital).__dict__
+
+
         return Response({
             'success': True,
             'hospital': {
@@ -67,6 +70,7 @@ class HospitalProfileAPIView(APIView):
                 'website': hospital.website,
                 'latitude': hospital.latitude,
                 'longitude': hospital.longitude,
+                'translations': translates,
                 'created_at': hospital.created_at.isoformat(),
                 'updated_at': hospital.updated_at.isoformat()
             }

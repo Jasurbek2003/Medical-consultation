@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework import generics, permissions, status, viewsets
@@ -8,7 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.views import APIView
 
-from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService
+from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName
 from .serializers import (
     DoctorSerializer, DoctorRegistrationSerializer, DoctorUpdateSerializer,
     DoctorProfileSerializer, DoctorFilesSerializer, DoctorFileUploadSerializer,
@@ -17,7 +18,6 @@ from .serializers import (
 )
 from .filters import DoctorFilter
 from ..hospitals.models import Districts, Regions
-from ..users.serializers import UserUpdateSerializer, DoctorUserUpdateSerializer
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
@@ -536,16 +536,12 @@ class DoctorFileUploadView(generics.CreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class DoctorServiceCreateView(generics.CreateAPIView):
-    """Create doctor service"""
-
-    serializer_class = DoctorServiceSerializer
+class DoctorServiceCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
 
-    def create(self, request, *args, **kwargs):
+    def post(self, request):
         """Create a service for a doctor"""
-        doctor_id = request.data.get('doctor')
+        doctor_id = request.user.doctor_profile.id if request.user.is_doctor() else None
         if not doctor_id:
             return Response(
                 {'error': 'Doctor ID is required'},
@@ -558,6 +554,7 @@ class DoctorServiceCreateView(generics.CreateAPIView):
                 {'error': 'Doctor not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
         # Check permissions
         user = request.user
         if not (user.is_admin() or
@@ -567,14 +564,118 @@ class DoctorServiceCreateView(generics.CreateAPIView):
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            service = serializer.save(doctor=doctor)
+
+        service_name_id = request.data.get('service_name')
+        description = request.data.get('description', '')
+        price = request.data.get('price', 0)
+
+        if not service_name_id:
             return Response(
-                {'message': 'Service created successfully', 'service_id': service.id},
-                status=status.HTTP_201_CREATED
+                {'error': 'Service name ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            service_name = DoctorServiceName.objects.get(id=service_name_id)
+        except DoctorServiceName.DoesNotExist:
+            return Response(
+                {'error': 'Service name not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        service = DoctorService.objects.create(
+            doctor=doctor,
+            service_name=service_name,
+            description=description,
+            price=price
+        )
+        return Response(
+            DoctorServiceSerializer(service).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    def get(self, request):
+        """Get all services for the authenticated doctor"""
+        doctor_id = request.user.doctor_profile.id if request.user.is_doctor() else None
+        if not doctor_id:
+            return Response(
+                {'error': 'Doctor ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        services = DoctorService.objects.filter(doctor=doctor)
+        serializer = DoctorServiceSerializer(services, many=True)
+        return Response(serializer.data)
+
+    def delete(self, request):
+        """Delete a service for a doctor"""
+        doctor_id = request.user.doctor_profile.id if request.user.is_doctor() else None
+        if not doctor_id:
+            return Response(
+                {'error': 'Doctor ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check permissions
+        user = request.user
+        if not (user.is_admin() or
+                (user.is_doctor() and user.doctor_profile == doctor) or
+                (user.is_hospital_admin() and doctor.hospital == user.managed_hospital)):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        service_id = request.data.get('service_id')
+        if not service_id:
+            return Response(
+                {'error': 'Service ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            service = DoctorService.objects.get(id=service_id, doctor=doctor)
+        except DoctorService.DoesNotExist:
+            return Response(
+                {'error': 'Service not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        service.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DoctorServiceNameAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        service_names = DoctorServiceName.objects.all()
+        return JsonResponse(
+            {'services': [{'id': service.id, 'name': service.name} for service in service_names]},
+            safe=False
+        )
+
+
 
 class DoctorFileDeleteView(generics.DestroyAPIView):
     """Delete doctor file"""

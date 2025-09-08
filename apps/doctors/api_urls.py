@@ -7,7 +7,7 @@ from .views import (
     DoctorListView, DoctorDetailView, DoctorRegistrationView,
     DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
     DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
-    DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView
+    DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView
 )
 
 # Router for ViewSets
@@ -38,6 +38,7 @@ urlpatterns = [
     path('upload-file/', DoctorFileUploadView.as_view(), name='doctor-file-upload'),
     path('delete-file/', DoctorFileDeleteView.as_view(), name='doctor-file-delete'),
     path('service/', DoctorServiceCreateView.as_view(), name='doctor-file-delete'),
+    path('service/list/', DoctorServiceNameAPIView.as_view(), name='doctor-file-delete'),
     path('<int:pk>/stats/', DoctorStatsView.as_view(), name='doctor-stats'),
 
     # Location endpoints
