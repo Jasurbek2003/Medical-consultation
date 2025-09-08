@@ -22,7 +22,7 @@ class RegionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Regions
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'name_en', 'name_ru', 'name_kr']
 
 
 class DistrictSerializer(serializers.ModelSerializer):
@@ -32,4 +32,4 @@ class DistrictSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Districts
-        fields = ['id', 'name', 'region', 'region_name']
+        fields = ['id', 'name', 'region', 'region_name', 'name_en', 'name_ru', 'name_kr']
