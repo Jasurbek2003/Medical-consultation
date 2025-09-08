@@ -368,6 +368,7 @@ class DistrictsAdmin(admin.ModelAdmin):
     ordering = ['region__name', 'name']
     list_filter = ['region']
     list_per_page = 50
+    list_editable = ['name_en', 'name_ru', 'name_kr']
 
     actions = ['translate_selected_districts']
 
