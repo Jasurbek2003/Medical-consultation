@@ -1,7 +1,41 @@
 from django.contrib import admin
+from django.contrib.messages import success
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Hospital, HospitalService
+from .models import Hospital, HospitalService, HospitalTranslation
+from ..doctors.services.translation_service import HospitalTranslationService
+
+
+class HospitalTranslationInline(admin.StackedInline):
+    model = HospitalTranslation
+    extra = 0
+    readonly_fields = ['created_at', 'updated_at', 'get_translation_summary']
+    fields = ['get_translation_summary', 'created_at', 'updated_at']
+
+    def get_translation_summary(self, obj):
+        if not obj.translations:
+            return format_html(
+                '<p style="color: #6c757d;">No translations yet. Use the "Translate Profile" action to generate translations.</p>')
+
+        summary_html = '<div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 10px;">'
+        summary_html += '<h4 style="margin-top: 0; color: #495057;">🌐 Translation Summary</h4>'
+
+        for field_name, lang_translations in obj.translations.items():
+            lang_count = len([text for text in lang_translations.values() if text.strip()])
+            total_langs = len(lang_translations)
+
+            status_color = '#28a745' if lang_count == total_langs else '#ffc107' if lang_count > 0 else '#dc3545'
+            summary_html += f'<p style="margin: 5px 0;"><strong>{field_name.title()}:</strong> <span style="color: {status_color};">{lang_count}/{total_langs} languages</span></p>'
+
+        summary_html += '</div>'
+        return format_html(summary_html)
+
+    get_translation_summary.short_description = '📊 Summary'
+
+
+
+
+
 
 
 @admin.register(Hospital)
@@ -106,6 +140,8 @@ class HospitalAdmin(admin.ModelAdmin):
         })
     )
 
+    inlines = [HospitalTranslationInline]
+
     list_per_page = 25
     ordering = ['-created_at']
     date_hierarchy = 'created_at'
@@ -187,7 +223,7 @@ class HospitalAdmin(admin.ModelAdmin):
         return False
 
     # Custom actions
-    actions = ['activate_hospitals', 'deactivate_hospitals']
+    actions = ['activate_hospitals', 'deactivate_hospitals', 'translate_selected_hospitals']
 
     def activate_hospitals(self, request, queryset):
         """Activate selected hospitals"""
@@ -209,15 +245,26 @@ class HospitalAdmin(admin.ModelAdmin):
 
     deactivate_hospitals.short_description = 'Tanlangan shifoxonalarni faoliyatdan chiqarish'
 
-    # def feature_hospitals(self, request, queryset):
-    #     """Feature selected hospitals"""
-    #     updated = queryset.update(is_featured=True)
-    #     self.message_user(
-    #         request,
-    #         f'{updated} ta shifoxona ajratildi.'
-    #     )
-    #
-    # feature_hospitals.short_description = 'Tanlangan shifoxonalarni ajratish'
+    def translate_selected_hospitals(self, request, queryset):
+        """Translate selected hospitals"""
+        translation_service = HospitalTranslationService()
+        success_count = 0
+        for hospital in queryset:
+            # try:
+                translations = translation_service.translate_hospital_profile(hospital)
+                print(translations)
+
+                translation_service.save_hospital_translations(hospital, translations)
+                success_count += 1
+            # except Exception as e:
+            #     self.message_user(
+            #         request,
+            #         f'Xatolik yuz berdi {hospital.name} shifoxonasini tarjima qilishda: {str(e)}',
+            #         level='error'
+            #     )
+    translate_selected_hospitals.short_description = 'Tanlangan shifoxonalarni tarjima qilish'
+
+
 
 @admin.register(HospitalService)
 class HospitalServiceAdmin(admin.ModelAdmin):

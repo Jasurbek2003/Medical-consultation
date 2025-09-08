@@ -271,3 +271,28 @@ class Districts(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+class HospitalTranslation(models.Model):
+    """Shifoxona tarjimalari"""
+
+    hospital = models.OneToOneField(
+        Hospital,
+        on_delete=models.CASCADE,
+        related_name='translations',
+        verbose_name="Shifoxona"
+    )
+    translations = models.JSONField(
+        verbose_name="Tarjimalar", help_text="Tarjimalar JSON formatida saqlanadi", default=dict)
+
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    is_auto_translated = models.BooleanField(default=False, verbose_name="Avtomatik tarjima qilingan")
+
+    class Meta:
+        verbose_name = "Shifoxona tarjimasi"
+        verbose_name_plural = "Shifoxona tarjimalari"
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Tarjimalar - {self.hospital.name}"
+
+

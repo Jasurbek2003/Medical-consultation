@@ -8,12 +8,14 @@ urlpatterns = [
     # Dashboard
     path('dashboard/', views.HospitalDashboardAPIView.as_view(), name='api_dashboard'),
     path('profile/', views.HospitalProfileAPIView.as_view(), name='api_dashboard'),
+    path('translate/', views.HospitalProfileTranslationAPIView.as_view(), name='api_dashboard'),
     path('service/', views.ServiceAPIView.as_view(), name='api_dashboard'),
     path('service/<int:service_id>', views.ServiceAPIView.as_view(), name='api_dashboard'),
 
     # Doctor management
     path('doctors/', views.HospitalDoctorsListAPIView.as_view(), name='api_doctors_list'),
     path('doctors/<int:doctor_id>/', views.DoctorDetailWithBillingAPIView.as_view(), name='api_doctor_detail'),
+    path('doctors/<int:doctor_id>/translate/', views.DoctorTranslationAPIView.as_view(), name='api_doctor_detail'),
     path('doctors/<int:doctor_id>/access-check/', views.DoctorViewAccessCheckAPIView.as_view(),
          name='api_doctor_access_check'),
 
@@ -28,7 +30,6 @@ urlpatterns = [
     path('locations/regions/', views.RegionsListAPIView.as_view(), name='api_regions'),
     path('locations/districts/', views.DistrictsListAPIView.as_view(), name='api_districts'),
     path('locations/districts/<int:region_id>', views.DistrictsListAPIView.as_view(), name='api_districts'),
-
 
     path('list/', views.HospitalListAPIView.as_view(), name='api_hospital_list'),
 ]

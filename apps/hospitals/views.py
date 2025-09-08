@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from apps.doctors.models import Doctor
+from apps.doctors.services.translation_service import DoctorTranslationService, HospitalTranslationService
 from apps.hospitals.models import HospitalService, Regions, Districts, Hospital
 from apps.billing.models import UserWallet, BillingSettings, DoctorViewCharge
 from apps.billing.services import BillingService
@@ -140,6 +141,35 @@ class HospitalProfileAPIView(APIView):
             }
         })
 
+class HospitalProfileTranslationAPIView(APIView):
+    """Translate hospital profile details (NEW in v3)"""
+    permission_classes = [HospitalAdminRequiredPermission]
+
+    @staticmethod
+    def get(request):
+        """Translate hospital profile details to specified language"""
+        hospital = request.user.managed_hospital
+        if not hospital:
+            return Response({
+                'success': False,
+                'error': 'Hospital not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            service = HospitalTranslationService()
+            translations = service.translate_hospital_profile(hospital)
+            service.save_hospital_translations(hospital, translations)
+            return Response({
+                'success': True,
+                'message': 'Hospital profile translated successfully',
+                'translations': translations
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Error translating hospital profile: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class HospitalDashboardAPIView(APIView):
     """Hospital admin dashboard API"""
     permission_classes = [HospitalAdminRequiredPermission]
@@ -250,6 +280,38 @@ class HospitalDoctorsListAPIView(APIView):
                 'search_query': search_query,
             }
         })
+
+class DoctorTranslationAPIView(APIView):
+    """Translate doctor details (NEW in v3)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def get(request, doctor_id):
+        """Translate doctor details to specified language"""
+        try:
+            doctor = get_object_or_404(Doctor, id=doctor_id, verification_status='approved')
+            service = DoctorTranslationService()
+            if doctor:
+                translations = service.translate_doctor_profile(doctor)
+                service.save_doctor_translations(doctor, translations)
+                return Response({
+                    'success': True,
+                    'message': 'Doctor profile translated successfully',
+                    'translations': translations
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'error': 'Doctor not found or not approved'
+                }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Error translating doctor profile: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
 
 
 class DoctorDetailWithBillingAPIView(APIView):

@@ -3,7 +3,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse, path
 from django.utils.html import format_html
 
-from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles
+from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles, DoctorServiceName
 from .services.translation_service import DoctorTranslationService
 
 
@@ -841,3 +841,32 @@ class DoctorFilesAdmin(admin.ModelAdmin):
     get_translation_summary.short_description = '👁️ Translation Summary'
     get_translation_summary.allow_tags = True
 
+@admin.register(DoctorServiceName)
+class DoctorServiceNameAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description']
+    search_fields = ['name']
+    list_per_page = 20
+
+    fieldsets = (
+        ('🛠️ Xizmat Nomi', {
+            'fields': ('name', 'description'),
+            'classes': ('wide',)
+        }),
+    )
+
+    def name(self, obj):
+        return format_html(
+            '<span style="background: #007bff; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+            '🛠️ {}</span>',
+            obj.name
+        )
+    name.short_description = '🛠️ Xizmat Nomi'
+
+    def description(self, obj):
+        if obj.description:
+            return format_html(
+                '<div style="max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</div>',
+                obj.description
+            )
+        return format_html('<span style="color: #6c757d;">No description</span>')
+    description.short_description = '📝 Tavsif'

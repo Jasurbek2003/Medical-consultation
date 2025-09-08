@@ -316,6 +316,104 @@ class DoctorTranslationService:
         logger.info("Completed translation of all doctors")
 
 
+class HospitalTranslationService:
+    """Service for translating hospital-related content"""
+
+    def __init__(self):
+        self.translator = TahrirchiTranslationService()
+
+    def translate_hospital_profile(self, hospital, source_lang: str = 'uzn_Latn') -> Dict[str, Dict[str, str]]:
+        """
+        Translate all relevant fields of a hospital profile
+
+        Args:
+            hospital: Hospital model instance
+            source_lang: Source language code
+
+        Returns:
+            Dictionary with field names and their translations
+        """
+        # Fields to translate
+        translatable_fields = {
+            'name': hospital.name or '',
+            'address': hospital.address or '',
+            'description': hospital.description or '',
+        }
+
+        # Translate each field to all languages
+        translations = {}
+
+        for field_name, text in translatable_fields.items():
+            if text and text.strip():
+                field_translations = self.translator.translate_to_all_languages(text, source_lang)
+                translations[field_name] = field_translations
+            else:
+                # Empty field - create empty translations
+                translations[field_name] = {
+                    lang_code: '' for lang_code in self.translator.config.LANGUAGES.values()
+                }
+
+        return translations
+
+    @staticmethod
+    def save_hospital_translations(hospital, translations: Dict[str, Dict[str, str]]):
+        """
+        Save translations to hospital's translation model
+
+        Args:
+            hospital: Hospital model instance
+            translations: Dictionary with field translations
+        """
+        from apps.hospitals.models import HospitalTranslation
+
+        try:
+            with transaction.atomic():
+                # Get or create translation object
+                hospital_translation, created = HospitalTranslation.objects.get_or_create(
+                    hospital=hospital,
+                    defaults={'translations': translations}
+                )
+
+                if not created:
+                    # Update existing translations
+                    hospital_translation.translations.update(translations)
+                    hospital_translation.save()
+
+                logger.info(f"Saved translations for hospital {hospital.id}")
+                return hospital_translation
+
+        except Exception as e:
+            logger.error(f"Failed to save hospital translations: {e}")
+            return None
+
+    @staticmethod
+    def get_hospital_translation(hospital, field_name: str, language: str) -> str:
+        """
+        Get specific field translation for hospital
+
+        Args:
+            hospital: Hospital model instance
+            field_name: Field name to get translation for
+            language: Language code
+        Returns:
+            Translated text or original text if translation not found
+        """
+
+        from apps.hospitals.models import HospitalTranslation
+
+        try:
+            translation_obj = HospitalTranslation.objects.get(hospital=hospital)
+            translations = translation_obj.translations
+            if field_name in translations and language in translations[field_name]:
+                return translations[field_name][language]
+        except HospitalTranslation.DoesNotExist:
+            logger.warning(f"No translations found for hospital {hospital.id}")
+        except Exception as e:
+            logger.error(f"Error getting hospital translation: {e}")
+        # Fallback to original field value
+        return getattr(hospital, field_name, '') or ''
+
+
 # Usage example
 def translate_doctor_example():
     """Example of how to use the translation service"""

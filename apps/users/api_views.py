@@ -598,6 +598,7 @@ def quick_login(request):
 
     # Authenticate user
     user = authenticate(username=username, password=password)
+    print(user)
 
     if user and user.is_active:
         # Update last login info

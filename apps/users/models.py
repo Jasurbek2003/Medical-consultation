@@ -267,9 +267,9 @@ class User(AbstractBaseUser, PermissionsMixin, models.Model):
 
     def save(self, *args, **kwargs):
         # Username avtomatik yaratish
-        if not self.username:
-            print(self.__dict__)
-            raise ValueError("Username kiritilishi shart")
+        # if not self.username:
+        #     print(self.__dict__)
+        #     raise ValueError("Username kiritilishi shart")
 
         # CRITICAL FIX: Avoid recursion by checking if we're already in a save operation
         # Check if update_fields is specified (means we're in a recursive call)
