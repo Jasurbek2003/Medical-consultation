@@ -820,7 +820,10 @@ class RegionsListAPIView(APIView):
             'regions': [
                 {
                     'id': region.id,
-                    'name': region.name
+                    'name': region.name,
+                    'name_en': region.name_en,
+                    'name_ru': region.name_ru,
+                    'name_kr': region.name_kr
                 } for region in regions
             ]
         })
@@ -843,6 +846,9 @@ class DistrictsListAPIView(APIView):
                 {
                     'id': district.id,
                     'name': district.name,
+                    'name_en': district.name_en,
+                    'name_ru': district.name_ru,
+                    'name_kr': district.name_kr,
                     'region_id': district.region.id,
                     'region_name': district.region.name
                 } for district in districts
