@@ -862,18 +862,8 @@ class HospitalListAPIView(APIView):
             search_query = request.GET.get("search", "")
             hospitals = hospitals.filter(
                 Q(name__icontains=search_query) |
-                Q(address__icontains=search_query) |
-                Q(region__icontains=search_query) |
-                Q(district__icontains=search_query)
+                Q(address__icontains=search_query)
             )
-
-        if "region" in request.GET:
-            region = request.GET.get("region", "")
-            hospitals = hospitals.filter(region__iexact=region)
-
-        if "district" in request.GET:
-            district = request.GET.get("district", "")
-            hospitals = hospitals.filter(district__iexact=district)
 
         return Response({
             'success': True,
@@ -885,8 +875,19 @@ class HospitalListAPIView(APIView):
                     'address': hospital.address,
                     'phone': hospital.phone,
                     'email': hospital.email,
-                    'region': hospital.region,
-                    'district': hospital.district,
+                    'region': {
+                        "uz": hospital.region.name,
+                        "ru": hospital.region.name_ru,
+                        "en": hospital.region.name_en,
+                        "kr": hospital.region.name_kr,
+                    },
+                    # 'district': hospital.district,
+                    'district': {
+                        "uz": hospital.district.name,
+                        "ru": hospital.district.name_ru,
+                        "en": hospital.district.name_en,
+                        "kr": hospital.district.name_kr,
+                    },
                     'logo': hospital.logo.url if hospital.logo else None,
                     'website': hospital.website
                 } for hospital in hospitals
