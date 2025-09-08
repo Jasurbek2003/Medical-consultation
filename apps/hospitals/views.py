@@ -46,8 +46,7 @@ class HospitalProfileAPIView(APIView):
                 'error': 'Hospital not found'
             }, status=status.HTTP_404_NOT_FOUND)
         try:
-            translates = HospitalTranslation.objects.get(hospital=hospital).__dict__
-            translates.pop('_state', None)
+            translates = HospitalTranslation.objects.get(hospital=hospital).__dict__['translations']
         except HospitalTranslation.DoesNotExist:
             translates = {}
 
