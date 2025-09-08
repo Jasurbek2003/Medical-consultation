@@ -1,9 +1,8 @@
 from django.contrib import admin
-from django.contrib.messages import success
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Hospital, HospitalService, HospitalTranslation
-from ..doctors.services.translation_service import HospitalTranslationService
+from .models import Hospital, HospitalService, HospitalTranslation, Regions, Districts
+from ..doctors.services.translation_service import HospitalTranslationService, DefaultTranslationService
 
 
 class HospitalTranslationInline(admin.StackedInline):
@@ -325,6 +324,75 @@ class HospitalServiceAdmin(admin.ModelAdmin):
         return queryset.select_related('hospital')
 
 
+@admin.register(Regions)
+class RegionsAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'name_en', 'name_ru', 'name_kr']
+    search_fields = ['name']
+    readonly_fields = ['id']
+    ordering = ['name']
+    list_per_page = 50
 
+    actions = ['translate_selected_regions']
 
+    def translate_selected_regions(self, request, queryset):
+        """Translate selected regions"""
+        translation_service = DefaultTranslationService()
+        success_count = 0
+        for region in queryset:
+            try:
+                translations = translation_service.translate_to_all_languages(region.name)
+                region.name =translations.get('uzn_Latn', region.name)
+                region.name_en = translations.get('eng_Latn', '')
+                region.name_ru = translations.get('rus_Cyrl', '')
+                region.name_kr = translations.get('uzn_Cyrl', '')
+                region.save()
+                success_count += 1
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'Xatolik yuz berdi {region.name} hududini tarjima qilishda: {str(e)}',
+                    level='error'
+                )
+        self.message_user(
+            request,
+            f'{success_count} ta hudud muvaffaqiyatli tarjima qilindi.'
+        )
 
+    translate_selected_regions.short_description = 'Tanlangan hududlarni tarjima qilish'
+
+@admin.register(Districts)
+class DistrictsAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'region', 'name_en', 'name_ru', 'name_kr']
+    search_fields = ['name', 'region__name']
+    readonly_fields = ['id']
+    ordering = ['region__name', 'name']
+    list_filter = ['region']
+    list_per_page = 50
+
+    actions = ['translate_selected_districts']
+
+    def translate_selected_districts(self, request, queryset):
+        """Translate selected districts"""
+        translation_service = DefaultTranslationService()
+        success_count = 0
+        for district in queryset:
+            try:
+                translations = translation_service.translate_to_all_languages(district.name)
+                district.name =translations.get('uzn_Latn', district.name)
+                district.name_en = translations.get('eng_Latn', '')
+                district.name_ru = translations.get('rus_Cyrl', '')
+                district.name_kr = translations.get('uzn_Cyrl', '')
+                district.save()
+                success_count += 1
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'Xatolik yuz berdi {district.name} tumani tarjima qilishda: {str(e)}',
+                    level='error'
+                )
+        self.message_user(
+            request,
+            f'{success_count} ta tuman muvaffaqiyatli tarjima qilindi.'
+        )
+
+    translate_selected_districts.short_description = 'Tanlangan tumanlarni tarjima qilish'

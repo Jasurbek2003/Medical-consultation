@@ -17,6 +17,7 @@ from .serializers import (
     DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer
 )
 from .filters import DoctorFilter
+from .services.translation_service import DoctorTranslationService
 from ..hospitals.models import Districts, Regions
 
 
@@ -431,14 +432,41 @@ class DoctorProfileView(APIView):
         user.birth_date = request.data.get('birth_date') if request.data.get('birth_date') else user.birth_date
         user.save()
         serializer = DoctorUpdateSerializer(doctor, data=request.data, partial=True)
-        print(request.data.get('last_name'))
-        print(request.data)
+
         if serializer.is_valid():
             serializer.save()
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.data)
 
+class DoctorProfileTranslationAPIView(APIView):
+    """Translate doctor details (NEW in v3)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def get(request, doctor_id):
+        """Translate doctor details to specified language"""
+        try:
+            doctor = request.user.doctor_profile
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Doctor profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if doctor.id != doctor_id and not request.user.is_admin():
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        service = DoctorTranslationService()
+        translations = service.translate_doctor_profile(doctor)
+        service.save_doctor_translations(doctor, translations)
+        return Response({
+            'success': True,
+            'message': 'Doctor profile translated successfully',
+            'translations': translations
+        })
 
 
 

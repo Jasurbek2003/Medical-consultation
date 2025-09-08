@@ -240,6 +240,9 @@ class Regions(models.Model):
     """Viloyatlar modeli"""
 
     name = models.CharField(max_length=100, unique=True, verbose_name="Viloyat nomi")
+    name_en = models.CharField(max_length=100, blank=True, null=True, verbose_name="Viloyat nomi (Inglizcha)")
+    name_ru = models.CharField(max_length=100, blank=True, null=True, verbose_name="Viloyat nomi (Ruscha)")
+    name_kr = models.CharField(max_length=100, blank=True, null=True, verbose_name="Viloyat nomi (Krillcha)")
 
     class Meta:
         verbose_name = "Viloyat"
@@ -261,6 +264,9 @@ class Districts(models.Model):
         verbose_name="Viloyat"
     )
     name = models.CharField(max_length=100, verbose_name="Tuman nomi")
+    name_en = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tuman nomi (Inglizcha)")
+    name_ru = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tuman nomi (Ruscha)")
+    name_kr = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tuman nomi (Krillcha)")
 
     class Meta:
         verbose_name = "Tuman"

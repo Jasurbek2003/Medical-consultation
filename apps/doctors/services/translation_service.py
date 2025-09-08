@@ -316,6 +316,25 @@ class DoctorTranslationService:
         logger.info("Completed translation of all doctors")
 
 
+class DefaultTranslationService:
+    """Service for translating region-related content"""
+
+    def __init__(self):
+        self.translator = TahrirchiTranslationService()
+
+    def translate_to_all_languages(self, text):
+        """
+        Translate text to all supported languages
+
+        Args:
+            text: Text to translate
+
+        Returns:
+            Dictionary with language codes as keys and translations as values
+        """
+        return self.translator.translate_to_all_languages(text)
+
+
 class HospitalTranslationService:
     """Service for translating hospital-related content"""
 
