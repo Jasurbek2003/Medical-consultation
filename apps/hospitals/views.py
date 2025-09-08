@@ -62,9 +62,20 @@ class HospitalProfileAPIView(APIView):
                 'email': hospital.email,
                 'founded_year': hospital.founded_year,
                 'region_id': hospital.region.id,
-                'region_name': hospital.region.name,
+                'region':{
+                    "uz": hospital.region.name,
+                    "en": hospital.region.name_en,
+                    "ru": hospital.region.name_ru,
+                    "kr": hospital.region.name_kr,
+                } ,
                 'district_id': hospital.district.id,
-                'district_name': hospital.district.name,
+                'district':{
+                    "uz": hospital.district.name,
+                    "en": hospital.district.name_en,
+                    "ru": hospital.district.name_ru,
+                    "kr": hospital.district.name_kr,
+                } ,
+
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
                 'working_days': hospital.working_days,
