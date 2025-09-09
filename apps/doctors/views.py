@@ -463,8 +463,6 @@ class DoctorProfileTranslationAPIView(APIView):
         })
 
 
-
-
 class DoctorRegistrationView(generics.CreateAPIView):
     """Doctor registration endpoint"""
 
@@ -590,6 +588,7 @@ class DoctorServiceCreateView(APIView):
         service_name_id = request.data.get('service_name')
         description = request.data.get('description', '')
         price = request.data.get('price', 0)
+        duration = request.data.get('duration', 0)
 
         if not service_name_id:
             return Response(
@@ -607,7 +606,8 @@ class DoctorServiceCreateView(APIView):
             doctor=doctor,
             service_name=service_name,
             description=description,
-            price=price
+            price=price,
+            duration=duration
         )
         return Response(
             DoctorServiceSerializer(service).data,
