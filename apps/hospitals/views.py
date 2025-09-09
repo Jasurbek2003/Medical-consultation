@@ -31,6 +31,7 @@ class HospitalAdminRequiredPermission(permissions.BasePermission):
             return False
         return True
 
+
 class HospitalProfileAPIView(APIView):
     """Hospital admin dashboard API"""
     permission_classes = [HospitalAdminRequiredPermission]
@@ -50,7 +51,6 @@ class HospitalProfileAPIView(APIView):
         except HospitalTranslation.DoesNotExist:
             translates = {}
 
-
         return Response({
             'success': True,
             'hospital': {
@@ -62,19 +62,19 @@ class HospitalProfileAPIView(APIView):
                 'email': hospital.email,
                 'founded_year': hospital.founded_year,
                 'region_id': hospital.region.id,
-                'region':{
+                'region': {
                     "uz": hospital.region.name,
                     "en": hospital.region.name_en,
                     "ru": hospital.region.name_ru,
                     "kr": hospital.region.name_kr,
-                } ,
+                },
                 'district_id': hospital.district.id,
-                'district':{
+                'district': {
                     "uz": hospital.district.name,
                     "en": hospital.district.name_en,
                     "ru": hospital.district.name_ru,
                     "kr": hospital.district.name_kr,
-                } ,
+                },
 
                 'description': hospital.description,
                 'working_hours': hospital.working_hours,
@@ -112,7 +112,6 @@ class HospitalProfileAPIView(APIView):
         website = request.data.get('website', hospital.website)
         latitude = request.data.get('latitude', hospital.latitude)
         longitude = request.data.get('longitude', hospital.longitude)
-
 
         # Update fields
         hospital.name = name
@@ -158,6 +157,7 @@ class HospitalProfileAPIView(APIView):
             }
         })
 
+
 class HospitalProfileTranslationAPIView(APIView):
     """Translate hospital profile details (NEW in v3)"""
     permission_classes = [HospitalAdminRequiredPermission]
@@ -186,6 +186,7 @@ class HospitalProfileTranslationAPIView(APIView):
                 'success': False,
                 'error': f'Error translating hospital profile: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class HospitalDashboardAPIView(APIView):
     """Hospital admin dashboard API"""
@@ -298,6 +299,7 @@ class HospitalDoctorsListAPIView(APIView):
             }
         })
 
+
 class DoctorTranslationAPIView(APIView):
     """Translate doctor details (NEW in v3)"""
     permission_classes = [permissions.IsAuthenticated]
@@ -326,9 +328,6 @@ class DoctorTranslationAPIView(APIView):
                 'success': False,
                 'error': f'Error translating doctor profile: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 
 
 class DoctorDetailWithBillingAPIView(APIView):
@@ -682,6 +681,7 @@ class HospitalRevenueAnalyticsAPIView(APIView):
             ]
         })
 
+
 class ServiceAPIView(APIView):
     """List hospital services (NEW in v3)"""
     permission_classes = [HospitalAdminRequiredPermission]
@@ -767,7 +767,6 @@ class ServiceAPIView(APIView):
             }
         })
 
-
     def put(self, request, service_id):
         """Update an existing hospital service"""
         hospital = request.user.managed_hospital
@@ -839,6 +838,7 @@ class RegionsListAPIView(APIView):
             ]
         })
 
+
 class DistrictsListAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -865,6 +865,7 @@ class DistrictsListAPIView(APIView):
                 } for district in districts
             ]
         })
+
 
 class HospitalListAPIView(APIView):
     """List all hospitals (NEW in v3)"""
@@ -906,8 +907,9 @@ class HospitalListAPIView(APIView):
                         "kr": hospital.district.name_kr,
                     },
                     'logo': hospital.logo.url if hospital.logo else None,
-                    'website': hospital.website
+                    'website': hospital.website,
+                    'translations': HospitalTranslation.objects.filter(hospital=hospital).values()[
+                        0] if HospitalTranslation.objects.filter(hospital=hospital).exists() else {}
                 } for hospital in hospitals
             ]
         })
-

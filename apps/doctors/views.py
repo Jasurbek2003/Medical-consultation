@@ -406,7 +406,6 @@ class DoctorProfileView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        print("doctor profile")
         serializer = DoctorProfileSerializer(doctor)
         return Response(serializer.data)
 

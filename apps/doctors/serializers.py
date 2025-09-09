@@ -280,7 +280,7 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
             'specialty', 'experience', 'degree',
             'license_number', 'education', 'bio', 'achievements',
             'consultation_price', 'is_available', 'is_online_consultation',
-            'workplace', 'workplace_address', 'verification_status',
+            'workplace', 'workplace_address', 'verification_status', 'latitude', 'longitude',
 
 
             # Hospital
