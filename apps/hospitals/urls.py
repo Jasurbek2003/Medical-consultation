@@ -20,7 +20,7 @@ urlpatterns = [
          name='api_doctor_access_check'),
 
     # Revenue analytics
-    path('analytics/revenue/', views.HospitalRevenueAnalyticsAPIView.as_view(), name='api_revenue_analytics'),
+    # path('analytics/revenue/', views.HospitalRevenueAnalyticsAPIView.as_view(), name='api_revenue_analytics'),
 
     # Payment integration
     path('payments/gateways/', views.PaymentIntegrationAPIView.as_view(), name='api_payment_gateways'),

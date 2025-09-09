@@ -443,7 +443,7 @@ class DoctorProfileTranslationAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @staticmethod
-    def get(request, doctor_id):
+    def get(request):
         """Translate doctor details to specified language"""
         try:
             doctor = request.user.doctor_profile
@@ -453,11 +453,6 @@ class DoctorProfileTranslationAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if doctor.id != doctor_id and not request.user.is_admin():
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         service = DoctorTranslationService()
         translations = service.translate_doctor_profile(doctor)
         service.save_doctor_translations(doctor, translations)

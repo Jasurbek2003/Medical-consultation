@@ -1,8 +1,8 @@
 from django.utils import timezone
-from django.db.models import Sum, Count
+from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from decimal import Decimal
-from datetime import date, timedelta
+from datetime import timedelta
 
 from .models import (
     UserWallet, BillingRule, DoctorViewCharge,

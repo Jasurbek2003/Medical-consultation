@@ -39,6 +39,7 @@ class HospitalTranslationInline(admin.StackedInline):
 
 @admin.register(Hospital)
 class HospitalAdmin(admin.ModelAdmin):
+
     list_display = [
         'name',
         'hospital_type',
@@ -86,7 +87,7 @@ class HospitalAdmin(admin.ModelAdmin):
                 'hospital_type',
                 'description',
                 'logo',
-                'logo_preview'
+                'logo_preview',
             )
         }),
         ('Joylashuv ma\'lumotlari', {
@@ -94,8 +95,8 @@ class HospitalAdmin(admin.ModelAdmin):
                 'region',
                 'district',
                 'address',
-                # 'latitude',
-                # 'longitude'
+                'latitude',
+                'longitude'
             )
         }),
         ('Aloqa ma\'lumotlari', {
@@ -249,18 +250,18 @@ class HospitalAdmin(admin.ModelAdmin):
         translation_service = HospitalTranslationService()
         success_count = 0
         for hospital in queryset:
-            # try:
+            try:
                 translations = translation_service.translate_hospital_profile(hospital)
                 print(translations)
 
                 translation_service.save_hospital_translations(hospital, translations)
                 success_count += 1
-            # except Exception as e:
-            #     self.message_user(
-            #         request,
-            #         f'Xatolik yuz berdi {hospital.name} shifoxonasini tarjima qilishda: {str(e)}',
-            #         level='error'
-            #     )
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'Xatolik yuz berdi {hospital.name} shifoxonasini tarjima qilishda: {str(e)}',
+                    level='error'
+                )
     translate_selected_hospitals.short_description = 'Tanlangan shifoxonalarni tarjima qilish'
 
 

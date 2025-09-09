@@ -89,7 +89,8 @@ class HospitalProfileAPIView(APIView):
             }
         })
 
-    def put(self, request):
+    @staticmethod
+    def put(request):
         """Update hospital profile data"""
         hospital = request.user.managed_hospital
 
@@ -394,7 +395,7 @@ class DoctorDetailWithBillingAPIView(APIView):
 
             # Need to charge for view
             try:
-                charge_result = BillingService.charge_for_doctor_view(request.user, doctor)
+                charge_result = BillingService.charge_for_service(request.user, doctor)
 
                 return Response({
                     'success': True,
@@ -423,7 +424,8 @@ class DoctorViewAccessCheckAPIView(APIView):
     """Check if user can access doctor without charging (NEW in v3)"""
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, doctor_id):
+    @staticmethod
+    def post(request, doctor_id):
         """Check access without charging"""
         try:
             doctor = get_object_or_404(Doctor, id=doctor_id, verification_status='approved')
@@ -496,7 +498,8 @@ class PaymentIntegrationAPIView(APIView):
     """Payment integration for wallet top-up (NEW in v3)"""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
+    @staticmethod
+    def get(request):
         """Get available payment gateways"""
         gateways = PaymentGateway.objects.filter(is_active=True)
 
@@ -571,7 +574,8 @@ class PaymentIntegrationAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _generate_click_url(self, payment):
+    @staticmethod
+    def _generate_click_url(payment):
         """Generate Click payment URL"""
         from urllib.parse import urlencode
 
@@ -587,7 +591,8 @@ class PaymentIntegrationAPIView(APIView):
 
         return f"{base_url}?{urlencode(params)}"
 
-    def _generate_payme_url(self, payment):
+    @staticmethod
+    def _generate_payme_url(payment):
         """Generate Payme payment URL"""
         import base64
 
@@ -605,81 +610,81 @@ class PaymentIntegrationAPIView(APIView):
         return f"https://checkout.paycom.uz/{merchant_id}?a={account_encoded}&ac.payment_id={payment.id}&l=uz"
 
 
-class HospitalRevenueAnalyticsAPIView(APIView):
-    """Hospital revenue analytics (NEW in v3)"""
-    permission_classes = [HospitalAdminRequiredPermission]
-
-    @staticmethod
-    def get(request):
-        """Get hospital revenue analytics"""
-        hospital = request.user.managed_hospital
-        days = int(request.GET.get('days', 30))
-
-        # Date range
-        end_date = timezone.now().date()
-        start_date = end_date - timedelta(days=days)
-
-        # Revenue from doctor views
-        view_charges = DoctorViewCharge.objects.filter(
-            doctor__hospital=hospital,
-            created_at__date__range=[start_date, end_date]
-        )
-
-        # Daily revenue
-        daily_revenue = view_charges.extra(
-            {'date': 'date(created_at)'}
-        ).values('date').annotate(
-            total=Sum('amount_charged'),
-            views=Count('id')
-        ).order_by('date')
-
-        # Top doctors by revenue
-        top_doctors = view_charges.values(
-            'doctor__id',
-            'doctor__user__first_name',
-            'doctor__user__last_name',
-            'doctor__specialty'
-        ).annotate(
-            total_revenue=Sum('amount_charged'),
-            view_count=Count('id')
-        ).order_by('-total_revenue')[:10]
-
-        # Total statistics
-        total_revenue = view_charges.aggregate(
-            total=Sum('amount_charged')
-        )['total'] or Decimal('0.00')
-
-        total_views = view_charges.count()
-
-        return Response({
-            'success': True,
-            'period': {
-                'start_date': start_date,
-                'end_date': end_date,
-                'days': days
-            },
-            'totals': {
-                'revenue': float(total_revenue),
-                'views': total_views,
-                'average_per_view': float(total_revenue / total_views) if total_views > 0 else 0
-            },
-            'daily_revenue': [
-                {
-                    'date': item['date'],
-                    'revenue': float(item['total']),
-                    'views': item['views']
-                } for item in daily_revenue
-            ],
-            'top_doctors': [
-                {
-                    'doctor_id': item['doctor__id'],
-                    'name': f"{item['doctor__user__first_name']} {item['doctor__user__last_name']}",
-                    'specialty': item['doctor__specialty'],
-                    'revenue': float(item['total_revenue']),
-                    'views': item['view_count']
-                } for item in top_doctors
-            ]
-        })
+# class HospitalRevenueAnalyticsAPIView(APIView):
+#     """Hospital revenue analytics (NEW in v3)"""
+#     permission_classes = [HospitalAdminRequiredPermission]
+#
+#     @staticmethod
+#     def get(request):
+#         """Get hospital revenue analytics"""
+#         hospital = request.user.managed_hospital
+#         days = int(request.GET.get('days', 30))
+#
+#         # Date range
+#         end_date = timezone.now().date()
+#         start_date = end_date - timedelta(days=days)
+#
+#         # Revenue from doctor views
+#         view_charges = DoctorViewCharge.objects.filter(
+#             doctor__hospital=hospital,
+#             created_at__date__range=[start_date, end_date]
+#         )
+#
+#         # Daily revenue
+#         daily_revenue = view_charges.extra(
+#             {'date': 'date(created_at)'}
+#         ).values('date').annotate(
+#             total=Sum('amount_charged'),
+#             views=Count('id')
+#         ).order_by('date')
+#
+#         # Top doctors by revenue
+#         top_doctors = view_charges.values(
+#             'doctor__id',
+#             'doctor__user__first_name',
+#             'doctor__user__last_name',
+#             'doctor__specialty'
+#         ).annotate(
+#             total_revenue=Sum('amount_charged'),
+#             view_count=Count('id')
+#         ).order_by('-total_revenue')[:10]
+#
+#         # Total statistics
+#         total_revenue = view_charges.aggregate(
+#             total=Sum('amount_charged')
+#         )['total'] or Decimal('0.00')
+#
+#         total_views = view_charges.count()
+#
+#         return Response({
+#             'success': True,
+#             'period': {
+#                 'start_date': start_date,
+#                 'end_date': end_date,
+#                 'days': days
+#             },
+#             'totals': {
+#                 'revenue': float(total_revenue),
+#                 'views': total_views,
+#                 'average_per_view': float(total_revenue / total_views) if total_views > 0 else 0
+#             },
+#             'daily_revenue': [
+#                 {
+#                     'date': item['date'],
+#                     'revenue': float(item['total']),
+#                     'views': item['views']
+#                 } for item in daily_revenue
+#             ],
+#             'top_doctors': [
+#                 {
+#                     'doctor_id': item['doctor__id'],
+#                     'name': f"{item['doctor__user__first_name']} {item['doctor__user__last_name']}",
+#                     'specialty': item['doctor__specialty'],
+#                     'revenue': float(item['total_revenue']),
+#                     'views': item['view_count']
+#                 } for item in top_doctors
+#             ]
+#         })
 
 
 class ServiceAPIView(APIView):
@@ -720,7 +725,8 @@ class ServiceAPIView(APIView):
             ]
         })
 
-    def post(self, request):
+    @staticmethod
+    def post(request):
         """Create a new hospital service"""
         hospital = request.user.managed_hospital
 
@@ -767,7 +773,8 @@ class ServiceAPIView(APIView):
             }
         })
 
-    def put(self, request, service_id):
+    @staticmethod
+    def put(request, service_id):
         """Update an existing hospital service"""
         hospital = request.user.managed_hospital
 
@@ -802,7 +809,8 @@ class ServiceAPIView(APIView):
             }
         })
 
-    def delete(self, request, service_id):
+    @staticmethod
+    def delete(request, service_id):
         """Delete a hospital service"""
         hospital = request.user.managed_hospital
 
