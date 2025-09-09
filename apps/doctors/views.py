@@ -604,7 +604,7 @@ class DoctorServiceCreateView(APIView):
             )
         service = DoctorService.objects.create(
             doctor=doctor,
-            name_id=service_name,
+            name=service_name,
             description=description,
             price=price,
             duration=duration
