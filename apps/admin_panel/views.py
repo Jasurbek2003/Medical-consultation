@@ -18,11 +18,18 @@ from apps.doctors.serializers import DoctorSerializer
 from apps.hospitals.models import Hospital
 from apps.consultations.models import Consultation
 from apps.hospitals.serializers import HospitalSerializer
+from .models import DoctorComplaint, DoctorComplaintFile
 
 from .serializers import (
     AdminHospitalSerializer,
     AdminDoctorSerializer,
-    AdminUserSerializer
+    AdminUserSerializer,
+    DoctorComplaintSerializer,
+    AdminDoctorComplaintSerializer,
+    DoctorComplaintCreateSerializer,
+    DoctorComplaintUpdateSerializer,
+    DoctorComplaintFileSerializer,
+    DoctorComplaintStatisticsSerializer
 )
 
 User = get_user_model()
@@ -849,3 +856,366 @@ def bulk_actions(request):
         return Response({'error': 'Invalid item type'}, status=400)
 
     return Response({'message': message})
+
+
+class DoctorComplaintViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing doctor complaints
+    Provides CRUD operations for DoctorComplaint model
+    """
+    queryset = DoctorComplaint.objects.select_related('doctor', 'doctor__user', 'doctor__hospital').prefetch_related('files')
+    permission_classes = [IsAdminPermission]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'create':
+            return DoctorComplaintCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return DoctorComplaintUpdateSerializer
+        elif self.action == 'list':
+            return AdminDoctorComplaintSerializer
+        return DoctorComplaintSerializer
+    
+    def get_queryset(self):
+        """Filter and search complaints"""
+        queryset = DoctorComplaint.objects.select_related(
+            'doctor', 'doctor__user', 'doctor__hospital'
+        ).prefetch_related('files')
+        
+        # Search functionality
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(subject__icontains=search) |
+                Q(description__icontains=search) |
+                Q(doctor__user__first_name__icontains=search) |
+                Q(doctor__user__last_name__icontains=search) |
+                Q(doctor__user__phone__icontains=search)
+            )
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # Filter by complaint type
+        complaint_type = self.request.query_params.get('type', None)
+        if complaint_type:
+            queryset = queryset.filter(complaint_type=complaint_type)
+        
+        # Filter by priority
+        priority = self.request.query_params.get('priority', None)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+        
+        # Filter by doctor
+        doctor_id = self.request.query_params.get('doctor', None)
+        if doctor_id:
+            queryset = queryset.filter(doctor_id=doctor_id)
+        
+        # Filter by hospital
+        hospital_id = self.request.query_params.get('hospital', None)
+        if hospital_id:
+            queryset = queryset.filter(doctor__hospital_id=hospital_id)
+        
+        # Date filtering
+        date_from = self.request.query_params.get('date_from', None)
+        if date_from:
+            queryset = queryset.filter(created_at__gte=date_from)
+        
+        date_to = self.request.query_params.get('date_to', None)
+        if date_to:
+            queryset = queryset.filter(created_at__lte=date_to)
+        
+        return queryset.order_by('-created_at')
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new complaint"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        complaint = serializer.save()
+        
+        return Response({
+            'message': 'Shikoyat muvaffaqiyatli yaratildi',
+            'complaint': DoctorComplaintSerializer(complaint).data
+        }, status=status.HTTP_201_CREATED)
+    
+    def update(self, request, *args, **kwargs):
+        """Update complaint (admin only)"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        
+        # Save resolution notes if provided
+        resolution_notes = request.data.get('resolution_notes')
+        if resolution_notes:
+            # You might want to add a resolution_notes field to the model
+            pass
+        
+        complaint = serializer.save()
+        
+        return Response({
+            'message': 'Shikoyat holati yangilandi',
+            'complaint': DoctorComplaintSerializer(complaint).data
+        })
+    
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """Mark complaint as resolved"""
+        complaint = self.get_object()
+        resolution_notes = request.data.get('resolution_notes', '')
+        
+        if not resolution_notes:
+            return Response({
+                'error': 'Shikoyatni yechish uchun izoh majburiy'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        complaint.status = 'resolved'
+        complaint.save()
+        
+        return Response({
+            'message': 'Shikoyat yechilgan deb belgilandi',
+            'complaint': DoctorComplaintSerializer(complaint).data
+        })
+    
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """Close complaint"""
+        complaint = self.get_object()
+        
+        if complaint.status != 'resolved':
+            return Response({
+                'error': 'Faqat yechilgan shikoyatlarni yopish mumkin'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        complaint.status = 'closed'
+        complaint.save()
+        
+        return Response({
+            'message': 'Shikoyat yopildi',
+            'complaint': DoctorComplaintSerializer(complaint).data
+        })
+    
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files for this complaint"""
+        complaint = self.get_object()
+        files = complaint.files.all()
+        serializer = DoctorComplaintFileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Get complaint statistics"""
+        from django.db.models import Count, Avg, F
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Basic counts
+        total_complaints = DoctorComplaint.objects.count()
+        
+        # By status
+        status_counts = DoctorComplaint.objects.values('status').annotate(count=Count('id'))
+        status_dict = {item['status']: item['count'] for item in status_counts}
+        
+        # By type
+        type_counts = DoctorComplaint.objects.values('complaint_type').annotate(count=Count('id'))
+        type_dict = {item['complaint_type']: item['count'] for item in type_counts}
+        
+        # By priority
+        priority_counts = DoctorComplaint.objects.values('priority').annotate(count=Count('id'))
+        priority_dict = {item['priority']: item['count'] for item in priority_counts}
+        
+        # Time-based statistics
+        now = timezone.now()
+        this_week = now - timedelta(weeks=1)
+        this_month = now - timedelta(days=30)
+        
+        complaints_this_week = DoctorComplaint.objects.filter(created_at__gte=this_week).count()
+        complaints_this_month = DoctorComplaint.objects.filter(created_at__gte=this_month).count()
+        
+        # Average resolution time (for resolved complaints)
+        resolved_complaints = DoctorComplaint.objects.filter(status='resolved')
+        avg_resolution_days = 0
+        if resolved_complaints.exists():
+            # This is a simplified calculation - you might want to track actual resolution dates
+            total_days = sum((complaint.updated_at - complaint.created_at).days 
+                           for complaint in resolved_complaints)
+            avg_resolution_days = total_days / resolved_complaints.count()
+        
+        stats = {
+            'total_complaints': total_complaints,
+            'in_progress_complaints': status_dict.get('in_progress', 0),
+            'resolved_complaints': status_dict.get('resolved', 0),
+            'closed_complaints': status_dict.get('closed', 0),
+            'general_complaints': type_dict.get('general', 0),
+            'service_complaints': type_dict.get('service', 0),
+            'billing_complaints': type_dict.get('billing', 0),
+            'urgent_complaints': priority_dict.get('urgent', 0),
+            'high_complaints': priority_dict.get('high', 0),
+            'medium_complaints': priority_dict.get('medium', 0),
+            'low_complaints': priority_dict.get('low', 0),
+            'complaints_this_month': complaints_this_month,
+            'complaints_this_week': complaints_this_week,
+            'average_resolution_days': round(avg_resolution_days, 2)
+        }
+        
+        serializer = DoctorComplaintStatisticsSerializer(stats)
+        return Response(serializer.data)
+
+
+class DoctorComplaintFileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing complaint files
+    Provides CRUD operations for DoctorComplaintFile model
+    """
+    queryset = DoctorComplaintFile.objects.select_related('complaint').all()
+    serializer_class = DoctorComplaintFileSerializer
+    permission_classes = [IsAdminPermission]
+    
+    def get_queryset(self):
+        """Filter files by complaint"""
+        queryset = DoctorComplaintFile.objects.select_related('complaint')
+        
+        # Filter by complaint
+        complaint_id = self.request.query_params.get('complaint', None)
+        if complaint_id:
+            queryset = queryset.filter(complaint_id=complaint_id)
+        
+        return queryset.order_by('-uploaded_at')
+    
+    def create(self, request, *args, **kwargs):
+        """Upload a file for a complaint"""
+        complaint_id = request.data.get('complaint')
+        if not complaint_id:
+            return Response({
+                'error': 'Shikoyat ID majburiy'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            complaint = DoctorComplaint.objects.get(id=complaint_id)
+        except DoctorComplaint.DoesNotExist:
+            return Response({
+                'error': 'Shikoyat topilmadi'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        file_obj = serializer.save(complaint=complaint)
+        
+        return Response({
+            'message': 'Fayl muvaffaqiyatli yuklandi',
+            'file': DoctorComplaintFileSerializer(file_obj, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete a complaint file"""
+        instance = self.get_object()
+        
+        # Delete the physical file
+        if instance.file:
+            instance.file.delete()
+        
+        instance.delete()
+        
+        return Response({
+            'message': 'Fayl muvaffaqiyatli o\'chirildi'
+        }, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def complaint_dashboard(request):
+    """Get complaint dashboard data"""
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    now = timezone.now()
+    
+    # Recent complaints (last 10)
+    recent_complaints = DoctorComplaint.objects.select_related(
+        'doctor', 'doctor__user'
+    ).order_by('-created_at')[:10]
+    
+    # Urgent complaints that need attention
+    urgent_complaints = DoctorComplaint.objects.filter(
+        priority='urgent',
+        status='in_progress'
+    ).select_related('doctor', 'doctor__user')[:5]
+    
+    # Complaints by day for last 7 days
+    daily_stats = []
+    for i in range(7):
+        date = now - timedelta(days=i)
+        count = DoctorComplaint.objects.filter(
+            created_at__date=date.date()
+        ).count()
+        daily_stats.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    # Top complaint types
+    type_stats = DoctorComplaint.objects.values('complaint_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    return Response({
+        'recent_complaints': AdminDoctorComplaintSerializer(
+            recent_complaints, many=True
+        ).data,
+        'urgent_complaints': AdminDoctorComplaintSerializer(
+            urgent_complaints, many=True
+        ).data,
+        'daily_stats': daily_stats,
+        'type_stats': list(type_stats)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def complaint_export(request):
+    """Export complaints data"""
+    complaints = DoctorComplaint.objects.select_related(
+        'doctor', 'doctor__user', 'doctor__hospital'
+    ).all()
+    
+    # Apply filters
+    status_filter = request.GET.get('status')
+    if status_filter:
+        complaints = complaints.filter(status=status_filter)
+    
+    type_filter = request.GET.get('type')
+    if type_filter:
+        complaints = complaints.filter(complaint_type=type_filter)
+    
+    date_from = request.GET.get('date_from')
+    if date_from:
+        complaints = complaints.filter(created_at__gte=date_from)
+    
+    date_to = request.GET.get('date_to')
+    if date_to:
+        complaints = complaints.filter(created_at__lte=date_to)
+    
+    # Export data
+    data = []
+    for complaint in complaints:
+        data.append({
+            'id': complaint.id,
+            'subject': complaint.subject,
+            'doctor_name': complaint.doctor.user.get_full_name(),
+            'doctor_phone': complaint.doctor.user.phone,
+            'hospital': complaint.doctor.hospital.name if complaint.doctor.hospital else '',
+            'complaint_type': complaint.get_complaint_type_display(),
+            'status': complaint.get_status_display(),
+            'priority': complaint.get_priority_display(),
+            'created_at': complaint.created_at.isoformat(),
+            'updated_at': complaint.updated_at.isoformat()
+        })
+    
+    return Response({
+        'data': data,
+        'count': len(data),
+        'exported_at': timezone.now().isoformat()
+    })

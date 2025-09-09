@@ -7,6 +7,8 @@ app_name = 'admin_panel'
 router = DefaultRouter()
 router.register(r'hospitals', views.AdminHospitalViewSet, basename='admin-hospital')
 router.register(r'doctors', views.AdminDoctorViewSet, basename='admin-doctor')
+router.register(r'complaints', views.DoctorComplaintViewSet, basename='doctor-complaint')
+router.register(r'complaint-files', views.DoctorComplaintFileViewSet, basename='complaint-file')
 urlpatterns = [
     path('dashboard/', views.AdminDashboardAPIView.as_view(), name='dashboard'),
     path('', include(router.urls)),
@@ -35,4 +37,8 @@ urlpatterns = [
     # Custom doctor endpoints (additional to ViewSet)
     # path('doctors/<int:pk>/profile-complete/', api_views.check_doctor_profile_complete, name='doctor-profile-complete'),
     # path('doctors/<int:pk>/consultation-history/', api_views.doctor_consultation_history, name='doctor-consultation-history'),
+
+    # Complaint Management
+    path('complaints/dashboard/', views.complaint_dashboard, name='complaint-dashboard'),
+    path('complaints/export/', views.complaint_export, name='complaint-export'),
 ]

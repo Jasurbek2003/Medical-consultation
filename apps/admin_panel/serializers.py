@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from apps.hospitals.models import Hospital
 from apps.doctors.models import Doctor
 from apps.consultations.models import Consultation
+from .models import DoctorComplaint, DoctorComplaintFile
 
 User = get_user_model()
 
@@ -449,3 +450,193 @@ class AdminRecentActivitySerializer(serializers.Serializer):
     user_name = serializers.CharField()
     timestamp = serializers.DateTimeField()
     details = serializers.DictField(required=False)
+
+
+class DoctorComplaintFileSerializer(serializers.ModelSerializer):
+    """Serializer for DoctorComplaintFile model"""
+    
+    file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DoctorComplaintFile
+        fields = [
+            'id', 'file', 'file_url', 'file_name', 'uploaded_at'
+        ]
+        read_only_fields = ['id', 'uploaded_at']
+    
+    def get_file_url(self, obj):
+        """Get file URL"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+    
+    def get_file_name(self, obj):
+        """Get original file name"""
+        if obj.file:
+            return obj.file.name.split('/')[-1]
+        return None
+
+
+class DoctorComplaintSerializer(serializers.ModelSerializer):
+    """Serializer for DoctorComplaint model with nested files"""
+    
+    # Doctor information
+    doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
+    doctor_phone = serializers.CharField(source='doctor.user.phone', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.get_specialty_display', read_only=True)
+    
+    # Display fields
+    complaint_type_display = serializers.CharField(source='get_complaint_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    
+    # Files related to this complaint
+    files = DoctorComplaintFileSerializer(many=True, read_only=True)
+    files_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DoctorComplaint
+        fields = [
+            'id', 'doctor', 'doctor_name', 'doctor_phone', 'doctor_specialty',
+            'subject', 'description', 'complaint_type', 'complaint_type_display',
+            'status', 'status_display', 'priority', 'priority_display',
+            'files', 'files_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'priority', 'created_at', 'updated_at']
+    
+    def get_files_count(self, obj):
+        """Get number of files attached to this complaint"""
+        return obj.files.count()
+    
+    def validate_subject(self, value):
+        """Validate complaint subject"""
+        if not value or len(value.strip()) < 5:
+            raise serializers.ValidationError(
+                "Shikoyat sarlavhasi kamida 5 ta belgidan iborat bo'lishi kerak"
+            )
+        return value.strip()
+    
+    def validate_description(self, value):
+        """Validate complaint description"""
+        if value and len(value.strip()) < 10:
+            raise serializers.ValidationError(
+                "Shikoyat tavsifi kamida 10 ta belgidan iborat bo'lishi kerak"
+            )
+        return value.strip() if value else value
+
+
+class AdminDoctorComplaintSerializer(DoctorComplaintSerializer):
+    """Extended serializer for admin panel with additional fields"""
+    
+    # Hospital information
+    hospital_name = serializers.CharField(
+        source='doctor.hospital.name', 
+        read_only=True, 
+        allow_null=True
+    )
+    
+    # Admin actions
+    can_be_resolved = serializers.SerializerMethodField()
+    days_since_created = serializers.SerializerMethodField()
+    
+    class Meta(DoctorComplaintSerializer.Meta):
+        fields = DoctorComplaintSerializer.Meta.fields + [
+            'hospital_name', 'can_be_resolved', 'days_since_created'
+        ]
+    
+    def get_can_be_resolved(self, obj):
+        """Check if complaint can be resolved"""
+        return obj.status == 'in_progress'
+    
+    def get_days_since_created(self, obj):
+        """Calculate days since complaint was created"""
+        from django.utils import timezone
+        delta = timezone.now() - obj.created_at
+        return delta.days
+
+
+class DoctorComplaintCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating doctor complaints"""
+    
+    class Meta:
+        model = DoctorComplaint
+        fields = [
+            'doctor', 'subject', 'description', 'complaint_type'
+        ]
+    
+    def validate_doctor(self, value):
+        """Validate doctor exists and is verified"""
+        if not hasattr(value, 'verification_status'):
+            raise serializers.ValidationError("Shifokor topilmadi")
+        
+        if value.verification_status != 'approved':
+            raise serializers.ValidationError(
+                "Faqat tasdiqlangan shifokorlar shikoyat yubora oladi"
+            )
+        return value
+    
+    def create(self, validated_data):
+        """Create complaint with automatic priority setting"""
+        complaint = super().create(validated_data)
+        # Priority is automatically set by the model's save method
+        return complaint
+
+
+class DoctorComplaintUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating complaint status (admin only)"""
+    
+    resolution_notes = serializers.CharField(
+        required=False, 
+        allow_blank=True,
+        help_text="Notes about complaint resolution"
+    )
+    
+    class Meta:
+        model = DoctorComplaint
+        fields = ['status', 'resolution_notes']
+    
+    def validate_status(self, value):
+        """Validate status transition"""
+        if self.instance and self.instance.status == 'closed':
+            raise serializers.ValidationError(
+                "Yopilgan shikoyat holatini o'zgartirib bo'lmaydi"
+            )
+        return value
+    
+    def validate(self, data):
+        """Validate status change"""
+        status = data.get('status')
+        if status == 'resolved' and not data.get('resolution_notes'):
+            raise serializers.ValidationError({
+                'resolution_notes': 'Shikoyatni yechish uchun izoh qoldirish majburiy'
+            })
+        return data
+
+
+class DoctorComplaintStatisticsSerializer(serializers.Serializer):
+    """Serializer for complaint statistics"""
+    
+    total_complaints = serializers.IntegerField()
+    in_progress_complaints = serializers.IntegerField()
+    resolved_complaints = serializers.IntegerField()
+    closed_complaints = serializers.IntegerField()
+    
+    # By type
+    general_complaints = serializers.IntegerField()
+    service_complaints = serializers.IntegerField()
+    billing_complaints = serializers.IntegerField()
+    
+    # By priority
+    urgent_complaints = serializers.IntegerField()
+    high_complaints = serializers.IntegerField()
+    medium_complaints = serializers.IntegerField()
+    low_complaints = serializers.IntegerField()
+    
+    # Time-based
+    complaints_this_month = serializers.IntegerField()
+    complaints_this_week = serializers.IntegerField()
+    average_resolution_days = serializers.FloatField()
