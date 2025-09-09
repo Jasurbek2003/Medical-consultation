@@ -184,7 +184,6 @@ class UserProfileSerializer(UserSerializer):
             return None
 
     def get_doctor_profile(self, obj):
-        print(obj.is_doctor(), hasattr(obj, 'doctor_profile'))
         if obj.is_doctor() and hasattr(obj, 'doctor_profile'):
             from apps.doctors.serializers import DoctorProfileSerializer
             return DoctorProfileSerializer(obj.doctor_profile).data

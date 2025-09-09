@@ -55,7 +55,7 @@ class DistrictSerializer(serializers.ModelSerializer):
 class DoctorServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorService
-        fields = ['id', 'description', 'price']
+        fields = ['id', 'description', 'price', 'duration']
 
 
 class DoctorSerializer(serializers.ModelSerializer):
