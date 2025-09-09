@@ -327,8 +327,16 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     )
 
     region_name = serializers.CharField(source='user.region', read_only=True)
+    region_name_en = serializers.CharField(source='user.region.name_en', read_only=True)
+    region_name_ru = serializers.CharField(source='user.region.name_ru', read_only=True)
+    region_name_kr = serializers.CharField(source='user.region.name_kr', read_only=True)
+
     region_id = serializers.IntegerField(source='user.region_id', read_only=True)
     district_name = serializers.CharField(source='user.district', read_only=True)
+    district_name_en = serializers.CharField(source='user.district.name_en', read_only=True)
+    district_name_ru = serializers.CharField(source='user.district.name_ru', read_only=True)
+    district_name_kr = serializers.CharField(source='user.district.name_kr', read_only=True)
+
     district_id = serializers.IntegerField(source='user.district_id', read_only=True)
     phone = serializers.CharField(source='user.phone', read_only=True)
 
@@ -380,7 +388,8 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             'rating', 'total_reviews', 'total_consultations',
             'average_rating', 'recent_reviews', 'schedules',
             'specializations', 'files', 'profile_views', 'services', 'hospital_id', 'license_number', 'work_start_time',
-            'work_end_time', 'phone', 'translations'
+            'work_end_time', 'phone', 'translations', 'region_name_en', 'region_name_ru', 'region_name_kr',
+            'district_name_en', 'district_name_ru', 'district_name_kr',
         ]
 
     def get_average_rating(self, obj):
