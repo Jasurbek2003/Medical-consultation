@@ -53,7 +53,7 @@ class DistrictSerializer(serializers.ModelSerializer):
 
 
 class DoctorServiceSerializer(serializers.ModelSerializer):
-    service_name = serializers.CharField(source='service.name', read_only=True)
+    service_name = serializers.CharField(source='doctor_services.name', read_only=True)
 
     class Meta:
         model = DoctorService
