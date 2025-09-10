@@ -30,15 +30,4 @@ urlpatterns = [
     path('filter-options/', views.get_filter_options, name='filter-options'),
     path('bulk-actions/', views.bulk_actions, name='bulk-actions'),
 
-    # Custom hospital endpoints (additional to ViewSet)
-    # path('hospitals/<int:pk>/assign-admin/', api_views.assign_hospital_admin, name='assign-hospital-admin'),
-    # path('hospitals/<int:pk>/remove-admin/', api_views.remove_hospital_admin, name='remove-hospital-admin'),
-
-    # Custom doctor endpoints (additional to ViewSet)
-    # path('doctors/<int:pk>/profile-complete/', api_views.check_doctor_profile_complete, name='doctor-profile-complete'),
-    # path('doctors/<int:pk>/consultation-history/', api_views.doctor_consultation_history, name='doctor-consultation-history'),
-
-    # Complaint Management
-    path('complaints/dashboard/', views.complaint_dashboard, name='complaint-dashboard'),
-    path('complaints/export/', views.complaint_export, name='complaint-export'),
 ]

@@ -10,6 +10,7 @@ from .views import (
     DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView,
     DoctorProfileTranslationAPIView
 )
+from ..admin_panel.views import doctor_complaint_list, doctor_create_complaint, doctor_complaint_detail
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -46,4 +47,9 @@ urlpatterns = [
     # Location endpoints
     path('locations/', LocationAPIView.as_view(), name='locations'),
     path('regions/<int:region_id>/districts/', RegionDistrictsView.as_view(), name='region-districts'),
+
+    # Doctor complaint endpoints (for doctors to manage their own complaints)
+    path('complaints/', doctor_complaint_list, name='doctor-complaint-list'),
+    path('complaints/create/', doctor_create_complaint, name='doctor-create-complaint'),
+    path('complaints/<int:complaint_id>/', doctor_complaint_detail, name='doctor-complaint-detail'),
 ]
