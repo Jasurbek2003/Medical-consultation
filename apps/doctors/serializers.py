@@ -55,10 +55,14 @@ class DistrictSerializer(serializers.ModelSerializer):
 class DoctorServiceSerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(source='name.name', read_only=True)
     service_name_id = serializers.IntegerField(source='name.id', read_only=True)
+    service_name_ru = serializers.CharField(source='name.name_ru', read_only=True)
+    service_name_en = serializers.CharField(source='name.name_en', read_only=True)
+    service_name_kr = serializers.CharField(source='name.name_kr', read_only=True)
 
     class Meta:
         model = DoctorService
-        fields = ['id', 'service_name', 'service_name_id', 'description', 'price', 'duration']
+        fields = ['id', 'service_name', 'service_name_id', 'description', 'price', 'duration',
+                  'service_name_ru', 'service_name_en', 'service_name_kr']
 
 
 class DoctorSerializer(serializers.ModelSerializer):
