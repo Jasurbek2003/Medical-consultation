@@ -18,6 +18,8 @@ from .serializers import (
 )
 from .filters import DoctorFilter
 from .services.translation_service import DoctorTranslationService
+from ..admin_panel.models import DoctorComplaint, DoctorComplaintFile
+from ..admin_panel.serializers import DoctorComplaintFileSerializer
 from ..hospitals.models import Districts, Regions
 
 
@@ -942,3 +944,62 @@ class DoctorSpecialtiesView(APIView):
                 })
 
         return Response(specialties)
+
+
+class DoctorComplaintFileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing complaint files
+    Provides CRUD operations for DoctorComplaintFile model
+    """
+    queryset = DoctorComplaintFile.objects.select_related('complaint').all()
+    serializer_class = DoctorComplaintFileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter files by complaint"""
+        queryset = DoctorComplaintFile.objects.select_related('complaint')
+
+        # Filter by complaint
+        complaint_id = self.request.query_params.get('complaint', None)
+        if complaint_id:
+            queryset = queryset.filter(complaint_id=complaint_id)
+
+        return queryset.order_by('-uploaded_at')
+
+    def create(self, request, *args, **kwargs):
+        """Upload a file for a complaint"""
+        complaint_id = request.data.get('complaint')
+        if not complaint_id:
+            return Response({
+                'error': 'Shikoyat ID majburiy'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            complaint = DoctorComplaint.objects.get(id=complaint_id)
+        except DoctorComplaint.DoesNotExist:
+            return Response({
+                'error': 'Shikoyat topilmadi'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        file_obj = serializer.save(complaint=complaint)
+
+        return Response({
+            'message': 'Fayl muvaffaqiyatli yuklandi',
+            'file': DoctorComplaintFileSerializer(file_obj, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a complaint file"""
+        instance = self.get_object()
+
+        # Delete the physical file
+        if instance.file:
+            instance.file.delete()
+
+        instance.delete()
+
+        return Response({
+            'message': 'Fayl muvaffaqiyatli o\'chirildi'
+        }, status=status.HTTP_204_NO_CONTENT)

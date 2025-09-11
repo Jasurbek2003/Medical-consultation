@@ -849,7 +849,7 @@ class DoctorServiceNameAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('🛠️ Xizmat Nomi', {
-            'fields': ('name', 'description'),
+            'fields': ('name', 'description', 'name_en', 'name_ru'),
             'classes': ('wide',)
         }),
     )

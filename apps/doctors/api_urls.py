@@ -8,8 +8,9 @@ from .views import (
     DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
     DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
     DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView,
-    DoctorProfileTranslationAPIView
+    DoctorProfileTranslationAPIView, DoctorComplaintFileViewSet
 )
+from .api_views import DoctorServiceNameViewSet
 from ..admin_panel.views import doctor_complaint_list, doctor_create_complaint, doctor_complaint_detail
 
 # Router for ViewSets
@@ -20,6 +21,8 @@ router.register(r'districts', DistrictViewSet, basename='district')
 router.register(r'doctor-files', DoctorFilesViewSet, basename='doctor-files')
 router.register(r'doctor-schedules', DoctorScheduleViewSet, basename='doctor-schedule')
 router.register(r'doctor-specializations', DoctorSpecializationViewSet, basename='doctor-specialization')
+router.register(r'service-names', DoctorServiceNameViewSet, basename='doctor-service-name')
+router.register(r'complaint-files', DoctorComplaintFileViewSet, basename='complaint-file')
 
 app_name = 'doctors'
 

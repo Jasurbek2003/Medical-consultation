@@ -1,4 +1,5 @@
 # apps/doctors/models.py - Enhanced Doctor Model
+from glob import translate
 from typing import List
 
 from django.conf import settings
@@ -8,6 +9,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 
 from django.utils import timezone
+
+from apps.doctors.services.translation_service import TahrirchiTranslationService
 
 User = get_user_model()
 
@@ -629,6 +632,9 @@ class DoctorServiceName(models.Model):
     """Shifokor xizmatlari nomlari"""
 
     name = models.CharField(max_length=255, unique=True, verbose_name="Xizmat nomi")
+    name_en = models.CharField(max_length=255, blank=True, null=True, verbose_name="Xizmat nomi (Inglizcha)")
+    name_ru = models.CharField(max_length=255, blank=True, null=True, verbose_name="Xizmat nomi (Ruscha)")
+    name_kr = models.CharField(max_length=255, blank=True, null=True, verbose_name="Xizmat nomi (Krill)")
     description = models.TextField(blank=True, null=True, verbose_name="Tavsif")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
@@ -640,6 +646,20 @@ class DoctorServiceName(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        self.name = self.translate_text(self.name, 'uzn_Latn')
+        self.name_en = self.translate_text(self.name, 'eng_Latn')
+        self.name_ru = self.translate_text(self.name, 'rus_Cyrl')
+        self.name_kr = self.translate_text(self.name, 'uzn_Cyrl')
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def translate_text(name, param):
+        translator = TahrirchiTranslationService()
+        translates = translator.translate_text(name, "uzn_Latn", param)
+        return translates if translates else name
+
 
 class DoctorService(models.Model):
     """Shifokor xizmatlari"""

@@ -1,19 +1,117 @@
-# from django.utils import timezone
-# from rest_framework import generics, status, permissions, serializers
-# from rest_framework.authtoken.models import Token
-# from rest_framework.decorators import api_view, permission_classes, parser_classes
-# from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-# from rest_framework.response import Response
-# from rest_framework.views import APIView
-# from django.shortcuts import get_object_or_404
-# from django.db.models import Q
-#
-# from .models import Doctor, DoctorSchedule
-# from .serializers import (
-#     DoctorSerializer, DoctorUpdateSerializer, DoctorRegistrationSerializer,
-# )
+from django.utils import timezone
+from rest_framework import generics, status, permissions, serializers, viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+
+from .models import Doctor, DoctorSchedule, DoctorServiceName
+from .serializers import (
+    DoctorSerializer, DoctorUpdateSerializer, DoctorRegistrationSerializer,
+    DoctorServiceNameSerializer, DoctorServiceNameListSerializer
+)
 # from .filters import DoctorFilter
-# from ..users.serializers import UserSerializer
+from ..users.serializers import UserSerializer
+
+
+class IsAdmin(permissions.BasePermission):
+    """
+    Custom permission to only allow admins to manage service names.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+
+
+class DoctorServiceNameViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing DoctorServiceName CRUD operations
+    Only accessible by admin users
+    """
+    queryset = DoctorServiceName.objects.all().order_by('-created_at')
+    permission_classes = [IsAdmin]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return DoctorServiceNameListSerializer
+        return DoctorServiceNameSerializer
+    
+    def list(self, request, *args, **kwargs):
+        """List all doctor service names"""
+        queryset = self.get_queryset()
+        
+        # Add search functionality
+        search = request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(name_en__icontains=search) |
+                Q(name_ru__icontains=search) |
+                Q(name_kr__icontains=search) |
+                Q(description__icontains=search)
+            )
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'success': True,
+            'count': queryset.count(),
+            'data': serializer.data
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new doctor service name"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        service_name = serializer.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Service name created successfully',
+            'data': DoctorServiceNameSerializer(service_name).data
+        }, status=status.HTTP_201_CREATED)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get a specific doctor service name"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'success': True,
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """Update a doctor service name"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        service_name = serializer.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Service name updated successfully',
+            'data': serializer.data
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete a doctor service name"""
+        instance = self.get_object()
+        
+        # Check if service name is being used by any doctor services
+        if instance.doctor_services.exists():
+            return Response({
+                'success': False,
+                'error': 'Cannot delete service name as it is being used by doctor services'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        instance.delete()
+        return Response({
+            'success': True,
+            'message': 'Service name deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
 #
 #
 # class DoctorProfileUpdateView(generics.UpdateAPIView):

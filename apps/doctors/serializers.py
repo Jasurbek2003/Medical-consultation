@@ -4,7 +4,7 @@ from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 
 from .models import (
-    Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorTranslation,
+    Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName, DoctorTranslation,
 )
 from .services.translation_service import TranslationConfig
 from ..hospitals.models import Regions, Districts
@@ -439,4 +439,36 @@ class DoctorLocationUpdateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class DoctorServiceNameSerializer(serializers.ModelSerializer):
+    """Serializer for DoctorServiceName CRUD operations"""
+    
+    class Meta:
+        model = DoctorServiceName
+        fields = ['id', 'name', 'name_en', 'name_ru', 'name_kr', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'name_en', 'name_ru', 'name_kr', 'created_at', 'updated_at']
+
+    def validate_name(self, value):
+        """Validate that service name is not empty and unique"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Service name cannot be empty")
+        
+        # Check for uniqueness, excluding current instance if updating
+        existing = DoctorServiceName.objects.filter(name=value)
+        if self.instance:
+            existing = existing.exclude(id=self.instance.id)
+        
+        if existing.exists():
+            raise serializers.ValidationError("A service with this name already exists")
+            
+        return value.strip()
+
+
+class DoctorServiceNameListSerializer(serializers.ModelSerializer):
+    """Simplified serializer for listing DoctorServiceName"""
+    
+    class Meta:
+        model = DoctorServiceName
+        fields = ['id', 'name', 'name_en', 'name_ru', 'name_kr', 'description']
 
