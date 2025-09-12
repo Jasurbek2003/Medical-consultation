@@ -565,7 +565,7 @@ class DoctorComplaintCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorComplaint
         fields = [
-            'doctor', 'subject', 'description', 'complaint_type'
+            'doctor', 'subject', 'description', 'complaint_type', 'priority'
         ]
     
     def validate_doctor(self, value):
