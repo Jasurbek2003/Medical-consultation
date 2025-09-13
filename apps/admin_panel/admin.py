@@ -10,7 +10,7 @@ class DoctorComplaintFileInline(admin.TabularInline):
 
 @admin.register(DoctorComplaint)
 class DoctorComplaintAdmin(admin.ModelAdmin):
-    list_display = ('subject', 'doctor', 'complaint_type', 'status', 'priority', 'created_at')
+    list_display = ('subject', 'doctor', 'complaint_type', 'status', 'priority', 'created_at', )
     list_filter = ('complaint_type', 'status', 'priority', 'created_at')
     search_fields = ('subject', 'doctor__user__first_name', 'doctor__user__last_name', 'doctor__user__email')
     readonly_fields = ('created_at', 'updated_at')
@@ -18,7 +18,7 @@ class DoctorComplaintAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (None, {
-            'fields': ('doctor', 'subject', 'description')
+            'fields': ('doctor', 'subject', 'description', 'resolution_notes')
         }),
         ('Classification', {
             'fields': ('complaint_type', 'status', 'priority')

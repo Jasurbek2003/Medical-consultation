@@ -972,6 +972,7 @@ class DoctorComplaintViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         complaint.status = 'resolved'
+        complaint.resolution_notes = resolution_notes
         complaint.save()
         
         return Response({
@@ -988,8 +989,16 @@ class DoctorComplaintViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Faqat yechilgan shikoyatlarni yopish mumkin'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        resolution_notes = request.data.get('resolution_notes', '')
+
+        if not resolution_notes:
+            return Response({
+                'error': 'Shikoyatni yopish uchun izoh majburiy'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         complaint.status = 'closed'
+        complaint.resolution_notes = resolution_notes
         complaint.save()
         
         return Response({

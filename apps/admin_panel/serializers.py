@@ -504,7 +504,7 @@ class DoctorComplaintSerializer(serializers.ModelSerializer):
             'id', 'doctor', 'doctor_name', 'doctor_phone', 'doctor_specialty',
             'subject', 'description', 'complaint_type', 'complaint_type_display',
             'status', 'status_display', 'priority', 'priority_display',
-            'files', 'files_count', 'created_at', 'updated_at'
+            'files', 'files_count', 'created_at', 'updated_at', 'resolution_notes'
         ]
         read_only_fields = ['id', 'priority', 'created_at', 'updated_at']
     

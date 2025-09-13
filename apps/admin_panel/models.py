@@ -24,6 +24,7 @@ class DoctorComplaint(models.Model):
     complaint_type = models.CharField(max_length=50, choices=TYPES, default="service")
     status = models.CharField(max_length=50, choices=STATUS, default="in_progress")
     priority = models.CharField(max_length=50, choices=PRIORITY, default="low")
+    resolution_notes = models.TextField(null=True, blank=True)
     # transaction_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
