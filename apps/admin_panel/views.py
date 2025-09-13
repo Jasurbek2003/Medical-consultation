@@ -985,9 +985,9 @@ class DoctorComplaintViewSet(viewsets.ModelViewSet):
         """Close complaint"""
         complaint = self.get_object()
         
-        if complaint.status != 'resolved':
+        if complaint.status == 'resolved':
             return Response({
-                'error': 'Faqat yechilgan shikoyatlarni yopish mumkin'
+                'error': 'Faqat pending shikoyatlarni yopish mumkin'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         resolution_notes = request.data.get('resolution_notes', '')
