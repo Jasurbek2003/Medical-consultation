@@ -87,13 +87,29 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
         return value
 
-    def get_district(self, obj):
-        """Get district name"""
-        return obj.district.__dict__ if obj.district else None
+
 
     def get_region(self, obj):
         """Get region name"""
-        return obj.region.__dict__ if obj.region else None
+        data = {
+            'id': obj.region.id,
+            'name': obj.region.name,
+            'name_en': obj.region.name_en,
+            'name_ru': obj.region.name_ru,
+            'name_kr': obj.region.name_kr,
+        } if obj.region else None
+        return data
+
+    def get_district(self, obj):
+        """Get district name"""
+        data = {
+            'id': obj.district.id,
+            'name': obj.district.name,
+            'name_en': obj.district.name_en,
+            'name_ru': obj.district.name_ru,
+            'name_kr': obj.district.name_kr,
+        } if obj.district else None
+        return data
 
 
 class AdminDoctorSerializer(serializers.ModelSerializer):
