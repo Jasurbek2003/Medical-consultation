@@ -38,6 +38,9 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
     active_doctor_count = serializers.SerializerMethodField()
     total_consultations = serializers.SerializerMethodField()
 
+    district = serializers.SerializerMethodField()
+    region = serializers.SerializerMethodField()
+
     # Display fields
     hospital_type_display = serializers.CharField(
         source='get_hospital_type_display',
@@ -83,6 +86,14 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
             if Hospital.objects.filter(email=value).exclude(id=self.instance.id if self.instance else None).exists():
                 raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
         return value
+
+    def get_district(self, obj):
+        """Get district name"""
+        return obj.district.__dict__ if obj.district else None
+
+    def get_region(self, obj):
+        """Get region name"""
+        return obj.region.name.__dict__ if obj.region else None
 
 
 class AdminDoctorSerializer(serializers.ModelSerializer):
