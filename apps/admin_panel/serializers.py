@@ -89,11 +89,11 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
 
     def get_district(self, obj):
         """Get district name"""
-        return obj.district.__dict__ if obj.district else None
+        return obj.district if obj.district else None
 
     def get_region(self, obj):
         """Get region name"""
-        return obj.region.name.__dict__ if obj.region else None
+        return obj.region.name if obj.region else None
 
 
 class AdminDoctorSerializer(serializers.ModelSerializer):
