@@ -92,11 +92,12 @@ class ChatMessageView(TemplateView):
             user_message = data.get('message', '').strip()
             session_id = data.get('session_id')
             user_language = data.get('language', get_language())  # Til parametri
-
             # Tilni o'rnatish
-            if user_language:
-                activate(user_language)
+            # if user_language:
+            #     activate(user_language)
 
+
+            print("Received chat message request")
             if not user_message:
                 return JsonResponse({
                     'success': False,
@@ -111,6 +112,8 @@ class ChatMessageView(TemplateView):
                     session = self._create_session(request, user_language)
             else:
                 session = self._create_session(request, user_language)
+
+            print("Session ID:", session.id)
 
                 # Foydalanuvchi xabarini saqlash
             user_chat_message = ChatMessage.objects.create(
