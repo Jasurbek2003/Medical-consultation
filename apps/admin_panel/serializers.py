@@ -219,16 +219,11 @@ class AdminDoctorSerializer(serializers.ModelSerializer):
             return DoctorTranslation.objects.get(doctor=obj).translations
         except DoctorTranslation.DoesNotExist:
             return {
-                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
-                        for lang_item in TranslationConfig.LANGUAGES},
-                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
-                                 for lang_item in TranslationConfig.LANGUAGES},
-                'education': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
-                              for lang_item in TranslationConfig.LANGUAGES},
-                'workplace': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
-                              for lang_item in TranslationConfig.LANGUAGES},
-                'workplace_address': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
-                                      for lang_item in TranslationConfig.LANGUAGES},
+                'bio': {TranslationConfig.LANGUAGES[lang_item]:"" for lang_item in TranslationConfig.LANGUAGES},
+                'achievements': {TranslationConfig.LANGUAGES[lang_item]:"" for lang_item in TranslationConfig.LANGUAGES},
+                'education': {TranslationConfig.LANGUAGES[lang_item]:"" for lang_item in TranslationConfig.LANGUAGES},
+                'workplace':{TranslationConfig.LANGUAGES[lang_item]:"" for lang_item in TranslationConfig.LANGUAGES},
+                'workplace_address': {TranslationConfig.LANGUAGES[lang_item]:"" for lang_item in TranslationConfig.LANGUAGES}
             }
 
     def get_consultation_count(self, obj):
