@@ -13,7 +13,7 @@ class TranslateApiView(APIView):
             print(self.request.user)
             return [AllowAny()]
         # return [IsAuthenticated()]
-        return False
+        return []
 
 
     @staticmethod
