@@ -642,45 +642,45 @@ class DoctorTranslationAdmin(admin.ModelAdmin):
 
     get_translation_preview.short_description = '👁️ Preview'
 
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path(
-                'translate-doctor/<uuid:doctor_id>/',
-                self.admin_site.admin_view(self.translate_doctor_view),
-                name='translate_doctor_profile'
-            ),
-            path(
-                'refresh-translation/<uuid:doctor_id>/',
-                self.admin_site.admin_view(self.refresh_translation_view),
-                name='refresh_doctor_translation'
-            ),
-        ]
-        return custom_urls + urls
+    # def get_urls(self):
+    #     urls = super().get_urls()
+    #     custom_urls = [
+    #         path(
+    #             'translate-doctor/<uuid:doctor_id>/',
+    #             self.admin_site.admin_view(self.translate_doctor_view),
+    #             name='translate_doctor_profile'
+    #         ),
+    #         path(
+    #             'refresh-translation/<uuid:doctor_id>/',
+    #             self.admin_site.admin_view(self.refresh_translation_view),
+    #             name='refresh_doctor_translation'
+    #         ),
+    #     ]
+    #     return custom_urls + urls
 
-    def translate_doctor_view(self, request, doctor_id):
-        """Admin action to translate a specific doctor"""
-        try:
-            doctor = Doctor.objects.get(id=doctor_id)
-            translation_service = DoctorTranslationService()
-
-            # Translate doctor profile
-            translations = translation_service.translate_doctor_profile(doctor)
-
-            # Save translations
-            translation_service.save_doctor_translations(doctor, translations)
-
-            messages.success(
-                request,
-                f'✅ Successfully translated profile for Dr. {doctor.user.get_full_name()}'
-            )
-
-        except Doctor.DoesNotExist:
-            messages.error(request, '❌ Doctor not found')
-        except Exception as e:
-            messages.error(request, f'❌ Translation failed: {str(e)}')
-
-        return HttpResponseRedirect(reverse('admin:doctors_doctortranslation_changelist'))
+    # def translate_doctor_view(self, request, doctor_id):
+    #     """Admin action to translate a specific doctor"""
+    #     try:
+    #         doctor = Doctor.objects.get(id=doctor_id)
+    #         translation_service = DoctorTranslationService()
+    #
+    #         # Translate doctor profile
+    #         translations = translation_service.translate_doctor_profile(doctor)
+    #
+    #         # Save translations
+    #         translation_service.save_doctor_translations(doctor, translations)
+    #
+    #         messages.success(
+    #             request,
+    #             f'✅ Successfully translated profile for Dr. {doctor.user.get_full_name()}'
+    #         )
+    #
+    #     except Doctor.DoesNotExist:
+    #         messages.error(request, '❌ Doctor not found')
+    #     except Exception as e:
+    #         messages.error(request, f'❌ Translation failed: {str(e)}')
+    #
+    #     return HttpResponseRedirect(reverse('admin:doctors_doctortranslation_changelist'))
 
     def refresh_translation_view(self, request, doctor_id):
         """Admin action to refresh/update existing translation"""
