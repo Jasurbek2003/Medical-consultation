@@ -1,9 +1,19 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Translate, Language
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, BasePermission
 
 
+class DoesntAllow(BasePermission):
+    """
+    Allow any access.
+    This isn't strictly required, since you could use an empty
+    permission_classes list, but it's useful because it makes the intention
+    more explicit.
+    """
+
+    def has_permission(self, request, view):
+        return False
 class TranslateApiView(APIView):
     def get_permissions(self):
         """
@@ -13,7 +23,7 @@ class TranslateApiView(APIView):
             print(self.request.user)
             return [AllowAny()]
         # return [IsAuthenticated()]
-        return []
+        return [DoesntAllow()]
 
 
     @staticmethod
