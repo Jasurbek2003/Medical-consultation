@@ -6,9 +6,10 @@ Comprehensive serializers for hospital and doctor management
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from apps.hospitals.models import Hospital
-from apps.doctors.models import Doctor
+from apps.doctors.models import Doctor, DoctorTranslation
 from apps.consultations.models import Consultation
 from .models import DoctorComplaint, DoctorComplaintFile
+from ..doctors.services.translation_service import TranslationConfig
 
 User = get_user_model()
 
@@ -154,6 +155,20 @@ class AdminDoctorSerializer(serializers.ModelSerializer):
         allow_null=True
     )
 
+    region_name = serializers.CharField(source='user.region', read_only=True)
+    region_name_en = serializers.CharField(source='user.region.name_en', read_only=True)
+    region_name_ru = serializers.CharField(source='user.region.name_ru', read_only=True)
+    region_name_kr = serializers.CharField(source='user.region.name_kr', read_only=True)
+    region_id = serializers.IntegerField(source='user.region_id', read_only=True)
+
+    district_name = serializers.CharField(source='user.district', read_only=True)
+    district_name_en = serializers.CharField(source='user.district.name_en', read_only=True)
+    district_name_ru = serializers.CharField(source='user.district.name_ru', read_only=True)
+    district_name_kr = serializers.CharField(source='user.district.name_kr', read_only=True)
+    district_id = serializers.IntegerField(source='user.district_id', read_only=True)
+
+    translations = serializers.SerializerMethodField()
+
     class Meta:
         model = Doctor
         fields = [
@@ -184,12 +199,37 @@ class AdminDoctorSerializer(serializers.ModelSerializer):
             'consultation_count', 'success_rate',
 
             # Timestamps
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
+
+            # location
+            'latitude', 'longitude', 'region_name', 'region_name_en', 'region_name_ru', 'region_name_kr', 'region_id',
+            'district_name', 'district_name_en', 'district_name_ru', 'district_name_kr', 'district_id',
+
+            # Translations
+            'translations'
         ]
         read_only_fields = [
             'id', 'user_id', 'rating', 'total_reviews', 'total_consultations',
-            'created_at', 'updated_at', 'approved_at', 'rejected_at'
+            'created_at', 'updated_at'
         ]
+
+    def get_translations(self, obj):
+        """Get translations for bio and achievements"""
+        try:
+            return DoctorTranslation.objects.get(doctor=obj).translations
+        except DoctorTranslation.DoesNotExist:
+            return {
+                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                        for lang_item in TranslationConfig.LANGUAGES},
+                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                 for lang_item in TranslationConfig.LANGUAGES},
+                'education': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                              for lang_item in TranslationConfig.LANGUAGES},
+                'workplace': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                              for lang_item in TranslationConfig.LANGUAGES},
+                'workplace_address': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
+                                      for lang_item in TranslationConfig.LANGUAGES},
+            }
 
     def get_consultation_count(self, obj):
         """Get total consultation count"""

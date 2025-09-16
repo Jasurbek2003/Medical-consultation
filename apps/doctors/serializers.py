@@ -337,14 +337,14 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     region_name_en = serializers.CharField(source='user.region.name_en', read_only=True)
     region_name_ru = serializers.CharField(source='user.region.name_ru', read_only=True)
     region_name_kr = serializers.CharField(source='user.region.name_kr', read_only=True)
-
     region_id = serializers.IntegerField(source='user.region_id', read_only=True)
+
     district_name = serializers.CharField(source='user.district', read_only=True)
     district_name_en = serializers.CharField(source='user.district.name_en', read_only=True)
     district_name_ru = serializers.CharField(source='user.district.name_ru', read_only=True)
     district_name_kr = serializers.CharField(source='user.district.name_kr', read_only=True)
-
     district_id = serializers.IntegerField(source='user.district_id', read_only=True)
+
     phone = serializers.CharField(source='user.phone', read_only=True)
 
     # Hospital information
