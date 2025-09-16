@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Medical Consultation 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-05 15:08+0500\n"
+"POT-Creation-Date: 2025-09-16 12:44+0500\n"
 "PO-Revision-Date: 2025-01-05 12:00+0500\n"
 "Last-Translator: Medical Team <team@medical.uz>\n"
 "Language-Team: Russian <ru@medical.uz>\n"
@@ -18,253 +18,215 @@ msgstr ""
 "(n%100>=11 && n%100<=14)? 2 : 3);\n"
 
 # AI Assistant fallback messages
-#: .\apps\chat\views.py:43
+#: .\apps\ai_assistant\services.py:346 .\apps\chat\views.py:44
 msgid "Oddiy kalit so'z tahlili asosida"
 msgstr "На основе простого анализа ключевых слов"
 
-#: .\apps\chat\views.py:47
-msgid "Shifokorga ko'rsating"
-msgstr "Обратитесь к врачу"
-
-#: .\apps\chat\views.py:52
+#: .\apps\ai_assistant\services.py:358 .\apps\chat\views.py:53
 msgid "Umumiy holatni yaxshilash uchun shifokorga murojaat qiling."
 msgstr "Обратитесь к врачу для улучшения общего состояния."
 
-#: .\apps\chat\views.py:53
+#: .\apps\ai_assistant\services.py:359 .\apps\chat\views.py:54
 msgid "Tish gigienasini saqlang va shifokorga ko'rsating."
 msgstr "Соблюдайте гигиену полости рта и обратитесь к стоматологу."
 
-#: .\apps\chat\views.py:54
+#: .\apps\ai_assistant\services.py:360 .\apps\chat\views.py:55
 msgid "Qon bosimingizni nazorat qiling."
 msgstr "Контролируйте ваше кровяное давление."
 
-#: .\apps\chat\views.py:55
+#: .\apps\ai_assistant\services.py:361 .\apps\chat\views.py:56
 msgid "Ko'p suv iching va shifokorga murojaat qiling."
 msgstr "Пейте больше воды и обратитесь к врачу."
 
-#: .\apps\chat\views.py:59
+#: .\apps\ai_assistant\services.py:369 .\apps\chat\views.py:60
 msgid "Shifokor bilan maslahatlashing."
 msgstr "Проконсультируйтесь с врачом."
 
-# Chat interface
-#: .\apps\chat\views.py:96 .\templates\chat\chat_room.html:9
-msgid "Tibbiy Chat - AI Yordamchi"
-msgstr "Медицинский Чат - AI-Помощник"
-
-#: .\apps\chat\views.py:111
-msgid "Chat Interface"
-msgstr "Интерфейс Чата"
+#: .\apps\chat\views.py:48
+msgid "Shifokorga ko'rsating"
+msgstr "Обратитесь к врачу"
 
 # Error messages
-#: .\apps\chat\views.py:139 .\apps\chat\views.py:800
+#: .\apps\chat\views.py:104 .\apps\chat\views.py:767 .\apps\chat\views.py:902
 msgid "Xabar bo'sh bo'lishi mumkin emas"
 msgstr "Сообщение не может быть пустым"
 
-#: .\apps\chat\views.py:208
+#: .\apps\chat\views.py:175 .\apps\chat\views.py:1004
 msgid "Xatolik yuz berdi. Iltimos qayta urinib ko'ring."
 msgstr "Произошла ошибка. Пожалуйста, попробуйте снова."
 
-#: .\apps\chat\views.py:821
+#: .\apps\chat\views.py:788
 msgid "Tahlil qilishda xatolik yuz berdi"
 msgstr "Произошла ошибка при анализе"
 
-#: .\apps\chat\views.py:863
+#: .\apps\chat\views.py:830
 msgid "Session tarixini olishda xatolik"
 msgstr "Ошибка при получении истории сессии"
 
-#: .\apps\chat\views.py:882
+#: .\apps\chat\views.py:849
 msgid "Session ID va umumiy baho talab qilinadi"
 msgstr "Требуется ID сессии и общая оценка"
 
-#: .\apps\chat\views.py:890
+#: .\apps\chat\views.py:857
 msgid "Session topilmadi"
 msgstr "Сессия не найдена"
 
-#: .\apps\chat\views.py:910
+#: .\apps\chat\views.py:877
 msgid "Fikr-mulohaza saqlandi. Rahmat!"
 msgstr "Отзыв сохранен. Спасибо!"
 
-#: .\apps\chat\views.py:919
+#: .\apps\chat\views.py:886
 msgid "Fikr-mulohaza yuborishda xatolik"
 msgstr "Ошибка при отправке отзыва"
 
-#: .\templates\admin2\base_site.html:4
-msgid "Django site admin"
-msgstr ""
+# Chat interface
+#~ msgid "Tibbiy Chat - AI Yordamchi"
+#~ msgstr "Медицинский Чат - AI-Помощник"
+
+#~ msgid "Chat Interface"
+#~ msgstr "Интерфейс Чата"
 
 # Base template translations
-#: .\templates\admin2\base_site.html:16
 #, fuzzy
-#| msgid "Tibbiy Konsultatsiya Tizimi"
-msgid "Tibbiy Konsultatsiya Admin"
-msgstr "Система Медицинских Консультаций"
+#~| msgid "Tibbiy Konsultatsiya Tizimi"
+#~ msgid "Tibbiy Konsultatsiya Admin"
+#~ msgstr "Система Медицинских Консультаций"
 
 # Base template translations
-#: .\templates\base.html:9
-msgid "Tibbiy Konsultatsiya Tizimi"
-msgstr "Система Медицинских Консультаций"
+#~ msgid "Tibbiy Konsultatsiya Tizimi"
+#~ msgstr "Система Медицинских Консультаций"
 
-#: .\templates\base.html:308 .\templates\base.html:365
-msgid "Chat tayyorlanmoqda..."
-msgstr "Чат готовится..."
+#~ msgid "Chat tayyorlanmoqda..."
+#~ msgstr "Чат готовится..."
 
-#: .\templates\base.html:345
 #, fuzzy
-#| msgid "Tibbiy Konsultatsiya Chat"
-msgid "Tibbiy Konsultatsiya"
-msgstr "Чат Медицинских Консультаций"
+#~| msgid "Tibbiy Konsultatsiya Chat"
+#~ msgid "Tibbiy Konsultatsiya"
+#~ msgstr "Чат Медицинских Консультаций"
 
-#: .\templates\base.html:346 .\templates\chat\chat_room.html:449
-msgid "AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping"
-msgstr "Общайтесь с AI-помощником, чтобы найти подходящего врача"
+#~ msgid "AI yordamchi bilan muloqot qilib, to'g'ri shifokorni toping"
+#~ msgstr "Общайтесь с AI-помощником, чтобы найти подходящего врача"
 
-#: .\templates\base.html:351
-msgid "Sog'ligingiz - bizning ustuvorligimiz"
-msgstr "Ваше здоровье - наш приоритет"
+#~ msgid "Sog'ligingiz - bizning ustuvorligimiz"
+#~ msgstr "Ваше здоровье - наш приоритет"
 
-#: .\templates\base.html:352
-msgid ""
-"Zamonaviy AI texnologiyasi yordamida sizning tibbiy muammolaringizni tahlil "
-"qilib, eng mos shifokorni topishga yordam beramiz. Tez, oson va ishonchli!"
-msgstr ""
-"С помощью современных AI-технологий мы анализируем ваши медицинские проблемы "
-"и помогаем найти наиболее подходящего врача. Быстро, легко и надежно!"
+#~ msgid ""
+#~ "Zamonaviy AI texnologiyasi yordamida sizning tibbiy muammolaringizni "
+#~ "tahlil qilib, eng mos shifokorni topishga yordam beramiz. Tez, oson va "
+#~ "ishonchli!"
+#~ msgstr ""
+#~ "С помощью современных AI-технологий мы анализируем ваши медицинские "
+#~ "проблемы и помогаем найти наиболее подходящего врача. Быстро, легко и "
+#~ "надежно!"
 
-#: .\templates\base.html:356
-msgid "Chat Boshlash"
-msgstr "Начать Чат"
+#~ msgid "Chat Boshlash"
+#~ msgstr "Начать Чат"
 
-#: .\templates\base.html:359
-msgid "Shifokorlar"
-msgstr "Врачи"
+#~ msgid "Shifokorlar"
+#~ msgstr "Врачи"
 
 # Features section
-#: .\templates\base.html:372
-msgid "AI Yordamchi"
-msgstr "AI-Помощник"
+#~ msgid "AI Yordamchi"
+#~ msgstr "AI-Помощник"
 
-#: .\templates\base.html:373
-msgid ""
-"Ilg'or sun'iy intellekt yordamida sizning simptomlaringizni tahlil qilib, "
-"to'g'ri mutaxassisni aniqlaydi"
-msgstr ""
-"С помощью передового искусственного интеллекта анализирует ваши симптомы и "
-"определяет правильного специалиста"
+#~ msgid ""
+#~ "Ilg'or sun'iy intellekt yordamida sizning simptomlaringizni tahlil qilib, "
+#~ "to'g'ri mutaxassisni aniqlaydi"
+#~ msgstr ""
+#~ "С помощью передового искусственного интеллекта анализирует ваши симптомы "
+#~ "и определяет правильного специалиста"
 
-#: .\templates\base.html:378
-msgid "Tez va Oson"
-msgstr "Быстро и Легко"
+#~ msgid "Tez va Oson"
+#~ msgstr "Быстро и Легко"
 
-#: .\templates\base.html:379
-msgid ""
-"Bir necha daqiqada muammoingizni tasvirlab, mos shifokorlarni topishingiz "
-"mumkin"
-msgstr ""
-"За несколько минут вы можете описать свою проблему и найти подходящих врачей"
+#~ msgid ""
+#~ "Bir necha daqiqada muammoingizni tasvirlab, mos shifokorlarni topishingiz "
+#~ "mumkin"
+#~ msgstr ""
+#~ "За несколько минут вы можете описать свою проблему и найти подходящих "
+#~ "врачей"
 
-#: .\templates\base.html:384
-msgid "Aniq Tavsiya"
-msgstr "Точные Рекомендации"
+#~ msgid "Aniq Tavsiya"
+#~ msgstr "Точные Рекомендации"
 
-#: .\templates\base.html:385
-msgid "Tajribali va yuqori reytingli shifokorlar ro'yxatini olasiz"
-msgstr "Получите список опытных врачей с высоким рейтингом"
+#~ msgid "Tajribali va yuqori reytingli shifokorlar ro'yxatini olasiz"
+#~ msgstr "Получите список опытных врачей с высоким рейтингом"
 
-#: .\templates\base.html:390
-msgid "Xavfsiz"
-msgstr "Безопасно"
+#~ msgid "Xavfsiz"
+#~ msgstr "Безопасно"
 
-#: .\templates\base.html:391
-msgid ""
-"Sizning shaxsiy ma'lumotlaringiz to'liq himoyalangan va maxfiy saqlanadi"
-msgstr "Ваша личная информация полностью защищена и хранится конфиденциально"
+#~ msgid ""
+#~ "Sizning shaxsiy ma'lumotlaringiz to'liq himoyalangan va maxfiy saqlanadi"
+#~ msgstr ""
+#~ "Ваша личная информация полностью защищена и хранится конфиденциально"
 
-#: .\templates\base.html:396
-msgid "Online Konsultatsiya"
-msgstr "Онлайн Консультация"
+#~ msgid "Online Konsultatsiya"
+#~ msgstr "Онлайн Консультация"
 
-#: .\templates\base.html:397
-msgid ""
-"Uydan chiqmasdan ham shifokor bilan online uchrashuvga yozilishingiz mumkin"
-msgstr "Вы можете записаться на онлайн-встречу с врачом, не выходя из дома"
+#~ msgid ""
+#~ "Uydan chiqmasdan ham shifokor bilan online uchrashuvga yozilishingiz "
+#~ "mumkin"
+#~ msgstr "Вы можете записаться на онлайн-встречу с врачом, не выходя из дома"
 
-#: .\templates\base.html:402
-msgid "Tasdiqlangan Shifokorlar"
-msgstr "Проверенные Врачи"
+#~ msgid "Tasdiqlangan Shifokorlar"
+#~ msgstr "Проверенные Врачи"
 
-#: .\templates\base.html:403
-msgid "Faqat litsenziyali va tekshirilgan shifokorlar ro'yxati"
-msgstr "Только лицензированные и проверенные врачи"
+#~ msgid "Faqat litsenziyali va tekshirilgan shifokorlar ro'yxati"
+#~ msgstr "Только лицензированные и проверенные врачи"
 
 # Statistics
-#: .\templates\base.html:408
-msgid "Bizning Natijalar"
-msgstr "Наши Результаты"
+#~ msgid "Bizning Natijalar"
+#~ msgstr "Наши Результаты"
 
-#: .\templates\base.html:412
-msgid "Shifokor"
-msgstr "Врач"
+#~ msgid "Shifokor"
+#~ msgstr "Врач"
 
-#: .\templates\base.html:416
-msgid "Chat Sessiya"
-msgstr "Чат-Сессия"
+#~ msgid "Chat Sessiya"
+#~ msgstr "Чат-Сессия"
 
-#: .\templates\base.html:420
-msgid "Mutaxassislik"
-msgstr "Специальность"
+#~ msgid "Mutaxassislik"
+#~ msgstr "Специальность"
 
-#: .\templates\base.html:424
-msgid "Qoniqish Darajasi"
-msgstr "Уровень Удовлетворенности"
+#~ msgid "Qoniqish Darajasi"
+#~ msgstr "Уровень Удовлетворенности"
 
 # Footer
-#: .\templates\base.html:431
-msgid "Tibbiy Konsultatsiya Tizimi. Barcha huquqlar himoyalangan."
-msgstr "Система Медицинских Консультаций. Все права защищены."
+#~ msgid "Tibbiy Konsultatsiya Tizimi. Barcha huquqlar himoyalangan."
+#~ msgstr "Система Медицинских Консультаций. Все права защищены."
 
-#: .\templates\base.html:432
-msgid "API Hujjatlari"
-msgstr "API Документация"
+#~ msgid "API Hujjatlari"
+#~ msgstr "API Документация"
 
-#: .\templates\base.html:432
-msgid "Admin Panel"
-msgstr "Админ Панель"
+#~ msgid "Admin Panel"
+#~ msgstr "Админ Панель"
 
-#: .\templates\chat\chat_room.html:448
-msgid "Tibbiy Konsultatsiya Chat"
-msgstr "Чат Медицинских Консультаций"
+#~ msgid "Tibbiy Konsultatsiya Chat"
+#~ msgstr "Чат Медицинских Консультаций"
 
-#: .\templates\chat\chat_room.html:452
-msgid "AI Yordamchi Faol"
-msgstr "AI-Помощник Активен"
+#~ msgid "AI Yordamchi Faol"
+#~ msgstr "AI-Помощник Активен"
 
-#: .\templates\chat\chat_room.html:454
-msgid "AI Yordamchi Mavjud Emas"
-msgstr "AI-Помощник Недоступен"
+#~ msgid "AI Yordamchi Mavjud Emas"
+#~ msgstr "AI-Помощник Недоступен"
 
-#: .\templates\chat\chat_room.html:473
-msgid "Xush kelibsiz!"
-msgstr "Добро пожаловать!"
+#~ msgid "Xush kelibsiz!"
+#~ msgstr "Добро пожаловать!"
 
-#: .\templates\chat\chat_room.html:474
-msgid ""
-"Men sizning tibbiy yordamchingizman. Muammoingizni batafsil aytib bering, "
-"men sizga eng mos shifokorni topib beraman."
-msgstr ""
-"Я ваш медицинский помощник. Расскажите подробно о вашей проблеме, и я найду "
-"для вас наиболее подходящего врача."
+#~ msgid ""
+#~ "Men sizning tibbiy yordamchingizman. Muammoingizni batafsil aytib bering, "
+#~ "men sizga eng mos shifokorni topib beraman."
+#~ msgstr ""
+#~ "Я ваш медицинский помощник. Расскажите подробно о вашей проблеме, и я "
+#~ "найду для вас наиболее подходящего врача."
 
-#: .\templates\chat\chat_room.html:486
-msgid "AI javob yozmoqda..."
-msgstr "AI пишет ответ..."
+#~ msgid "AI javob yozmoqda..."
+#~ msgstr "AI пишет ответ..."
 
-#: .\templates\chat\chat_room.html:498
-msgid "Muammoingizni batafsil yozing..."
-msgstr "Опишите вашу проблему подробно..."
+#~ msgid "Muammoingizni batafsil yozing..."
+#~ msgstr "Опишите вашу проблему подробно..."
 
-#: .\templates\chat\chat_room.html:501
-msgid "Yuborish"
-msgstr "Отправить"
+#~ msgid "Yuborish"
+#~ msgstr "Отправить"
 
 # Doctor specialties (for consistency)
 #~ msgid "Terapevt"
