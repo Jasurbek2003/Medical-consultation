@@ -480,7 +480,7 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
 class DoctorTranslationAdmin(admin.ModelAdmin):
     list_display = [
         'get_doctor_info', 'get_translation_status', 'get_supported_languages',
-        'last_updated', 'get_translation_actions'
+        'last_updated',
     ]
     list_filter = ['doctor__specialty', 'doctor__verification_status']
     search_fields = [
@@ -601,20 +601,20 @@ class DoctorTranslationAdmin(admin.ModelAdmin):
 
     last_updated.short_description = '📅 Updated'
 
-    def get_translation_actions(self, obj):
-        doctor_id = obj.doctor.id
-        translate_url = reverse('admin:translate_doctor_profile', args=[doctor_id])
-        refresh_url = reverse('admin:refresh_doctor_translation', args=[doctor_id])
-
-        return format_html(
-            '<div style="display: flex; gap: 5px; flex-direction: column;">'
-            '<a href="{}" style="background: #28a745; color: white; padding: 4px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; text-align: center;">🔄 Retranslate</a>'
-            '<a href="{}" style="background: #17a2b8; color: white; padding: 4px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; text-align: center;">🔄 Refresh</a>'
-            '</div>',
-            translate_url, refresh_url
-        )
-
-    get_translation_actions.short_description = '⚡ Actions'
+    # def get_translation_actions(self, obj):
+    #     doctor_id = obj.doctor.id
+    #     translate_url = reverse('admin:translate_doctor_profile', args=[doctor_id])
+    #     refresh_url = reverse('admin:refresh_doctor_translation', args=[doctor_id])
+    #
+    #     return format_html(
+    #         '<div style="display: flex; gap: 5px; flex-direction: column;">'
+    #         '<a href="{}" style="background: #28a745; color: white; padding: 4px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; text-align: center;">🔄 Retranslate</a>'
+    #         '<a href="{}" style="background: #17a2b8; color: white; padding: 4px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; text-align: center;">🔄 Refresh</a>'
+    #         '</div>',
+    #         translate_url, refresh_url
+    #     )
+    #
+    # get_translation_actions.short_description = '⚡ Actions'
 
     def get_translation_preview(self, obj):
         if not obj.translations:
