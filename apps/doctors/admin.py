@@ -464,7 +464,7 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
     has_certificate.short_description = '📜 Sertifikat'
 
     def certificate_info(self, obj):
-        if obj.certificate:
+        if obj.certificate_image:
             return format_html(
                 '<a href="{}" target="_blank" style="color: #007bff; text-decoration: none;">'
                 '📄 Sertifikatni ko\'rish</a>',
