@@ -925,7 +925,7 @@ class DoctorServiceAdmin(admin.ModelAdmin):
     def price_formatted(self, obj):
         return format_html(
             '<div style="text-align: center; background: #f8f9fa; padding: 6px; border-radius: 8px; border-left: 3px solid #28a745;">'
-            '<span style="color: #28a745; font-weight: 600; font-size: 13px;">💰 {:,} so\'m</span>'
+            '<span style="color: #28a745; font-weight: 600; font-size: 13px;">💰 {} so\'m</span>'
             '</div>',
             int(obj.price)
         )
