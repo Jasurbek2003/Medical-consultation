@@ -3,7 +3,8 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse, path
 from django.utils.html import format_html
 
-from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles, DoctorServiceName
+from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles, DoctorServiceName, \
+    DoctorService
 from .services.translation_service import DoctorTranslationService
 
 
@@ -870,3 +871,103 @@ class DoctorServiceNameAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #6c757d;">No description</span>')
     description.short_description = '📝 Tavsif'
+
+@admin.register(DoctorService)
+class DoctorServiceAdmin(admin.ModelAdmin):
+    list_display = ['get_service_info', 'doctor_name', 'price_formatted', 'duration_formatted', 'status_badge']
+    list_filter = ['is_active', 'name', 'doctor__specialty']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name', 'name__name']
+    autocomplete_fields = ['doctor', 'name']
+    list_per_page = 20
+
+    fieldsets = (
+        ('👨‍⚕️ Shifokor', {
+            'fields': ('doctor',),
+        }),
+        ('🛠️ Xizmat Ma\'lumotlari', {
+            'fields': ('name', 'description', 'price', 'duration', 'is_active'),
+            'classes': ('wide',)
+        }),
+        ('📅 Vaqt', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ['created_at', 'updated_at']
+
+    def get_service_info(self, obj):
+        return format_html(
+            '<div style="display: flex; align-items: center; gap: 8px;">'
+            '<span style="font-size: 18px;">🛠️</span>'
+            '<div>'
+            '<strong style="color: #333;">{}</strong>'
+            '<br><small style="color: #666;">{}</small>'
+            '</div>'
+            '</div>',
+            obj.name.name,
+            obj.description[:50] + '...' if obj.description and len(obj.description) > 50 else obj.description or 'Tavsif yo\'q'
+        )
+    get_service_info.short_description = '🛠️ Xizmat'
+
+    def doctor_name(self, obj):
+        return format_html(
+            '<div>'
+            '<strong>Dr. {} {}</strong>'
+            '<br><small style="color: #666;">🩺 {}</small>'
+            '</div>',
+            obj.doctor.user.first_name,
+            obj.doctor.user.last_name,
+            obj.doctor.get_specialty_display()
+        )
+    doctor_name.short_description = '👨‍⚕️ Shifokor'
+
+    def price_formatted(self, obj):
+        return format_html(
+            '<div style="text-align: center; background: #f8f9fa; padding: 6px; border-radius: 8px; border-left: 3px solid #28a745;">'
+            '<span style="color: #28a745; font-weight: 600; font-size: 13px;">💰 {:,} so\'m</span>'
+            '</div>',
+            int(obj.price)
+        )
+    price_formatted.short_description = '💰 Narx'
+
+    def duration_formatted(self, obj):
+        return format_html(
+            '<div style="text-align: center; background: #e3f2fd; padding: 6px; border-radius: 8px;">'
+            '<span style="color: #1565c0; font-weight: 600;">⏱️ {} daq</span>'
+            '</div>',
+            obj.duration
+        )
+    duration_formatted.short_description = '⏱️ Davomiylik'
+
+    def status_badge(self, obj):
+        if obj.is_active:
+            return format_html(
+                '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+                '✅ Faol</span>'
+            )
+        return format_html(
+            '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+            '❌ Nofaol</span>'
+        )
+    status_badge.short_description = '📊 Holat'
+
+    actions = ['activate_services', 'deactivate_services']
+
+    def activate_services(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(
+            request,
+            f'✅ {updated} ta xizmat faollashtirildi.',
+            level='SUCCESS'
+        )
+    activate_services.short_description = "✅ Xizmatlarni faollashtirish"
+
+    def deactivate_services(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(
+            request,
+            f'❌ {updated} ta xizmat nofaol qilindi.',
+            level='INFO'
+        )
+    deactivate_services.short_description = "❌ Xizmatlarni nofaol qilish"
