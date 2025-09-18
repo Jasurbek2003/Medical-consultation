@@ -426,11 +426,11 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
             'fields': ('doctor',),
         }),
         ('🎓 Mutaxassislik', {
-            'fields': ('name', 'description'),
+            'fields': ('specialty_name', 'description'),
             'classes': ('wide',)
         }),
         ('📜 Sertifikat', {
-            'fields': ('certificate',),
+            'fields': ('certificate_image',),
             'classes': ('wide',)
         }),
     )
@@ -451,13 +451,13 @@ class DoctorSpecializationAdmin(admin.ModelAdmin):
         return format_html(
             '<span style="background: #007bff; color: white; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;">'
             '🎓 {}</span>',
-            obj.name
+            obj.specialty_name
         )
 
     specialization_name.short_description = '🎓 Mutaxassislik'
 
     def has_certificate(self, obj):
-        if obj.certificate:
+        if obj.certificate_image:
             return format_html('<span style="color: #28a745; font-weight: 600;">✅ Bor</span>')
         return format_html('<span style="color: #dc3545; font-weight: 600;">❌ Yo\'q</span>')
 
