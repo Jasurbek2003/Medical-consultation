@@ -54,14 +54,14 @@ CLASSIFICATION_PROMPT_RU = """
 ЖАЛОБА ПАЦИЕНТА: "{user_message}"
 
 ПРАВИЛА:
-1. Уровень уверенности должен быть от 0 до 1
+1. Уровень уверенности должен быть от 0 до 1 (например, 0.85 или 0.40)
 2. Объяснение должно быть ясным и кратким
 3. Если не уверены, запросите дополнительную информацию
-4. Ответ должен быть от второго лица.
+4. Ответ должен быть от второго лица. (Не используйте слова третьего лица, такие как Пациент, Больной и т.д.)
 
 ПРЕДОСТАВЬТЕ ОТВЕТ ТОЛЬКО В ФОРМАТЕ JSON:
 {{
-    "specialty": "имя_специалиста(in latin letters)",
+    "specialty": "имя_специалиста(in latin letters. e.g., terapevt, stomatolog, kardiolog etc.)",
     "confidence": "уровень_уверенности",
     "explanation": "Объясните, почему вы выбрали этого специалиста"
 }}
@@ -84,7 +84,7 @@ AVAILABLE SPECIALISTS:
 PATIENT'S COMPLAINT: "{user_message}"
 
 RULES:
-1. Confidence level should be between 0 and 1
+1. Confidence level should be between 0 and 1. (e.g., 0.85 or 0.40)
 2. Explanation should be clear and concise
 3. If unsure, ask for additional information
 4. Response should be in the second person.
