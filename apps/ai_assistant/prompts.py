@@ -31,7 +31,7 @@ QOIDALAR:
 JAVOBNI FAQAT JSON FORMATIDA BERING:
 {{
     "specialty": "mutaxassis_nomi",
-    "confidence": "ishonch darajasi(0 dan 100 gacha)",
+    "confidence": "ishonch darajasi",
     "explanation": "Nima uchun bu mutaxassisni tanlaganingizni tushuntiring",
 }}
 """
@@ -62,7 +62,7 @@ CLASSIFICATION_PROMPT_RU = """
 ПРЕДОСТАВЬТЕ ОТВЕТ ТОЛЬКО В ФОРМАТЕ JSON:
 {{
     "specialty": "имя_специалиста(in latin letters)",
-    "confidence": "уровень_уверенности(от 0 до 100)",
+    "confidence": "уровень_уверенности",
     "explanation": "Объясните, почему вы выбрали этого специалиста"
 }}
 """
@@ -92,7 +92,7 @@ RULES:
 PROVIDE ANSWER ONLY IN JSON FORMAT:
 {{
     "specialty": "specialist_name",
-    "confidence": "confidence_level(between 0 and 100)",
+    "confidence": "confidence_level",
     "explanation": "Explain why you chose this specialist"
 }}
 """
