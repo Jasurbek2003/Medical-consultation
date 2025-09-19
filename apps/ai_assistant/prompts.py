@@ -23,7 +23,7 @@ MAVJUD MUTAXASSISLAR:
 BEMORNING SHIKOYATI: "{user_message}"
 
 QOIDALAR:
-1. Ishonch darajasi 0 dan 100 gacha bo'lishi kerak
+1. Ishonch darajasi 0 bilan 100 oralig'ida bo'lishi kerak 
 2. Tushuntirish aniq va qisqa bo'lsin
 3. Agar aniq bo'lmasa, Qo'shimcha ma'lumot so'rang
 4. Javob 2-shaxs nomidan bo'lsin.
