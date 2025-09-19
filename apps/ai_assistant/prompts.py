@@ -23,7 +23,7 @@ MAVJUD MUTAXASSISLAR:
 BEMORNING SHIKOYATI: "{user_message}"
 
 QOIDALAR:
-1. Ishonch darajasi 0% dan 100% gacha bo'lishi kerak
+1. Ishonch darajasi 0.0 dan 1.0 gacha bo'lishi kerak
 2. Tushuntirish aniq va qisqa bo'lsin
 3. Agar aniq bo'lmasa, Qo'shimcha ma'lumot so'rang
 4. Javob 2-shaxs nomidan bo'lsin.
@@ -31,7 +31,7 @@ QOIDALAR:
 JAVOBNI FAQAT JSON FORMATIDA BERING:
 {{
     "specialty": "mutaxassis_nomi",
-    "confidence": "ishonch darajasi(0% dan 100% gacha)",
+    "confidence": "ishonch darajasi(0.0 dan 1.0 gacha)",
     "explanation": "Nima uchun bu mutaxassisni tanlaganingizni tushuntiring",
 }}
 """
@@ -54,7 +54,7 @@ CLASSIFICATION_PROMPT_RU = """
 ЖАЛОБА ПАЦИЕНТА: "{user_message}"
 
 ПРАВИЛА:
-1. Уровень уверенности должен быть от 0% до 100%
+1. Уровень уверенности должен быть от 0.0 до 1.0
 2. Объяснение должно быть ясным и кратким
 3. Если не уверены, запросите дополнительную информацию
 4. Ответ должен быть от второго лица.
@@ -62,7 +62,7 @@ CLASSIFICATION_PROMPT_RU = """
 ПРЕДОСТАВЬТЕ ОТВЕТ ТОЛЬКО В ФОРМАТЕ JSON:
 {{
     "specialty": "имя_специалиста(in latin letters)",
-    "confidence": "уровень_уверенности(от 0% до 100%)",
+    "confidence": "уровень_уверенности(от 0.0 до 1.0)",
     "explanation": "Объясните, почему вы выбрали этого специалиста"
 }}
 """
@@ -84,7 +84,7 @@ AVAILABLE SPECIALISTS:
 PATIENT'S COMPLAINT: "{user_message}"
 
 RULES:
-1. Confidence level should be between 0% and 100%
+1. Confidence level should be between 0.0 and 1.0
 2. Explanation should be clear and concise
 3. If unsure, ask for additional information
 4. Response should be in the second person.
@@ -92,7 +92,7 @@ RULES:
 PROVIDE ANSWER ONLY IN JSON FORMAT:
 {{
     "specialty": "specialist_name",
-    "confidence": 0.95,
+    "confidence": "confidence_level(between 0.0 and 1.0)",
     "explanation": "Explain why you chose this specialist"
 }}
 """
