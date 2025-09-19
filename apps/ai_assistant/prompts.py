@@ -16,17 +16,17 @@ MAVJUD MUTAXASSISLAR:
 - LOR: quloq-burun-tomoq kasalliklari
 - Ortoped: suyak va bo'g'im kasalliklari, jarohatlar
 - Psixiatr: ruhiy salomatlik, depressiya, tashvish
-- Rndokrinolog: gormonlar, diabet, qalqonsimon bez
+- Endokrinolog: gormonlar, diabet, qalqonsimon bez
 - Gastroenterolog: oshqozon-ichak kasalliklari, jigar muammolari
 - Pulmonolog: o'pka kasalliklari, nafas olish muammolari
 
 BEMORNING SHIKOYATI: "{user_message}"
 
 QOIDALAR:
-1. Ishonch darajasi 0 bilan 1 oralig'ida bo'lishi kerak 
+1. Ishonch darajasi 0 bilan 1 oralig'ida bo'lishi kerak. Masalan, 0.85 yoki 0.40
 2. Tushuntirish aniq va qisqa bo'lsin
 3. Agar aniq bo'lmasa, Qo'shimcha ma'lumot so'rang
-4. Javob 2-shaxs nomidan bo'lsin.
+4. Javob 2-shaxs nomidan bo'lsin.(Eslatma Bemor, Kasal va shunga o'xshash 3-shaxs so'zlaridan foydalanmang)
 
 JAVOBNI FAQAT JSON FORMATIDA BERING:
 {{
