@@ -8,9 +8,9 @@ class DoctorFilter(django_filters.FilterSet):
     """Enhanced doctor filtering with location support"""
 
     # Basic filters
-    specialty = django_filters.ChoiceFilter(
-        choices=Doctor.SPECIALTIES,
-        help_text="Filter by specialty"
+    specialty = django_filters.CharFilter(
+        method='filter_specialty',
+        help_text="Filter by specialty (case-insensitive)"
     )
 
     verification_status = django_filters.ChoiceFilter(
@@ -138,6 +138,12 @@ class DoctorFilter(django_filters.FilterSet):
             'min_experience', 'max_experience', 'min_price',
             'max_price', 'min_rating', 'hospital', 'languages'
         ]
+
+    def filter_specialty(self, queryset, name, value):
+        """Filter by specialty (case-insensitive)"""
+        if value:
+            return queryset.filter(specialty__iexact=value)
+        return queryset
 
     def filter_search(self, queryset, name, value):
         """General search - name, specialty, workplace, bio, location"""
