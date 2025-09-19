@@ -507,11 +507,6 @@ Feel free to ask! 😊"""
         session.confidence_score = classification_result.get('confidence', 0.5)
         session.save()
 
-        # Mos shifokorlarni topish
-        recommended_doctors = self._get_recommended_doctors(
-            classification_result.get('specialty'),
-            user_context=self._get_user_context(request)
-        )
 
         # Tibbiy maslahat olish
         advice_result = gemini_service.get_medical_advice(
@@ -521,20 +516,10 @@ Feel free to ask! 😊"""
             language=language
         )
 
-        # Shifokor tavsiyasini saqlash
-        if recommended_doctors:
-            DoctorRecommendation.objects.create(
-                session=session,
-                recommended_doctors=recommended_doctors,
-                specialty=classification_result.get('specialty'),
-                reason=classification_result.get('explanation', '')
-            )
 
         # AI javobini formatlash
         ai_response_content = self._format_medical_response(
             classification_result,
-            recommended_doctors,
-            advice_result.get('advice', ''),
             language
         )
 
@@ -544,14 +529,12 @@ Feel free to ask! 😊"""
             'processing_time': advice_result.get('processing_time', 0),
             'metadata': {
                 'classification': classification_result,
-                'doctors': recommended_doctors,
-                'advice': advice_result,
                 'response_type': 'medical_analysis',
                 'language': language
             }
         }
 
-    def _format_medical_response(self, classification, doctors, advice, language='uz'):
+    def _format_medical_response(self, classification,language='uz'):
         """Ko'p tilli tibbiy javobni formatlash"""
         specialty_display = dict(Doctor.SPECIALTIES).get(
             classification.get('specialty'), classification.get('specialty', '')
@@ -619,56 +602,6 @@ Immediately go to the nearest hospitals or call emergency services: 103
 """
             }
             response += emergency_warnings.get(language, emergency_warnings['uz'])
-
-#         if doctors:
-#             response += template['doctors_header'].format(specialty=specialty_display)
-#             for i, doctor in enumerate(doctors[:3], 1):
-#                 online_badge = template['online_badge'] if doctor.get('is_online_consultation') else ""
-#
-#                 doctor_info_templates = {
-#                     'uz': """{i}. **{name}**{online_badge}
-#    - Tajriba: {experience} yil
-#    - Reyting: {rating}/5 ⭐ ({total_reviews} sharh)
-#    - Narx: {consultation_price:,.0f} so'm
-#    - Ish joyi: {workplace}
-#    - Telefon: {phone}
-#
-# """,
-#                     'ru': """{i}. **{name}**{online_badge}
-#    - Опыт: {experience} лет
-#    - Рейтинг: {rating}/5 ⭐ ({total_reviews} отзывов)
-#    - Цена: {consultation_price:,.0f} сум
-#    - Место работы: {workplace}
-#    - Телефон: {phone}
-#
-# """,
-#                     'en': """{i}. **{name}**{online_badge}
-#    - Experience: {experience} years
-#    - Rating: {rating}/5 ⭐ ({total_reviews} reviews)
-#    - Price: {consultation_price:,.0f} sum
-#    - Workplace: {workplace}
-#    - Phone: {phone}
-#
-# """
-#                 }
-#
-#                 doctor_template = doctor_info_templates.get(language, doctor_info_templates['uz'])
-#                 response += doctor_template.format(
-#                     i=i,
-#                     name=doctor['name'],
-#                     online_badge=online_badge,
-#                     experience=doctor['experience'],
-#                     rating=doctor['rating'],
-#                     total_reviews=doctor['total_reviews'],
-#                     consultation_price=doctor['consultation_price'],
-#                     workplace=doctor['workplace'],
-#                     phone=doctor['phone']
-#                 )
-#         else:
-#             response += template['no_doctors'].format(specialty=specialty_display)
-#
-#         if advice:
-#             response += template['advice_header'].format(advice=advice)
 
         response += template['footer']
 
