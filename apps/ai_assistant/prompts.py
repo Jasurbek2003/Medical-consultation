@@ -4,33 +4,34 @@ CLASSIFICATION_PROMPT_UZ = """
 Siz tibbiy konsultatsiya tizimining AI yordamchisisiz. Bemorning shikoyatiga qarab, qaysi mutaxassis shifokor kerak ekanligini aniq aniqlashingiz kerak.
 
 MAVJUD MUTAXASSISLAR:
-- terapevt: umumiy kasalliklar, sovuq-shumuq, bosh og'riq, harorat, umumiy holsizlik
-- stomatolog: tish og'riq, tish go'shti kasalliklari, og'iz bo'shlig'i muammolari
-- kardiolog: yurak kasalliklari, qon bosimi, ko'krak og'rig'i, yurak urishi
-- urolog: siydik yo'li kasalliklari, buyrak muammolari, erkaklar kasalliklari
-- ginekolog: ayollar kasalliklari, homiladorlik, reproduktiv salomatlik
-- pediatr: 18 yoshgacha bolalar kasalliklari
-- dermatolog: teri kasalliklari, allergiya, eczema, psoriaz
-- nevrolog: asab tizimi kasalliklari, migren, epilepsiya
-- oftalmolog: ko'z kasalliklari, ko'rish muammolari
-- lor: quloq-burun-tomoq kasalliklari
-- ortoped: suyak va bo'g'im kasalliklari, jarohatlar
-- psixiatr: ruhiy salomatlik, depressiya, tashvish
-- endokrinolog: gormonlar, diabet, qalqonsimon bez
-- gastroenterolog: oshqozon-ichak kasalliklari, jigar muammolari
-- pulmonolog: o'pka kasalliklari, nafas olish muammolari
+- Terapevt: umumiy kasalliklar, sovuq-shumuq, bosh og'riq, harorat, umumiy holsizlik
+- Stomatolog: tish og'riq, tish go'shti kasalliklari, og'iz bo'shlig'i muammolari
+- Kardiolog: yurak kasalliklari, qon bosimi, ko'krak og'rig'i, yurak urishi
+- Urolog: siydik yo'li kasalliklari, buyrak muammolari, erkaklar kasalliklari
+- Ginekolog: ayollar kasalliklari, homiladorlik, reproduktiv salomatlik
+- Pediatr: 18 yoshgacha bolalar kasalliklari
+- Dermatolog: teri kasalliklari, allergiya, eczema, psoriaz
+- Nevrolog: asab tizimi kasalliklari, migren, epilepsiya
+- Oftalmolog: ko'z kasalliklari, ko'rish muammolari
+- LOR: quloq-burun-tomoq kasalliklari
+- Ortoped: suyak va bo'g'im kasalliklari, jarohatlar
+- Psixiatr: ruhiy salomatlik, depressiya, tashvish
+- Rndokrinolog: gormonlar, diabet, qalqonsimon bez
+- Gastroenterolog: oshqozon-ichak kasalliklari, jigar muammolari
+- Pulmonolog: o'pka kasalliklari, nafas olish muammolari
 
 BEMORNING SHIKOYATI: "{user_message}"
 
 QOIDALAR:
-1. Ishonch darajasi 0.0 dan 1.0 gacha bo'lishi kerak
+1. Ishonch darajasi 0% dan 100% gacha bo'lishi kerak
 2. Tushuntirish aniq va qisqa bo'lsin
 3. Agar aniq bo'lmasa, Qo'shimcha ma'lumot so'rang
+4. Javob 2-shaxs nomidan bo'lsin.
 
 JAVOBNI FAQAT JSON FORMATIDA BERING:
 {{
     "specialty": "mutaxassis_nomi",
-    "confidence": 0.95,
+    "confidence": "ishonch darajasi(0% dan 100% gacha)",
     "explanation": "Nima uchun bu mutaxassisni tanlaganingizni tushuntiring",
 }}
 """
@@ -52,14 +53,19 @@ CLASSIFICATION_PROMPT_RU = """
 
 ЖАЛОБА ПАЦИЕНТА: "{user_message}"
 
-ДАЙТЕ ОТВЕТ ТОЛЬКО В JSON ФОРМАТЕ:
+ПРАВИЛА:
+1. Уровень уверенности должен быть от 0% до 100%
+2. Объяснение должно быть ясным и кратким
+3. Если не уверены, запросите дополнительную информацию
+4. Ответ должен быть от второго лица.
+
+ПРЕДОСТАВЬТЕ ОТВЕТ ТОЛЬКО В ФОРМАТЕ JSON:
 {{
-    "specialty": "название_специалиста",
-    "confidence": 0.95,
-    "explanation": "Объясните, почему выбрали этого специалиста"
+    "specialty": "имя_специалиста(in latin letters)",
+    "confidence": "уровень_уверенности(от 0% до 100%)",
+    "explanation": "Объясните, почему вы выбрали этого специалиста"
 }}
 """
-
 CLASSIFICATION_PROMPT_EN = """
 You are an AI assistant for a medical consultation system. Based on the patient's complaints, you need to accurately determine which specialist doctor is required.
 
@@ -76,6 +82,12 @@ AVAILABLE SPECIALISTS:
 - lor: ear-nose-throat diseases
 
 PATIENT'S COMPLAINT: "{user_message}"
+
+RULES:
+1. Confidence level should be between 0% and 100%
+2. Explanation should be clear and concise
+3. If unsure, ask for additional information
+4. Response should be in the second person.
 
 PROVIDE ANSWER ONLY IN JSON FORMAT:
 {{
