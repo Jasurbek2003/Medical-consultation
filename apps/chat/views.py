@@ -581,7 +581,7 @@ Feel free to ask! 😊"""
 
         response = template['header']
         response += template['specialist'].format(specialty=specialty_display)
-        response += template['confidence'].format(confidence=classification.get('confidence', 0.5) * 100)
+        response += template['confidence'].format(confidence=float(classification.get('confidence', 0.5)) * 100)
         response += template['reason'].format(explanation=classification.get('explanation', ''))
 
         # Shoshilinchlik tekshirish
