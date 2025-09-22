@@ -5,7 +5,7 @@ Comprehensive serializers for hospital and doctor management
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from apps.hospitals.models import Hospital
+from apps.hospitals.models import Hospital, HospitalService
 from apps.doctors.models import Doctor, DoctorTranslation
 from apps.consultations.models import Consultation
 from .models import DoctorComplaint, DoctorComplaintFile
@@ -114,8 +114,16 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
         return data
 
     def get_services(self, obj):
-        """Get list of services offered by the hospital"""
-        return [service.name for service in obj.services.all()]
+        """Get list of services offered by the hospital in HospitalService"""
+        services = HospitalService.objects.filter(hospital=obj)
+        return [
+            {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'price': service.price
+            } for service in services
+        ]
 
 
 class AdminDoctorSerializer(serializers.ModelSerializer):
