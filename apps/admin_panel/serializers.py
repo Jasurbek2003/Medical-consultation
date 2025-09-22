@@ -59,7 +59,7 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
             'region', 'district', 'website', 'description',
             'is_active',
             'doctor_count', 'active_doctor_count', 'total_consultations',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'services'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
