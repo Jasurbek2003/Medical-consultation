@@ -747,7 +747,8 @@ class PaymentSearchSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Populate gateway choices dynamically
-        gateway_choices = [(g.name, g.display_name) for g in PaymentGateway.objects.all()]
+        # gateway_choices = [(g.name, g.display_name) for g in PaymentGateway.objects.all()]
+        gateway_choices = []
         self.fields['gateway'].choices = gateway_choices
 
     def validate(self, attrs):
