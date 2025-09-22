@@ -649,7 +649,6 @@ Immediately go to the nearest hospitals or call emergency services: 103
 
             doctors_data = []
             for doctor in doctors:
-                print(type(doctor))
                 doctors_data.append({
                     'id': doctor.id,
                     'name': doctor.user.get_full_name() or doctor.user.username,
@@ -659,7 +658,7 @@ Immediately go to the nearest hospitals or call emergency services: 103
                     'total_reviews': doctor.total_reviews,
                     'consultation_price': float(doctor.consultation_price),
                     'workplace': doctor.workplace,
-                    'phone': doctor.phone,
+                    'phone': doctor.user.phone_number,
                     'is_online_consultation': doctor.is_online_consultation,
                     'work_hours': f"{doctor.work_start_time.strftime('%H:%M')} - {doctor.work_end_time.strftime('%H:%M')}" if doctor.work_start_time and doctor.work_end_time else 'N/A',
                     'photo_url': doctor.user.avatar.url if doctor.user.avatar else None,
@@ -669,8 +668,8 @@ Immediately go to the nearest hospitals or call emergency services: 103
             print("Recommended doctors data:", doctors_data)
             return doctors_data
 
-        except Exception as e:
-            logger.error(f"Error getting recommended doctors: {e}")
+        except Exception as error:
+            logger.error(f"Error getting recommended doctors: {error}")
             return []
 
 
@@ -706,8 +705,8 @@ def classify_issue(request):
             'language': user_language
         })
 
-    except Exception as e:
-        logger.error(f"Classification error: {e}")
+    except Exception as error:
+        logger.error(f"Classification error: {error}")
         return Response({
             'success': False,
             'error': _('Tahlil qilishda xatolik yuz berdi')

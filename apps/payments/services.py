@@ -1,11 +1,9 @@
 import hashlib
-import hmac
 import json
 import time
 import requests
 from decimal import Decimal
 from django.conf import settings
-from django.utils import timezone
 from django.db import transaction
 from datetime import datetime
 
@@ -193,7 +191,7 @@ class ClickService:
             if error == 0:
                 # Payment successful
                 with transaction.atomic():
-                    payment.mark_completed()
+                    payment.mark_as_completed()
                     click_transaction.error_code = 0
                     click_transaction.save()
 
@@ -204,7 +202,7 @@ class ClickService:
                 }
             else:
                 # Payment failed
-                payment.mark_failed(f"Click error: {error}")
+                payment.mark_as_failed(f"Click error: {error}")
                 click_transaction.error_code = error
                 click_transaction.error_note = data.get('error_note', '')
                 click_transaction.save()
@@ -366,7 +364,7 @@ class PaymeService:
 
             # Create new transaction
             create_time = int(time.time() * 1000)
-            payme_transaction = PaymeTransaction.objects.create(
+            PaymeTransaction.objects.create(
                 payment=payment,
                 payme_id=payme_id,
                 payme_time=payme_time,
@@ -408,7 +406,7 @@ class PaymeService:
                     payme_transaction.save()
 
                     # Mark payment as completed
-                    payme_transaction.payment.mark_completed()
+                    payme_transaction.payment.mark_as_completed()
 
                 return {
                     'result': {
@@ -460,7 +458,7 @@ class PaymeService:
                     payme_transaction.save()
 
                     # Mark payment as failed
-                    payme_transaction.payment.mark_failed(f"Payme cancelled, reason: {reason}")
+                    payme_transaction.payment.mark_as_failed(f"Payme cancelled, reason: {reason}")
 
                 return {
                     'result': {

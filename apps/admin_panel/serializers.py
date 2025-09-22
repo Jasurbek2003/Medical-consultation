@@ -42,6 +42,9 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
     district = serializers.SerializerMethodField()
     region = serializers.SerializerMethodField()
 
+    services = serializers.SerializerMethodField()
+
+
     # Display fields
     hospital_type_display = serializers.CharField(
         source='get_hospital_type_display',
@@ -88,8 +91,6 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
         return value
 
-
-
     def get_region(self, obj):
         """Get region name"""
         data = {
@@ -111,6 +112,10 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
             'name_kr': obj.district.name_kr,
         } if obj.district else None
         return data
+
+    def get_services(self, obj):
+        """Get list of services offered by the hospital"""
+        return [service.name for service in obj.services.all()]
 
 
 class AdminDoctorSerializer(serializers.ModelSerializer):

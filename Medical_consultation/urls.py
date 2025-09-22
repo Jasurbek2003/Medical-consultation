@@ -17,6 +17,8 @@ urlpatterns = [
     path('api/v1/consultations/', include('apps.consultations.api_urls')),
     path('api/v1/chat/', include('apps.chat.api_urls')),
     path('api/v1/translate/', include('apps.translate.urls')),
+    path('api/v1/payments/', include('apps.payments.urls')),
+    path('api/v1/billing/', include('apps.billing.urls')),
 
     # Translation API endpoints
     # path('api/translate/text/', translate_text_api, name='translate-text'),

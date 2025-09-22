@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views as api_views
+from . import wallet_views
 
 app_name = 'payments'
 
@@ -20,6 +21,20 @@ urlpatterns = [
 
     # Payment estimation
     path('estimate/', api_views.estimate_payment, name='estimate_payment'),
+
+    # Wallet management
+    path('wallet/', wallet_views.WalletInfoView.as_view(), name='wallet_info'),
+    path('wallet/transactions/', wallet_views.WalletTransactionsView.as_view(), name='wallet_transactions'),
+    path('wallet/topup/', wallet_views.CreateWalletTopupView.as_view(), name='wallet_topup'),
+    path('wallet/topup/history/', wallet_views.WalletTopupHistoryView.as_view(), name='wallet_topup_history'),
+    path('wallet/balance/', wallet_views.quick_balance_check, name='quick_balance'),
+    path('wallet/estimate/', wallet_views.estimate_topup, name='estimate_topup'),
+
+    # Billing and service charging
+    path('billing/rules/', wallet_views.BillingRulesView.as_view(), name='billing_rules'),
+    path('billing/summary/', wallet_views.UserBillingSummaryView.as_view(), name='billing_summary'),
+    path('billing/check-access/', wallet_views.CheckServiceAccessView.as_view(), name='check_service_access'),
+    path('billing/charge/', wallet_views.ChargeForServiceView.as_view(), name='charge_service'),
 
     # Click payment webhooks
     path('click/webhook/', api_views.ClickWebhookView.as_view(), name='click_webhook'),

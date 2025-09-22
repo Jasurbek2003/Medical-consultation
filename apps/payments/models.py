@@ -576,10 +576,20 @@ class Payment(models.Model):
 
             # Update user wallet if it's a topup
             if self.payment_type == 'wallet_topup':
-                self.user.wallet.add_balance(
-                    self.amount,
-                    f"Hamyon to'ldirish - {self.gateway.display_name} - {self.reference_number}"
-                )
+                try:
+                    # Get or create wallet for user
+                    from apps.billing.models import UserWallet
+                    wallet, created = UserWallet.objects.get_or_create(user=self.user)
+
+                    wallet.add_balance(
+                        self.amount,
+                        f"Hamyon to'ldirish - {self.gateway.display_name} - {self.reference_number}"
+                    )
+                except Exception as e:
+                    # Log error but don't fail the payment completion
+                    import logging
+                    logger = logging.getLogger('apps.payments')
+                    logger.error(f"Failed to update wallet for payment {self.reference_number}: {str(e)}")
 
             # Update gateway last used
             self.gateway.update_last_used()
