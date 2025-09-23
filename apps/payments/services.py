@@ -48,7 +48,7 @@ class ClickService:
             'amount': str(payment.total_amount),
             'transaction_param': str(payment.id),
             'return_url': payment.callback_url or settings.FRONTEND_URL,
-            'card_type': '1'  # All cards
+            # 'card_type': '1'  # All cards
         }
 
         # Create signature

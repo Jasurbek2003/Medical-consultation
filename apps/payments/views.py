@@ -42,7 +42,7 @@ class CreatePaymentView(APIView):
         """Create payment for wallet topup"""
         gateway_name = request.data.get('gateway')
         amount = request.data.get('amount')
-        return_url = request.data.get('return_url', '')
+        return_url = request.data.get('callback_url', '')
 
         if not gateway_name or not amount:
             return Response({
@@ -117,6 +117,7 @@ class CreatePaymentView(APIView):
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            print(e)
             return Response({
                 'success': False,
                 'error': 'Payment creation failed'

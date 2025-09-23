@@ -238,9 +238,9 @@ def create_hospital_admin(request):
         username = request.POST.get('username', '')
         hospital_id = request.POST.get('hospital_id')
         password = request.POST.get('password')
-        region = request.POST.get('region', None)
+        region_id = request.POST.get('region', None)
         district = request.POST.get('district', None)
-        region_ = Regions.objects.get(id=region)
+        region_ = Regions.objects.get(id=region_id)
         district_ = Districts.objects.get(id=district)
         gender = request.POST.get('gender', None)
 
