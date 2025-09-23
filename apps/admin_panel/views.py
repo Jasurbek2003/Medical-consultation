@@ -283,6 +283,7 @@ def create_hospital_admin(request):
                 birth_date=birth_date
             )
             user.username = username if username else f'admin_{hospital.id}_{phone}'
+            user.gender = gender if gender else 'male'
             user.save()
 
             messages.success(request, f'Shifoxona administratori {user.get_full_name()} muvaffaqiyatli yaratildi.')
