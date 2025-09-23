@@ -240,8 +240,14 @@ def create_hospital_admin(request):
         password = request.POST.get('password')
         region_id = request.POST.get('region', None)
         district = request.POST.get('district', None)
-        region_ = Regions.objects.get(id=region_id)
-        district_ = Districts.objects.get(id=district)
+        if region_id:
+            region_ = Regions.objects.get(id=int(region_id))
+        else:
+            region_ = None
+        if district:
+            district_ = Districts.objects.get(id=int(district))
+        else:
+            district_ = None
         gender = request.POST.get('gender', None)
         birth_date = request.POST.get('birth_date', None)
 
