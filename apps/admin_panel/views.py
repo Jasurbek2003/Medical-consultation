@@ -272,6 +272,7 @@ def create_hospital_admin(request):
                 last_name=last_name,
                 user_type='hospital_admin',
                 managed_hospital=hospital,
+                username=username,
                 is_verified=True,
                 is_approved_by_admin=True,
                 approved_by=request.user,
