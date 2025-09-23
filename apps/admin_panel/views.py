@@ -242,10 +242,12 @@ def create_hospital_admin(request):
         district = request.POST.get('district', None)
         if region_id:
             region_ = Regions.objects.get(id=int(region_id))
+            print(region_, type(region_), "region_id")
         else:
             region_ = None
         if district:
             district_ = Districts.objects.get(id=int(district))
+            print(district_, type(district_), "district_id")
         else:
             district_ = None
         gender = request.POST.get('gender', None)
