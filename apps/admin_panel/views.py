@@ -262,6 +262,8 @@ def create_hospital_admin(request):
             # Get hospital
             hospital = get_object_or_404(Hospital, id=hospital_id)
 
+            print("hospital", hospital)
+
             # Create hospital admin user
             user = User.objects.create_user(
                 phone=phone,
