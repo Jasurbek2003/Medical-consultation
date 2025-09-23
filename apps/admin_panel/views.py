@@ -270,7 +270,6 @@ def create_hospital_admin(request):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                username=username,
                 user_type='hospital_admin',
                 managed_hospital=hospital,
                 is_verified=True,
@@ -282,6 +281,8 @@ def create_hospital_admin(request):
                 gender=gender,
                 birth_date=birth_date
             )
+            user.username = username if username else f'admin_{hospital.id}_{phone}'
+            user.save()
 
             messages.success(request, f'Shifoxona administratori {user.get_full_name()} muvaffaqiyatli yaratildi.')
 
