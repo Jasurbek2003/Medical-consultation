@@ -36,7 +36,7 @@ class PaymentGatewayListView(APIView):
 
 class CreatePaymentView(APIView):
     """Create a new payment"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         """Create payment for wallet topup"""

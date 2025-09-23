@@ -11,6 +11,7 @@ router.register(r'complaints', views.DoctorComplaintViewSet, basename='doctor-co
 router.register(r'complaint-files', views.DoctorComplaintFileViewSet, basename='complaint-file')
 urlpatterns = [
     path('dashboard/', views.AdminDashboardAPIView.as_view(), name='dashboard'),
+    path('hospitals/create-admin/', views.create_hospital_admin, name='create_hospital_admin'),
     path('', include(router.urls)),
 
     # Doctor Management
@@ -21,7 +22,6 @@ urlpatterns = [
 
     # User Management
     path('hospitals/', views.hospital_management, name='hospital_management'),
-    path('hospitals/create-admin/', views.create_hospital_admin, name='create_hospital_admin'),
 
     # Statistics and Reports
     path('export/', views.export_data, name='export_data'),

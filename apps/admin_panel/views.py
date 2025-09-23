@@ -15,9 +15,10 @@ from rest_framework.views import APIView
 
 from apps.doctors.models import Doctor
 from apps.doctors.serializers import DoctorSerializer
-from apps.hospitals.models import Hospital
+from apps.hospitals.models import Hospital, Regions, Districts
 from apps.consultations.models import Consultation
 from apps.hospitals.serializers import HospitalSerializer
+from test import region
 from .models import DoctorComplaint, DoctorComplaintFile
 
 from .serializers import (
@@ -234,9 +235,13 @@ def create_hospital_admin(request):
         phone = request.POST.get('phone')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
-        email = request.POST.get('email', '')
+        username = request.POST.get('username', '')
         hospital_id = request.POST.get('hospital_id')
         password = request.POST.get('password')
+        region = request.POST.get('region', None)
+        district = request.POST.get('district', None)
+        region_ = Regions.objects.get(id=region)
+        district_ = Districts.objects.get(id=district)
 
         try:
             # Check if user with this phone already exists
@@ -253,13 +258,15 @@ def create_hospital_admin(request):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                email=email,
+                username=username,
                 user_type='hospital_admin',
                 managed_hospital=hospital,
                 is_verified=True,
                 is_approved_by_admin=True,
                 approved_by=request.user,
-                approval_date=timezone.now()
+                approval_date=timezone.now(),
+                region=region_,
+                district=district_,
             )
 
             messages.success(request, f'Shifoxona administratori {user.get_full_name()} muvaffaqiyatli yaratildi.')
