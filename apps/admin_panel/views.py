@@ -243,6 +243,7 @@ def create_hospital_admin(request):
         region_ = Regions.objects.get(id=region_id)
         district_ = Districts.objects.get(id=district)
         gender = request.POST.get('gender', None)
+        birth_date = request.POST.get('birth_date', None)
 
         try:
             # Check if user with this phone already exists
@@ -268,7 +269,8 @@ def create_hospital_admin(request):
                 approval_date=timezone.now(),
                 region=region_,
                 district=district_,
-                gender=gender
+                gender=gender,
+                birth_date=birth_date
             )
 
             messages.success(request, f'Shifoxona administratori {user.get_full_name()} muvaffaqiyatli yaratildi.')
