@@ -885,8 +885,8 @@ for region_data in data:
             name=district_data["value"],
             region=region
         )
-        print(f"Created district: {district_data['value']} in region: {region.name}")
-
-    print(f"Created region: {region.name}")
+        # print(f"Created district: {district_data['value']} in region: {region.name}")
+    #
+    # print(f"Created region: {region.name}")
 
 print("All regions and districts have been created.")

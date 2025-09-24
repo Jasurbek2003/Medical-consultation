@@ -200,16 +200,16 @@ class ClickPrepareView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        """Handle Click prepare request"""
-        try:
+        # """Handle Click prepare request"""
+        # try:
             data = request.data
             result = ClickService.prepare(data)
             return JsonResponse(result)
-        except Exception as e:
-            return JsonResponse({
-                'error': -1,
-                'error_note': str(e)
-            })
+        # except Exception as e:
+        #     return JsonResponse({
+        #         'error': -1,
+        #         'error_note': str(e)
+        #     })
 
 
 class ClickCompleteView(APIView):

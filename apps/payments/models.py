@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
@@ -567,32 +567,47 @@ class Payment(models.Model):
 
     def mark_as_completed(self, gateway_transaction_id=None):
         """Mark payment as completed"""
-        with models.transaction.atomic():
-            self.status = 'completed'
-            self.completed_at = timezone.now()
-            if gateway_transaction_id:
-                self.gateway_transaction_id = gateway_transaction_id
-            self.save(update_fields=['status', 'completed_at', 'gateway_transaction_id', 'updated_at'])
+        try:
+            print("completed called")
+            with transaction.atomic():
+                self.status = 'completed'
+                self.completed_at = timezone.now()
+                if gateway_transaction_id:
+                    self.gateway_transaction_id = gateway_transaction_id
+                self.save(update_fields=['status', 'completed_at', 'gateway_transaction_id', 'updated_at'])
 
-            # Update user wallet if it's a topup
-            if self.payment_type == 'wallet_topup':
+                # Update user wallet if it's a topup
+                if self.payment_type == 'wallet_topup':
+                    try:
+                        # Get or create wallet for user
+                        from apps.billing.models import UserWallet
+                        wallet, created = UserWallet.objects.get_or_create(user=self.user)
+
+                        wallet.add_balance(
+                            self.amount,
+                            f"Hamyon to'ldirish - {self.gateway.display_name} - {self.reference_number}"
+                        )
+                    except Exception as e:
+                        # Log error but don't fail the payment completion
+                        import logging
+                        logger = logging.getLogger('apps.payments')
+                        logger.error(f"Failed to update wallet for payment {self.reference_number}: {str(e)}")
+
+                # Update gateway last used
                 try:
-                    # Get or create wallet for user
-                    from apps.billing.models import UserWallet
-                    wallet, created = UserWallet.objects.get_or_create(user=self.user)
-
-                    wallet.add_balance(
-                        self.amount,
-                        f"Hamyon to'ldirish - {self.gateway.display_name} - {self.reference_number}"
-                    )
+                    self.gateway.update_last_used()
                 except Exception as e:
                     # Log error but don't fail the payment completion
                     import logging
                     logger = logging.getLogger('apps.payments')
-                    logger.error(f"Failed to update wallet for payment {self.reference_number}: {str(e)}")
+                    logger.error(f"Failed to update gateway last used for payment {self.reference_number}: {str(e)}")
 
-            # Update gateway last used
-            self.gateway.update_last_used()
+        except Exception as e:
+            # Log the error and re-raise it
+            import logging
+            logger = logging.getLogger('apps.payments')
+            logger.error(f"Failed to mark payment {self.reference_number} as completed: {str(e)}")
+            raise
 
     def mark_as_failed(self, error_code=None, error_message=None):
         """Mark payment as failed"""
@@ -1414,7 +1429,7 @@ class PaymentRefund(models.Model):
         if not self.can_be_processed():
             raise ValueError("Refund cannot be processed")
 
-        with models.transaction.atomic():
+        with transaction.atomic():
             self.status = 'completed'
             self.processed_by = processed_by
             self.processed_at = timezone.now()

@@ -63,6 +63,7 @@ class UserWallet(models.Model):
         if not self.has_sufficient_balance(amount):
             raise ValueError("Insufficient balance")
 
+        balance_before = self.balance
         self.balance -= amount
         self.total_spent += amount
         self.save()
@@ -73,11 +74,13 @@ class UserWallet(models.Model):
             transaction_type='debit',
             amount=amount,
             description=description,
+            balance_before=balance_before,
             balance_after=self.balance
         )
 
     def add_balance(self, amount, description=""):
         """Add amount to wallet"""
+        balance_before = self.balance
         self.balance += amount
         self.total_topped_up += amount
         self.save()
@@ -88,6 +91,7 @@ class UserWallet(models.Model):
             transaction_type='credit',
             amount=amount,
             description=description,
+            balance_before=balance_before,
             balance_after=self.balance
         )
 

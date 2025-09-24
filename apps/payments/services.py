@@ -88,6 +88,7 @@ class ClickService:
                 name='click',
                 service_id=service_id
             )
+            print("getaway", gateway)
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -99,18 +100,21 @@ class ClickService:
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
 
+            print("expected_sign", expected_sign)
             if expected_sign != sign_string:
                 return {
                     'error': -1,
                     'error_note': 'Invalid signature'
                 }
-
+            print(Payment.objects.filter(gateway=gateway, status='pending').values("id"))
+            print(merchant_trans_id)
             # Find payment
             payment = Payment.objects.get(
                 id=merchant_trans_id,
                 gateway=gateway,
                 status='pending'
             )
+            print("payment", payment)
 
             # Check amount
             if Decimal(str(amount)) != payment.total_amount:
@@ -123,13 +127,15 @@ class ClickService:
             click_transaction = payment.click_transaction
             click_transaction.click_trans_id = click_trans_id
             click_transaction.merchant_prepare_id = str(int(time.time()))
-            click_transaction.sign_time = datetime.fromtimestamp(int(sign_time))
+            click_transaction.sign_time = datetime.strptime(sign_time, '%Y-%m-%d %H:%M:%S')
             click_transaction.save()
 
             return {
                 'error': 0,
                 'error_note': 'Success',
-                'merchant_prepare_id': click_transaction.merchant_prepare_id
+                'merchant_prepare_id': click_transaction.merchant_prepare_id,
+                'click_trans_id': click_transaction.click_trans_id,
+                'merchant_trans_id': click_transaction.merchant_trans_id,
             }
 
         except (Payment.DoesNotExist, PaymentGateway.DoesNotExist):
@@ -174,6 +180,7 @@ class ClickService:
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
 
+            print(expected_sign)
             if expected_sign != sign_string:
                 return {
                     'error': -1,
@@ -187,13 +194,22 @@ class ClickService:
             )
 
             click_transaction = payment.click_transaction
-
-            if error == 0:
+            print(type(error))
+            if error == 0 or error == '0':
                 # Payment successful
-                with transaction.atomic():
+                try:
                     payment.mark_as_completed()
                     click_transaction.error_code = 0
                     click_transaction.save()
+                except Exception as e:
+                    # Log error and return failure response
+                    import logging
+                    logger = logging.getLogger('apps.payments')
+                    logger.error(f"Failed to complete payment {payment.id}: {str(e)}")
+                    return {
+                        'error': -9,
+                        'error_note': f'Failed to complete payment: {str(e)}'
+                    }
 
                 return {
                     'error': 0,
