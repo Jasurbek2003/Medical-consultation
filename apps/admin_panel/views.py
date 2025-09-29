@@ -232,15 +232,14 @@ def create_hospital_admin(request):
 
     if request.method == 'POST':
         # Get form data
-        phone = request.POST.get('phone')
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        username = request.POST.get('username', '')
-        hospital_id = request.POST.get('hospital_id')
-        password = request.POST.get('password')
-        region_id = request.POST.get('region', None)
-        district = request.POST.get('district', None)
-        print(request.data, "request.data")
+        phone = request.data.get('phone')
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        username = request.data.get('username', '')
+        hospital_id = request.data.get('hospital_id')
+        password = request.data.get('password')
+        region_id = request.data.get('region', None)
+        district = request.data.get('district', None)
 
         if region_id:
             region_ = Regions.objects.get(id=int(region_id))
