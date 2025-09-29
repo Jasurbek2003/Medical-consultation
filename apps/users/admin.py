@@ -6,7 +6,7 @@ from .models import User, UserMedicalHistory, UserPreferences
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = [
-        'get_full_name', 'phone', 'email', 'is_active', 'user_type', 'managed_hospital',
+        'get_full_name', 'phone', 'is_active', 'is_verified', 'user_type', 'managed_hospital',
         'is_profile_complete', 'created_at'
     ]
     list_filter = [
