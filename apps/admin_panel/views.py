@@ -229,8 +229,8 @@ def hospital_management(request):
 def admin_list_hospitals(request):
     """List all hospitals for admin"""
 
-    hospitals = Hospital.objects.all().order_by('-created_at')
-    serializer = HospitalSerializer(hospitals, many=True)
+    users = User.objects.filter(user_type='hospital_admin').select_related('managed_hospital')
+    serializer = AdminHospitalSerializer(users, many=True)
 
     return Response({'hospitals': serializer.data})
 
