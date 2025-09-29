@@ -220,8 +220,10 @@ class ClickCompleteView(APIView):
     def post(self, request):
         """Handle Click complete request"""
         try:
+            print("Click Complete Data:", request.data)
             data = request.data
             result = ClickService.complete(data)
+            print("Click Complete Result:", result)
             return JsonResponse(result)
         except Exception as e:
             return JsonResponse({

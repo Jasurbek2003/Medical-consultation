@@ -151,6 +151,7 @@ class ClickService:
 
     @staticmethod
     def complete(data):
+        print("complete data", data)
         """Handle Click complete request"""
         click_trans_id = data.get('click_trans_id')
         service_id = data.get('service_id')
@@ -168,6 +169,7 @@ class ClickService:
                 name='click',
                 service_id=service_id
             )
+            print("getaway", gateway)
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -179,8 +181,8 @@ class ClickService:
                  str(action) +
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
+            print("expected_sign", expected_sign)
 
-            print(expected_sign)
             if expected_sign != sign_string:
                 return {
                     'error': -1,

@@ -6,12 +6,12 @@ from .models import User, UserMedicalHistory, UserPreferences
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = [
-        'get_full_name', 'phone', 'email', 'is_active',
+        'get_full_name', 'phone', 'email', 'is_active', 'user_type', 'managed_hospital',
         'is_profile_complete', 'created_at'
     ]
     list_filter = [
         'is_active', 'is_staff', 'is_superuser', 'gender',
-        'blood_type', 'is_profile_complete', 'created_at'
+        'blood_type', 'is_profile_complete', 'created_at', 'user_type'
     ]
     search_fields = ['first_name', 'last_name', 'phone', 'email', 'username']
     readonly_fields = ['created_at', 'updated_at', 'last_login_ip', 'is_profile_complete']

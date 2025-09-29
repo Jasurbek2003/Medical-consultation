@@ -26,6 +26,7 @@ from .serializers import (
     AdminDoctorSerializer,
     AdminUserSerializer,
     AdminHospitalAdminSerializer,
+    AdminHospitalAdminUpdateSerializer,
     DoctorComplaintSerializer,
     AdminDoctorComplaintSerializer,
     DoctorComplaintCreateSerializer,
@@ -982,6 +983,138 @@ def hospital_admin_list(request):
             'pending_admins': pending_admins,
             'inactive_admins': total_admins - active_admins
         }
+    })
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAdminPermission])
+def hospital_admin_detail(request, admin_id):
+    """Get, update, or partially update a specific hospital administrator"""
+
+    # Get the hospital admin user
+    try:
+        admin_user = User.objects.select_related(
+            'managed_hospital', 'region', 'district', 'approved_by'
+        ).get(
+            id=admin_id,
+            user_type='hospital_admin'
+        )
+    except User.DoesNotExist:
+        return Response({
+            'error': 'Shifoxona administratori topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        # Return detailed information about the hospital admin
+        serializer = AdminHospitalAdminSerializer(admin_user)
+
+        # Additional statistics for this admin
+        admin_stats = {
+            'managed_hospital_info': None,
+            'recent_activity': None
+        }
+
+        if admin_user.managed_hospital:
+            hospital = admin_user.managed_hospital
+            admin_stats['managed_hospital_info'] = {
+                'doctors_count': hospital.doctors.count(),
+                'active_doctors_count': hospital.doctors.filter(is_available=True).count(),
+                'verified_doctors_count': hospital.doctors.filter(verification_status='approved').count(),
+                'total_consultations': Consultation.objects.filter(doctor__hospital=hospital).count(),
+                'hospital_rating': hospital.rating,
+                'hospital_services_count': hospital.services.count() if hasattr(hospital, 'services') else 0
+            }
+
+        return Response({
+            'hospital_admin': serializer.data,
+            'statistics': admin_stats
+        })
+
+    elif request.method in ['PUT', 'PATCH']:
+        # Update hospital admin information
+        partial = request.method == 'PATCH'
+        serializer = AdminHospitalAdminUpdateSerializer(
+            admin_user,
+            data=request.data,
+            partial=partial
+        )
+
+        if serializer.is_valid():
+            updated_admin = serializer.save()
+
+            # Return updated data
+            response_serializer = AdminHospitalAdminSerializer(updated_admin)
+            return Response({
+                'message': 'Shifoxona administratori ma\'lumotlari muvaffaqiyatli yangilandi',
+                'hospital_admin': response_serializer.data
+            })
+
+        return Response({
+            'error': 'Xatolik yuz berdi',
+            'details': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminPermission])
+def hospital_admin_activate_deactivate(request, admin_id):
+    """Activate or deactivate a hospital administrator"""
+
+    try:
+        admin_user = User.objects.get(
+            id=admin_id,
+            user_type='hospital_admin'
+        )
+    except User.DoesNotExist:
+        return Response({
+            'error': 'Shifoxona administratori topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    action = request.data.get('action')
+    if action not in ['activate', 'deactivate']:
+        return Response({
+            'error': 'Yaroqsiz harakat. "activate" yoki "deactivate" bo\'lishi kerak'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_user.is_active = action == 'activate'
+    admin_user.save()
+
+    status_text = "faollashtirildi" if admin_user.is_active else "faolsizlantirildi"
+    return Response({
+        'message': f'Administrator {admin_user.get_full_name()} {status_text}',
+        'is_active': admin_user.is_active
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminPermission])
+def hospital_admin_verify(request, admin_id):
+    """Verify a hospital administrator"""
+
+    try:
+        admin_user = User.objects.get(
+            id=admin_id,
+            user_type='hospital_admin'
+        )
+    except User.DoesNotExist:
+        return Response({
+            'error': 'Shifoxona administratori topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if admin_user.is_verified:
+        return Response({
+            'error': 'Administrator allaqachon tasdiqlangan'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_user.is_verified = True
+    admin_user.is_approved_by_admin = True
+    admin_user.approved_by = request.user
+    admin_user.approval_date = timezone.now()
+    admin_user.save()
+
+    return Response({
+        'message': f'Administrator {admin_user.get_full_name()} tasdiqlandi',
+        'is_verified': admin_user.is_verified
     })
 
 

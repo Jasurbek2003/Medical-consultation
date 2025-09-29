@@ -23,6 +23,9 @@ urlpatterns = [
     # User Management
     path('hospitals/', views.hospital_management, name='hospital_management'),
     path('hospital-admins/', views.hospital_admin_list, name='hospital_admin_list'),
+    path('hospital-admins/<int:admin_id>/', views.hospital_admin_detail, name='hospital_admin_detail'),
+    path('hospital-admins/<int:admin_id>/activate-deactivate/', views.hospital_admin_activate_deactivate, name='hospital_admin_activate_deactivate'),
+    path('hospital-admins/<int:admin_id>/verify/', views.hospital_admin_verify, name='hospital_admin_verify'),
 
     # Statistics and Reports
     path('export/', views.export_data, name='export_data'),

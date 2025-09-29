@@ -758,3 +758,79 @@ class AdminHospitalAdminSerializer(serializers.ModelSerializer):
         if obj.managed_hospital:
             return obj.managed_hospital.doctors.count()
         return 0
+
+
+class AdminHospitalAdminUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating hospital admin information"""
+
+    # Allow updating managed hospital
+    managed_hospital = serializers.PrimaryKeyRelatedField(
+        queryset=Hospital.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 'last_name', 'middle_name', 'email',
+            'phone', 'region', 'district', 'address',
+            'managed_hospital', 'is_active', 'is_verified',
+            'gender', 'birth_date'
+        ]
+
+    def validate_phone(self, value):
+        """Validate phone number uniqueness"""
+        if value:
+            # Check if phone exists for other users
+            existing_user = User.objects.filter(phone=value)
+            if self.instance:
+                existing_user = existing_user.exclude(id=self.instance.id)
+
+            if existing_user.exists():
+                raise serializers.ValidationError(
+                    "Bu telefon raqam allaqachon ishlatilgan"
+                )
+        return value
+
+    def validate_email(self, value):
+        """Validate email uniqueness"""
+        if value:
+            # Check if email exists for other users
+            existing_user = User.objects.filter(email=value)
+            if self.instance:
+                existing_user = existing_user.exclude(id=self.instance.id)
+
+            if existing_user.exists():
+                raise serializers.ValidationError(
+                    "Bu email allaqachon ishlatilgan"
+                )
+        return value
+
+    def validate_managed_hospital(self, value):
+        """Validate hospital assignment"""
+        if value:
+            # Check if hospital already has an admin (excluding current user)
+            existing_admin = User.objects.filter(
+                managed_hospital=value,
+                user_type='hospital_admin'
+            )
+            if self.instance:
+                existing_admin = existing_admin.exclude(id=self.instance.id)
+
+            if existing_admin.exists():
+                raise serializers.ValidationError(
+                    f"'{value.name}' shifoxonasida allaqachon administrator mavjud"
+                )
+        return value
+
+    def update(self, instance, validated_data):
+        """Update hospital admin with validation"""
+        # Update all fields
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        # Save the instance
+        instance.save()
+
+        return instance
