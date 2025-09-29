@@ -664,12 +664,54 @@ def update_my_profile(request):
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
+def is_valid_ip(ip):
+    """Validate IP address format"""
+    import re
+    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    ipv6_pattern = r'^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$'
+
+    if re.match(ipv4_pattern, ip):
+        # Check if all octets are valid (0-255)
+        return all(0 <= int(octet) <= 255 for octet in ip.split('.'))
+    elif re.match(ipv6_pattern, ip):
+        return True
+    return False
+
+
+def is_private_ip(ip):
+    """Check if IP is in private range"""
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
+
+
 def get_client_ip(request):
-    """Get client IP address from request"""
-    print(request.META)
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    """
+    Get client IP address from request with enhanced security
+    Handles multiple proxy scenarios and validates IP addresses
+    """
+    # List of headers to check in order of preference
+    ip_headers = [
+        'HTTP_X_FORWARDED_FOR',
+        'HTTP_X_REAL_IP',
+        'HTTP_CF_CONNECTING_IP',  # Cloudflare
+        'HTTP_X_FORWARDED',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'REMOTE_ADDR'
+    ]
+
+    for header in ip_headers:
+        ip_list = request.META.get(header)
+        if ip_list:
+            # Handle comma-separated IPs (first one is usually the original client)
+            ip = ip_list.split(',')[0].strip()
+
+            # Basic IP validation and private IP filtering
+            if is_valid_ip(ip) and not is_private_ip(ip):
+                return ip
+
+    # Fallback to REMOTE_ADDR even if it might be private
+    return request.META.get('REMOTE_ADDR', '127.0.0.1')
