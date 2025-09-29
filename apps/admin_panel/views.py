@@ -224,6 +224,15 @@ def hospital_management(request):
 
     return Response(data)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_list_hospitals(request):
+    """List all hospitals for admin"""
+
+    hospitals = Hospital.objects.all().order_by('-created_at')
+    serializer = HospitalSerializer(hospitals, many=True)
+
+    return Response({'hospitals': serializer.data})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -254,8 +263,7 @@ def create_hospital_admin(request):
         gender = request.POST.get('gender', None)
         birth_date = request.POST.get('birth_date', None)
 
-        # try:
-        if True:
+        try:
             # Check if user with this phone already exists
             if User.objects.filter(phone=phone).exists():
                 messages.error(request, 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan.')
@@ -293,9 +301,9 @@ def create_hospital_admin(request):
 
             messages.success(request, f'Shifoxona administratori {user.get_full_name()} muvaffaqiyatli yaratildi.')
 
-        # except Exception as e:
-        #     messages.error(request, f'Xatolik: {str(e)}')
-        #     return Response({'error': str(e)}, status=500)
+        except Exception as e:
+            messages.error(request, f'Xatolik: {str(e)}')
+            return Response({'error': str(e)}, status=500)
 
         return Response(
             {
