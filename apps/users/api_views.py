@@ -598,12 +598,12 @@ def quick_login(request):
 
     # Authenticate user
     user = authenticate(username=username, password=password)
-    print(user)
 
     if user and user.is_active:
         # Update last login info
         user.last_login = timezone.now()
         user.last_login_ip = get_client_ip(request)
+        print(user.last_login_ip, "user ip")
         user.save(update_fields=['last_login', 'last_login_ip'])
 
         # Get or create token
