@@ -225,13 +225,13 @@ class WalletTransaction(models.Model):
         verbose_name="Holat"
     )
 
-    # Reference to related objects
-    content_type = models.ForeignKey(
-        'contenttypes.ContentType',
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True
-    )
+    # # Reference to related objects
+    # content_type = models.ForeignKey(
+    #     'contenttypes.ContentType',
+    #     on_delete=models.SET_NULL,
+    #     blank=True,
+    #     null=True
+    # )
     object_id = models.PositiveIntegerField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
