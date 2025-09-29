@@ -263,6 +263,9 @@ def create_hospital_admin(request):
             hospital = get_object_or_404(Hospital, id=hospital_id)
 
             print("hospital", hospital)
+            if User.objects.filter(username=username).exists():
+                messages.error(request, 'Bu username allaqachon ro\'yxatdan o\'tgan.')
+                return Response({'error': 'Username allaqachon mavjud'}, status=400)
 
             # Create hospital admin user
             user = User.objects.create_user(
