@@ -439,6 +439,6 @@ def get_service_price(service_type):
     return BillingService.get_service_price(service_type)
 
 
-print("🚀 Payment-Billing integration loaded successfully!")
-print("💰 Features: Wallet management, service charging, payment processing")
-print("🔄 Integration: Payment completion, billing rules, transaction tracking")
+print("Payment-Billing integration loaded successfully!")
+print("Features: Wallet management, service charging, payment processing")
+print("Integration: Payment completion, billing rules, transaction tracking")

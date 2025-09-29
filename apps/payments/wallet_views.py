@@ -516,6 +516,6 @@ def estimate_topup(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
-print("🚀 Wallet management views loaded successfully!")
-print("💳 Features: Balance check, transactions, topup, service charging")
-print("📊 Endpoints: Wallet info, billing summary, transaction history")
+print("Wallet management views loaded successfully!")
+print("Features: Balance check, transactions, topup, service charging")
+print("Endpoints: Wallet info, billing summary, transaction history")

@@ -1139,6 +1139,6 @@ class AdminPaymentOverviewSerializer(serializers.Serializer):
     gateway_fee = CurrencyField()
 
 
-print("🚀 Payment serializers loaded with comprehensive functionality!")
-print("📊 Features: Detailed validation, rich data, export support, admin tools")
-print("🔒 Security: Input validation, error handling, sensitive data protection")
+print("Payment serializers loaded with comprehensive functionality!")
+print("Features: Detailed validation, rich data, export support, admin tools")
+print("Security: Input validation, error handling, sensitive data protection")

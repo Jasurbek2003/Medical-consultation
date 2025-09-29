@@ -694,24 +694,67 @@ class DoctorComplaintUpdateSerializer(serializers.ModelSerializer):
 
 class DoctorComplaintStatisticsSerializer(serializers.Serializer):
     """Serializer for complaint statistics"""
-    
+
     total_complaints = serializers.IntegerField()
     in_progress_complaints = serializers.IntegerField()
     resolved_complaints = serializers.IntegerField()
     closed_complaints = serializers.IntegerField()
-    
+
     # By type
     general_complaints = serializers.IntegerField()
     service_complaints = serializers.IntegerField()
     billing_complaints = serializers.IntegerField()
-    
+
     # By priority
     urgent_complaints = serializers.IntegerField()
     high_complaints = serializers.IntegerField()
     medium_complaints = serializers.IntegerField()
     low_complaints = serializers.IntegerField()
-    
+
     # Time-based
     complaints_this_month = serializers.IntegerField()
     complaints_this_week = serializers.IntegerField()
     average_resolution_days = serializers.FloatField()
+
+
+class AdminHospitalAdminSerializer(serializers.ModelSerializer):
+    """Serializer for hospital admin users in admin panel"""
+
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    user_type_display = serializers.CharField(source='get_user_type_display', read_only=True)
+
+    # Hospital information
+    hospital_name = serializers.CharField(source='managed_hospital.name', read_only=True, allow_null=True)
+    hospital_id = serializers.CharField(source='managed_hospital.id', read_only=True, allow_null=True)
+    hospital_type = serializers.CharField(source='managed_hospital.hospital_type', read_only=True, allow_null=True)
+    hospital_type_display = serializers.CharField(source='managed_hospital.get_hospital_type_display', read_only=True, allow_null=True)
+
+    # Location information
+    region_name = serializers.CharField(source='region.name', read_only=True, allow_null=True)
+    district_name = serializers.CharField(source='district.name', read_only=True, allow_null=True)
+
+    # Approval information
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, allow_null=True)
+
+    # Statistics
+    managed_hospital_doctors_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'full_name',
+            'phone', 'email', 'user_type', 'user_type_display',
+            'hospital_name', 'hospital_id', 'hospital_type', 'hospital_type_display',
+            'region_name', 'district_name',
+            'is_active', 'is_verified', 'is_approved_by_admin',
+            'approved_by_name', 'approval_date',
+            'managed_hospital_doctors_count',
+            'created_at', 'last_login'
+        ]
+        read_only_fields = ['id', 'created_at', 'last_login']
+
+    def get_managed_hospital_doctors_count(self, obj):
+        """Get number of doctors in managed hospital"""
+        if obj.managed_hospital:
+            return obj.managed_hospital.doctors.count()
+        return 0

@@ -25,6 +25,7 @@ from .serializers import (
     AdminHospitalSerializer,
     AdminDoctorSerializer,
     AdminUserSerializer,
+    AdminHospitalAdminSerializer,
     DoctorComplaintSerializer,
     AdminDoctorComplaintSerializer,
     DoctorComplaintCreateSerializer,
@@ -224,15 +225,6 @@ def hospital_management(request):
 
     return Response(data)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def admin_list_hospitals(request):
-    """List all hospitals for admin"""
-
-    users = User.objects.filter(user_type='hospital_admin').select_related('managed_hospital')
-    serializer = AdminHospitalSerializer(users, many=True)
-
-    return Response({'hospitals': serializer.data})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -893,6 +885,104 @@ def bulk_actions(request):
         return Response({'error': 'Invalid item type'}, status=400)
 
     return Response({'message': message})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def hospital_admin_list(request):
+    """Get list of all hospital administrators for admin panel"""
+
+    # Filter parameters
+    search_query = request.GET.get('search', '')
+    hospital_filter = request.GET.get('hospital', 'all')
+    status_filter = request.GET.get('status', 'all')
+    region_filter = request.GET.get('region', 'all')
+
+    # Base queryset - only hospital admin users
+    queryset = User.objects.filter(
+        user_type='hospital_admin'
+    ).select_related('managed_hospital', 'region', 'district', 'approved_by')
+
+    # Apply filters
+    if search_query:
+        queryset = queryset.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(phone__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(managed_hospital__name__icontains=search_query)
+        )
+
+    if hospital_filter != 'all':
+        queryset = queryset.filter(managed_hospital_id=hospital_filter)
+
+    if status_filter == 'active':
+        queryset = queryset.filter(is_active=True, is_verified=True)
+    elif status_filter == 'inactive':
+        queryset = queryset.filter(is_active=False)
+    elif status_filter == 'pending':
+        queryset = queryset.filter(is_verified=False)
+
+    if region_filter != 'all':
+        queryset = queryset.filter(region_id=region_filter)
+
+    # Pagination
+    from django.core.paginator import Paginator
+    page_size = int(request.GET.get('page_size', 20))
+    page_number = request.GET.get('page', 1)
+
+    paginator = Paginator(queryset.order_by('-created_at'), page_size)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize data
+    serializer = AdminHospitalAdminSerializer(page_obj, many=True)
+
+    # Get filter options
+    hospitals = Hospital.objects.filter(administrators__isnull=False).distinct().values('id', 'name')
+    regions = User.objects.filter(
+        user_type='hospital_admin',
+        region__isnull=False
+    ).values_list('region__id', 'region__name').distinct()
+
+    # Statistics
+    total_admins = User.objects.filter(user_type='hospital_admin').count()
+    active_admins = User.objects.filter(
+        user_type='hospital_admin',
+        is_active=True,
+        is_verified=True
+    ).count()
+    pending_admins = User.objects.filter(
+        user_type='hospital_admin',
+        is_verified=False
+    ).count()
+
+    return Response({
+        'hospital_admins': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': page_size
+        },
+        'filters': {
+            'hospitals': list(hospitals),
+            'regions': [{'id': r[0], 'name': r[1]} for r in regions],
+            'current_filters': {
+                'search': search_query,
+                'hospital': hospital_filter,
+                'status': status_filter,
+                'region': region_filter
+            }
+        },
+        'statistics': {
+            'total_admins': total_admins,
+            'active_admins': active_admins,
+            'pending_admins': pending_admins,
+            'inactive_admins': total_admins - active_admins
+        }
+    })
 
 
 class DoctorComplaintViewSet(viewsets.ModelViewSet):

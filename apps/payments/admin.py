@@ -1175,7 +1175,7 @@ class BillingSettingsAdmin(admin.ModelAdmin):
         return False
 
 
-print("🚀 Payment admin interface loaded successfully!")
-print("📊 Features: Comprehensive views, filters, actions, export functionality")
-print("🔧 Admin tools: Gateway management, payment processing, refund handling")
-print("💰 Wallet tools: Balance management, transaction tracking, billing rules")
+print("Payment admin interface loaded successfully!")
+print("Features: Comprehensive views, filters, actions, export functionality")
+print("Admin tools: Gateway management, payment processing, refund handling")
+print("Wallet tools: Balance management, transaction tracking, billing rules")
