@@ -259,7 +259,7 @@ def create_hospital_admin(request):
             if User.objects.filter(phone=phone).exists():
                 messages.error(request, 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan.')
                 return Response({'error': 'Telefon raqam allaqachon mavjud'}, status=400)
-
+            print(hospital_id, type(hospital_id), "hospital_id")
             # Get hospital
             hospital = get_object_or_404(Hospital, id=hospital_id)
 
