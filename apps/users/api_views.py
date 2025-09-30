@@ -782,7 +782,7 @@ class ServiceSearchAPIView(APIView):
 
     Returns doctors and hospitals that provide matching services.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         query = request.GET.get('q', '').strip()

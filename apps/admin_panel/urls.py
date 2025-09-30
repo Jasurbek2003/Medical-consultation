@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from . import views
@@ -26,6 +26,7 @@ urlpatterns = [
     path('hospital-admins/<int:admin_id>/', views.hospital_admin_detail, name='hospital_admin_detail'),
     path('hospital-admins/<int:admin_id>/activate-deactivate/', views.hospital_admin_activate_deactivate, name='hospital_admin_activate_deactivate'),
     path('hospital-admins/<int:admin_id>/verify/', views.hospital_admin_verify, name='hospital_admin_verify'),
+    path('hospital-admins/<int:admin_id>/delete/', views.hospital_admin_delete, name='hospital_admin_delete'),
 
     # Statistics and Reports
     path('export/', views.export_data, name='export_data'),
