@@ -702,7 +702,6 @@ def get_client_ip(request):
         'HTTP_FORWARDED',
         'REMOTE_ADDR'
     ]
-    print("request.META", request.META)
     for header in ip_headers:
         ip_list = request.META.get(header)
         if ip_list:
