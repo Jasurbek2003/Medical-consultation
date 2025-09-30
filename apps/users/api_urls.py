@@ -1,6 +1,6 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import include, path
 from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework.routers import DefaultRouter
 
 from . import api_views
 
@@ -29,4 +29,9 @@ urlpatterns = [
     path('quick/login/', api_views.quick_login, name='quick_login'),
     path('quick/profile/', api_views.get_my_profile, name='quick_profile'),
     path('quick/update-profile/', api_views.update_my_profile, name='quick_update_profile'),
+
+    # Service search endpoints
+    path('services/search/', api_views.ServiceSearchAPIView.as_view(), name='service_search'),
+    path('services/doctors/', api_views.DoctorServicesAPIView.as_view(), name='doctor_services'),
+    path('services/hospitals/', api_views.HospitalServicesAPIView.as_view(), name='hospital_services'),
 ]

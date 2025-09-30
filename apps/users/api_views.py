@@ -1,21 +1,34 @@
-from rest_framework import viewsets, status, permissions, generics
-from rest_framework.decorators import action, api_view, permission_classes, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import (
+    action,
+    api_view,
+    parser_classes,
+    permission_classes,
+)
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import UserMedicalHistory, UserPreferences
 from .serializers import (
-    UserSerializer, UserProfileSerializer, DoctorRegistrationSerializer,
-    UserMedicalHistorySerializer, UserPreferencesSerializer,
-    LoginSerializer, RegisterSerializer, UserProfileUpdateSerializer, UserRegistrationSerializer,
-    ChangePasswordSerializer
+    ChangePasswordSerializer,
+    DoctorRegistrationSerializer,
+    DoctorWithServicesSerializer,
+    HospitalWithServicesSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    ServiceSearchResultSerializer,
+    UserMedicalHistorySerializer,
+    UserPreferencesSerializer,
+    UserProfileSerializer,
+    UserProfileUpdateSerializer,
+    UserRegistrationSerializer,
+    UserSerializer,
 )
 
 User = get_user_model()
@@ -152,7 +165,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({
                 'message': 'Muvaffaqiyatli chiqildi'
             })
-        except:
+        except Exception:
             return Response({
                 'error': 'Xatolik yuz berdi'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -714,3 +727,301 @@ def get_client_ip(request):
 
     # Fallback to REMOTE_ADDR even if it might be private
     return request.META.get('REMOTE_ADDR', '127.0.0.1')
+
+
+class ServiceSearchAPIView(APIView):
+    """
+    Service Search API for Users
+
+    GET /api/users/services/search/?q=service_name
+
+    This API allows users to search for medical services across:
+    1. Doctor services (DoctorService model)
+    2. Hospital services (HospitalService model)
+
+    Returns doctors and hospitals that provide matching services.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+
+        if not query:
+            return Response({
+                'success': False,
+                'error': 'Search query is required. Use ?q=service_name'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(query) < 2:
+            return Response({
+                'success': False,
+                'error': 'Search query must be at least 2 characters long'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search for matching service names in DoctorServiceName
+        from apps.doctors.models import DoctorService, DoctorServiceName
+        from apps.hospitals.models import HospitalService
+
+        # Step 1: Find matching service names
+        matching_service_names = DoctorServiceName.objects.filter(
+            Q(name__icontains=query) |
+            Q(name_en__icontains=query) |
+            Q(name_ru__icontains=query) |
+            Q(name_kr__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+        # Step 2: Get doctors with these services
+        doctor_services = DoctorService.objects.filter(
+            name__in=matching_service_names,
+            is_active=True,
+            doctor__verification_status='approved',
+            doctor__is_available=True,
+            doctor__user__is_active=True
+        ).select_related(
+            'doctor__user',
+            'doctor__hospital',
+            'name'
+        ).prefetch_related('doctor__services__name')
+
+        # Group services by doctor
+        doctors_data = {}
+        for service in doctor_services:
+            doctor = service.doctor
+            if doctor.id not in doctors_data:
+                doctors_data[doctor.id] = {
+                    'id': doctor.id,
+                    'full_name': doctor.full_name,
+                    'specialty': doctor.specialty,
+                    'specialty_display': doctor.get_specialty_display(),
+                    'degree': doctor.degree,
+                    'degree_display': doctor.get_degree_display(),
+                    'experience': doctor.experience,
+                    'rating': doctor.rating,
+                    'total_reviews': doctor.total_reviews,
+                    'consultation_price': doctor.consultation_price,
+                    'is_available': doctor.is_available,
+                    'is_online_consultation': doctor.is_online_consultation,
+                    'avatar': doctor.user.avatar.url if doctor.user.avatar else None,
+                    'bio': doctor.bio,
+                    'workplace': doctor.workplace,
+                    'hospital_name': doctor.hospital.name if doctor.hospital else None,
+                    'services': []
+                }
+
+            # Add service to doctor's services
+            doctors_data[doctor.id]['services'].append({
+                'id': service.id,
+                'name': {
+                    'id': service.name.id,
+                    'name': service.name.name,
+                    'name_en': service.name.name_en,
+                    'name_ru': service.name.name_ru,
+                    'name_kr': service.name.name_kr,
+                    'description': service.name.description,
+                },
+                'description': service.description,
+                'price': service.price,
+                'duration': service.duration,
+                'is_active': service.is_active
+            })
+
+        # Step 3: Get hospitals with matching services
+        hospital_services = HospitalService.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query),
+            is_active=True,
+            hospital__is_active=True,
+            hospital__is_verified=True
+        ).select_related(
+            'hospital__region',
+            'hospital__district'
+        )
+
+        # Group services by hospital
+        hospitals_data = {}
+        for service in hospital_services:
+            hospital = service.hospital
+            if hospital.id not in hospitals_data:
+                hospitals_data[hospital.id] = {
+                    'id': str(hospital.id),
+                    'name': hospital.name,
+                    'short_name': hospital.short_name,
+                    'hospital_type': hospital.hospital_type,
+                    'hospital_type_display': hospital.get_hospital_type_display(),
+                    'phone': hospital.phone,
+                    'email': hospital.email,
+                    'website': hospital.website,
+                    'address': hospital.address,
+                    'region_name': hospital.region.name if hospital.region else None,
+                    'district_name': hospital.district.name if hospital.district else None,
+                    'rating': hospital.rating,
+                    'total_doctors': hospital.total_doctors,
+                    'is_active': hospital.is_active,
+                    'logo': hospital.logo.url if hospital.logo else None,
+                    'services': []
+                }
+
+            # Add service to hospital's services
+            hospitals_data[hospital.id]['services'].append({
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'price': service.price,
+                'duration': service.duration,
+                'is_active': service.is_active
+            })
+
+        # Prepare response data
+        result_data = {
+            'doctors': list(doctors_data.values()),
+            'hospitals': list(hospitals_data.values()),
+            'total_doctors': len(doctors_data),
+            'total_hospitals': len(hospitals_data),
+            'search_query': query
+        }
+
+        # Serialize the data
+        serializer = ServiceSearchResultSerializer(result_data)
+
+        return Response({
+            'success': True,
+            'message': f'Found {len(doctors_data)} doctors and {len(hospitals_data)} hospitals with matching services',
+            'data': serializer.data
+        })
+
+
+class DoctorServicesAPIView(APIView):
+    """
+    Get all services offered by doctors
+
+    GET /api/users/services/doctors/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from apps.doctors.models import DoctorService
+
+        # Get all active doctor services
+        doctor_services = DoctorService.objects.filter(
+            is_active=True,
+            doctor__verification_status='approved',
+            doctor__is_available=True,
+            doctor__user__is_active=True
+        ).select_related(
+            'doctor__user',
+            'doctor__hospital',
+            'name'
+        ).order_by('doctor__rating', 'name__name')
+
+        # Group by doctor
+        doctors_data = {}
+        for service in doctor_services:
+            doctor = service.doctor
+            if doctor.id not in doctors_data:
+                doctors_data[doctor.id] = {
+                    'id': doctor.id,
+                    'full_name': doctor.full_name,
+                    'specialty': doctor.specialty,
+                    'specialty_display': doctor.get_specialty_display(),
+                    'degree': doctor.degree,
+                    'degree_display': doctor.get_degree_display(),
+                    'experience': doctor.experience,
+                    'rating': doctor.rating,
+                    'total_reviews': doctor.total_reviews,
+                    'consultation_price': doctor.consultation_price,
+                    'is_available': doctor.is_available,
+                    'is_online_consultation': doctor.is_online_consultation,
+                    'avatar': doctor.user.avatar.url if doctor.user.avatar else None,
+                    'bio': doctor.bio,
+                    'workplace': doctor.workplace,
+                    'hospital_name': doctor.hospital.name if doctor.hospital else None,
+                    'services': []
+                }
+
+            doctors_data[doctor.id]['services'].append({
+                'id': service.id,
+                'name': {
+                    'id': service.name.id,
+                    'name': service.name.name,
+                    'name_en': service.name.name_en,
+                    'name_ru': service.name.name_ru,
+                    'name_kr': service.name.name_kr,
+                    'description': service.name.description,
+                },
+                'description': service.description,
+                'price': service.price,
+                'duration': service.duration,
+                'is_active': service.is_active
+            })
+
+        serializer = DoctorWithServicesSerializer(list(doctors_data.values()), many=True)
+
+        return Response({
+            'success': True,
+            'total_doctors': len(doctors_data),
+            'doctors': serializer.data
+        })
+
+
+class HospitalServicesAPIView(APIView):
+    """
+    Get all services offered by hospitals
+
+    GET /api/users/services/hospitals/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from apps.hospitals.models import HospitalService
+
+        # Get all active hospital services
+        hospital_services = HospitalService.objects.filter(
+            is_active=True,
+            hospital__is_active=True,
+            hospital__is_verified=True
+        ).select_related(
+            'hospital__region',
+            'hospital__district'
+        ).order_by('hospital__rating', 'name')
+
+        # Group by hospital
+        hospitals_data = {}
+        for service in hospital_services:
+            hospital = service.hospital
+            if hospital.id not in hospitals_data:
+                hospitals_data[hospital.id] = {
+                    'id': str(hospital.id),
+                    'name': hospital.name,
+                    'short_name': hospital.short_name,
+                    'hospital_type': hospital.hospital_type,
+                    'hospital_type_display': hospital.get_hospital_type_display(),
+                    'phone': hospital.phone,
+                    'email': hospital.email,
+                    'website': hospital.website,
+                    'address': hospital.address,
+                    'region_name': hospital.region.name if hospital.region else None,
+                    'district_name': hospital.district.name if hospital.district else None,
+                    'rating': hospital.rating,
+                    'total_doctors': hospital.total_doctors,
+                    'is_active': hospital.is_active,
+                    'logo': hospital.logo.url if hospital.logo else None,
+                    'services': []
+                }
+
+            hospitals_data[hospital.id]['services'].append({
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'price': service.price,
+                'duration': service.duration,
+                'is_active': service.is_active
+            })
+
+        serializer = HospitalWithServicesSerializer(list(hospitals_data.values()), many=True)
+
+        return Response({
+            'success': True,
+            'total_hospitals': len(hospitals_data),
+            'hospitals': serializer.data
+        })

@@ -1,8 +1,9 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
 from django.db import transaction
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
+
 from .models import UserMedicalHistory, UserPreferences
 
 User = get_user_model()
@@ -521,3 +522,84 @@ class ChangePasswordSerializer(serializers.Serializer):
                 "Old password is not correct."
             )
         return value
+
+
+# Service Search Serializers
+class DoctorServiceNameSerializer(serializers.Serializer):
+    """Serializer for DoctorServiceName"""
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    name_en = serializers.CharField()
+    name_ru = serializers.CharField()
+    name_kr = serializers.CharField()
+    description = serializers.CharField()
+
+
+class DoctorServiceSerializer(serializers.Serializer):
+    """Serializer for DoctorService"""
+    id = serializers.IntegerField()
+    name = DoctorServiceNameSerializer()
+    description = serializers.CharField()
+    price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    duration = serializers.IntegerField()
+    is_active = serializers.BooleanField()
+
+
+class DoctorWithServicesSerializer(serializers.Serializer):
+    """Serializer for Doctor with their services"""
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    specialty = serializers.CharField()
+    specialty_display = serializers.CharField()
+    degree = serializers.CharField()
+    degree_display = serializers.CharField()
+    experience = serializers.IntegerField()
+    rating = serializers.FloatField()
+    total_reviews = serializers.IntegerField()
+    consultation_price = serializers.IntegerField()
+    is_available = serializers.BooleanField()
+    is_online_consultation = serializers.BooleanField()
+    avatar = serializers.CharField(allow_null=True)
+    bio = serializers.CharField(allow_null=True)
+    workplace = serializers.CharField()
+    hospital_name = serializers.CharField(allow_null=True)
+    services = DoctorServiceSerializer(many=True)
+
+
+class HospitalServiceSerializer(serializers.Serializer):
+    """Serializer for HospitalService"""
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    duration = serializers.IntegerField()
+    is_active = serializers.BooleanField()
+
+
+class HospitalWithServicesSerializer(serializers.Serializer):
+    """Serializer for Hospital with their services"""
+    id = serializers.CharField()
+    name = serializers.CharField()
+    short_name = serializers.CharField(allow_null=True)
+    hospital_type = serializers.CharField()
+    hospital_type_display = serializers.CharField()
+    phone = serializers.CharField()
+    email = serializers.CharField(allow_null=True)
+    website = serializers.CharField(allow_null=True)
+    address = serializers.CharField()
+    region_name = serializers.CharField(allow_null=True)
+    district_name = serializers.CharField(allow_null=True)
+    rating = serializers.FloatField()
+    total_doctors = serializers.IntegerField()
+    is_active = serializers.BooleanField()
+    logo = serializers.CharField(allow_null=True)
+    services = HospitalServiceSerializer(many=True)
+
+
+class ServiceSearchResultSerializer(serializers.Serializer):
+    """Combined service search results"""
+    doctors = DoctorWithServicesSerializer(many=True)
+    hospitals = HospitalWithServicesSerializer(many=True)
+    total_doctors = serializers.IntegerField()
+    total_hospitals = serializers.IntegerField()
+    search_query = serializers.CharField()
