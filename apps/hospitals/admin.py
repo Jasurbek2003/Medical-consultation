@@ -48,6 +48,7 @@ class HospitalAdmin(admin.ModelAdmin):
         'phone',
         'email',
         'is_active',
+        'is_verified',
         'doctor_count',
         'created_at'
     ]
@@ -55,6 +56,7 @@ class HospitalAdmin(admin.ModelAdmin):
     list_filter = [
         'hospital_type',
         'is_active',
+        'is_verified',
         'region',
         'district',
         'created_at'
@@ -117,6 +119,7 @@ class HospitalAdmin(admin.ModelAdmin):
         ('Holat', {
             'fields': (
                 'is_active',
+                'is_verified',
                 # 'is_featured'
             )
         }),
