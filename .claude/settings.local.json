@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python manage.py shell:*)",
       "Bash(python manage.py:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(ruff check:*)"
     ],
     "deny": [],
     "ask": []

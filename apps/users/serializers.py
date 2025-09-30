@@ -603,3 +603,4 @@ class ServiceSearchResultSerializer(serializers.Serializer):
     total_doctors = serializers.IntegerField()
     total_hospitals = serializers.IntegerField()
     search_query = serializers.CharField()
+    expanded_search_terms = serializers.ListField(child=serializers.CharField(), required=False)

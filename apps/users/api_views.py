@@ -729,6 +729,47 @@ def get_client_ip(request):
     return request.META.get('REMOTE_ADDR', '127.0.0.1')
 
 
+def expand_search_terms(query):
+    """
+    Expand search terms to include common abbreviations and synonyms
+    """
+    query_lower = query.lower().strip()
+
+    # Common medical abbreviations and their full forms
+    abbreviations = {
+        'lab': ['laboratory', 'laboratoriya', 'лаборатория'],
+        'ct': ['computed tomography', 'компьютерная томография', 'kt'],
+        'mri': ['magnetic resonance imaging', 'мрт', 'magnitno-rezonans'],
+        'uzi': ['ultrasound', 'ultrasonografiya', 'узи'],
+        'ekg': ['electrocardiogram', 'elektrokardiogramma', 'экг'],
+        'xray': ['x-ray', 'rentgen', 'рентген', 'rentgenografiya'],
+        'blood': ['qon', 'кровь', 'qon tahlili'],
+        'urine': ['siydik', 'моча', 'siydik tahlili'],
+        'cardio': ['cardiologia', 'kardiologiya', 'кардиология', 'yurak'],
+        'neuro': ['neurologiya', 'неврология', 'asab'],
+        'ortho': ['orthopediya', 'ортопедия', 'ortopediya'],
+        'pediatr': ['pediatriya', 'педиатрия', 'bolalar'],
+        'gyneco': ['ginekologiya', 'гинекология', 'ayollar'],
+    }
+
+    # Expand search terms
+    expanded_terms = [query_lower]
+
+    # Check if query matches any abbreviation
+    for abbrev, expansions in abbreviations.items():
+        if abbrev in query_lower or query_lower in abbrev:
+            expanded_terms.extend(expansions)
+
+    # Check if query matches any expansion
+    for abbrev, expansions in abbreviations.items():
+        for expansion in expansions:
+            if expansion in query_lower or query_lower in expansion:
+                expanded_terms.append(abbrev)
+                expanded_terms.extend(expansions)
+
+    return list(set(expanded_terms))  # Remove duplicates
+
+
 class ServiceSearchAPIView(APIView):
     """
     Service Search API for Users
@@ -762,14 +803,28 @@ class ServiceSearchAPIView(APIView):
         from apps.doctors.models import DoctorService, DoctorServiceName
         from apps.hospitals.models import HospitalService
 
-        # Step 1: Find matching service names
-        matching_service_names = DoctorServiceName.objects.filter(
-            Q(name__icontains=query) |
-            Q(name_en__icontains=query) |
-            Q(name_ru__icontains=query) |
-            Q(name_kr__icontains=query) |
-            Q(description__icontains=query)
-        )
+        # Step 1: Find matching service names (enhanced search with abbreviations)
+        search_query = Q()
+
+        # Expand search terms to include abbreviations and synonyms
+        expanded_terms = expand_search_terms(query)
+
+        # Search in all language fields with case-insensitive matching
+        search_fields = ['name', 'name_en', 'name_ru', 'name_kr', 'description']
+
+        # Search for original query and expanded terms
+        for term in expanded_terms:
+            for field in search_fields:
+                search_query |= Q(**{f'{field}__icontains': term})
+
+        # Also search individual words from the original query
+        query_words = query.lower().split()
+        for word in query_words:
+            if len(word) >= 2:  # Only search words with 2+ characters
+                for field in search_fields:
+                    search_query |= Q(**{f'{field}__icontains': word})
+
+        matching_service_names = DoctorServiceName.objects.filter(search_query).distinct()
 
         # Step 2: Get doctors with these services
         doctor_services = DoctorService.objects.filter(
@@ -826,17 +881,32 @@ class ServiceSearchAPIView(APIView):
                 'is_active': service.is_active
             })
 
-        # Step 3: Get hospitals with matching services
+        # Step 3: Get hospitals with matching services (enhanced search)
+        hospital_search_query = Q()
+
+        # Search in hospital service name and description with expanded terms
+        hospital_search_fields = ['name', 'description']
+
+        # Search for expanded terms
+        for term in expanded_terms:
+            for field in hospital_search_fields:
+                hospital_search_query |= Q(**{f'{field}__icontains': term})
+
+        # Also search individual words from original query
+        for word in query_words:
+            if len(word) >= 2:
+                for field in hospital_search_fields:
+                    hospital_search_query |= Q(**{f'{field}__icontains': word})
+
         hospital_services = HospitalService.objects.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query),
+            hospital_search_query,
             is_active=True,
             hospital__is_active=True,
             hospital__is_verified=True
         ).select_related(
             'hospital__region',
             'hospital__district'
-        )
+        ).distinct()
 
         # Group services by hospital
         hospitals_data = {}
@@ -878,7 +948,8 @@ class ServiceSearchAPIView(APIView):
             'hospitals': list(hospitals_data.values()),
             'total_doctors': len(doctors_data),
             'total_hospitals': len(hospitals_data),
-            'search_query': query
+            'search_query': query,
+            'expanded_search_terms': expanded_terms[:5]  # Show first 5 expanded terms
         }
 
         # Serialize the data
