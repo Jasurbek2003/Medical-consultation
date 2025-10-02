@@ -1,0 +1,703 @@
+{
+	"info": {
+		"_postman_id": "medical-payment-api-v1",
+		"name": "Medical Consultation - Payment API",
+		"description": "Complete payment API collection for Medical Consultation Platform including wallet management, billing, and payment gateway integration.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "medical-consultation-platform"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "payment_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Payment Gateways",
+			"item": [
+				{
+					"name": "List Payment Gateways",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/gateways/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "gateways", ""]
+						},
+						"description": "Get all active payment gateways with their configuration and commission rates."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Gateway Status",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/gateways/status/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "gateways", "status", ""]
+						},
+						"description": "Check real-time availability status of all payment gateways."
+					},
+					"response": []
+				}
+			],
+			"description": "Payment gateway management endpoints"
+		},
+		{
+			"name": "Payments",
+			"item": [
+				{
+					"name": "Create Payment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.success && jsonData.payment) {",
+									"        pm.collectionVariables.set('payment_id', jsonData.payment.id);",
+									"        console.log('Payment ID saved:', jsonData.payment.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gateway\": \"click\",\n    \"amount\": 50000.00,\n    \"callback_url\": \"https://example.com/payment/callback\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/create/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "create", ""]
+						},
+						"description": "Create a new payment for wallet top-up. Supports Click and Payme gateways."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/{{payment_id}}/status/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "{{payment_id}}", "status", ""]
+						},
+						"description": "Check the status of a specific payment by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Payment",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/{{payment_id}}/cancel/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "{{payment_id}}", "cancel", ""]
+						},
+						"description": "Cancel a pending payment."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Payment",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/{{payment_id}}/verify/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "{{payment_id}}", "verify", ""]
+						},
+						"description": "Manually verify payment status with the payment gateway."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/history/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "history", ""]
+						},
+						"description": "Get authenticated user's complete payment history."
+					},
+					"response": []
+				},
+				{
+					"name": "Estimate Payment Cost",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gateway\": \"click\",\n    \"amount\": 50000.00\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/estimate/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "estimate", ""]
+						},
+						"description": "Calculate total payment amount including commission before creating payment."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Methods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/methods/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "methods", ""]
+						},
+						"description": "Get user's saved payment methods."
+					},
+					"response": []
+				}
+			],
+			"description": "Payment creation and management"
+		},
+		{
+			"name": "Wallet",
+			"item": [
+				{
+					"name": "Get Wallet Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", ""]
+						},
+						"description": "Get comprehensive wallet information including balance, recent transactions, and billing settings."
+					},
+					"response": []
+				},
+				{
+					"name": "Quick Balance Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/balance/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", "balance", ""]
+						},
+						"description": "Quick endpoint to check current wallet balance."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Wallet Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/transactions/?type=credit&status=completed&days=30&page=1&per_page=20",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", "transactions", ""],
+							"query": [
+								{
+									"key": "type",
+									"value": "credit",
+									"description": "Filter by transaction type (credit/debit)"
+								},
+								{
+									"key": "status",
+									"value": "completed",
+									"description": "Filter by status"
+								},
+								{
+									"key": "days",
+									"value": "30",
+									"description": "Number of days to look back"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "per_page",
+									"value": "20",
+									"description": "Results per page (max 100)"
+								}
+							]
+						},
+						"description": "Get paginated wallet transaction history with filters."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Wallet Top-up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 50000.00,\n    \"gateway\": \"click\",\n    \"return_url\": \"https://example.com/wallet/topup/callback\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/topup/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", "topup", ""]
+						},
+						"description": "Create a payment to top-up wallet balance."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Top-up History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/topup/history/?page=1&per_page=20",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", "topup", "history", ""],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get wallet top-up payment history."
+					},
+					"response": []
+				},
+				{
+					"name": "Estimate Top-up Cost",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 50000.00,\n    \"gateway\": \"click\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/wallet/estimate/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "wallet", "estimate", ""]
+						},
+						"description": "Estimate top-up cost including commission."
+					},
+					"response": []
+				}
+			],
+			"description": "Wallet balance and transaction management"
+		},
+		{
+			"name": "Billing",
+			"item": [
+				{
+					"name": "Get Billing Rules",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/billing/rules/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "billing", "rules", ""]
+						},
+						"description": "Get all active billing rules, prices, and system settings. Public endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Service Access",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_type\": \"doctor_view\",\n    \"quantity\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/billing/check-access/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "billing", "check-access", ""]
+						},
+						"description": "Check if user can access a service (checks balance, free quota, etc)."
+					},
+					"response": []
+				},
+				{
+					"name": "Charge for Service",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_type\": \"doctor_view\",\n    \"quantity\": 1,\n    \"related_object_id\": 123\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/billing/charge/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "billing", "charge", ""]
+						},
+						"description": "Charge user wallet for a service usage."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Billing Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/billing/summary/?days=30",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "billing", "summary", ""],
+							"query": [
+								{
+									"key": "days",
+									"value": "30",
+									"description": "Number of days for summary"
+								}
+							]
+						},
+						"description": "Get user's billing summary including wallet activity, payments, and service charges."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Daily Usage",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/billing/daily-usage/",
+							"host": ["{{base_url}}"],
+							"path": ["billing", "daily-usage", ""]
+						},
+						"description": "Get user's daily usage statistics (free views used, paid views, spending)."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Doctor View Access",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/billing/doctor/:doctor_id/check-access/",
+							"host": ["{{base_url}}"],
+							"path": ["billing", "doctor", ":doctor_id", "check-access", ""],
+							"variable": [
+								{
+									"key": "doctor_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Check if user can view specific doctor without charging."
+					},
+					"response": []
+				},
+				{
+					"name": "View Doctor (Protected)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/billing/doctor/:doctor_id/view/",
+							"host": ["{{base_url}}"],
+							"path": ["billing", "doctor", ":doctor_id", "view", ""],
+							"variable": [
+								{
+									"key": "doctor_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Get doctor details with automatic billing. First checks free quota, then charges if needed."
+					},
+					"response": []
+				}
+			],
+			"description": "Service billing and access control"
+		},
+		{
+			"name": "Analytics (Admin)",
+			"item": [
+				{
+					"name": "Payment Analytics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/payments/analytics/?days=30",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "analytics", ""],
+							"query": [
+								{
+									"key": "days",
+									"value": "30",
+									"description": "Period in days"
+								}
+							]
+						},
+						"description": "Get payment analytics and statistics. Admin only."
+					},
+					"response": []
+				},
+				{
+					"name": "Billing Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/billing/wallet/stats/",
+							"host": ["{{base_url}}"],
+							"path": ["billing", "wallet", "stats", ""]
+						},
+						"description": "Get user billing statistics (today's spending, monthly spending, doctor views)."
+					},
+					"response": []
+				}
+			],
+			"description": "Analytics and reporting endpoints"
+		},
+		{
+			"name": "Webhooks (Internal)",
+			"item": [
+				{
+					"name": "Click - Prepare",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"click_trans_id\": \"12345\",\n    \"service_id\": \"123\",\n    \"merchant_trans_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"amount\": \"51250.00\",\n    \"action\": \"0\",\n    \"sign_time\": \"2024-01-15 12:00:00\",\n    \"sign_string\": \"signature_hash\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/click/prepare/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "click", "prepare", ""]
+						},
+						"description": "Click payment gateway prepare webhook. Called by Click during payment initialization."
+					},
+					"response": []
+				},
+				{
+					"name": "Click - Complete",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"click_trans_id\": \"12345\",\n    \"service_id\": \"123\",\n    \"merchant_trans_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"merchant_prepare_id\": \"1234567890\",\n    \"amount\": \"51250.00\",\n    \"action\": \"0\",\n    \"error\": \"0\",\n    \"sign_time\": \"2024-01-15 12:05:00\",\n    \"sign_string\": \"signature_hash\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/click/complete/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "click", "complete", ""]
+						},
+						"description": "Click payment gateway complete webhook. Called by Click to finalize payment."
+					},
+					"response": []
+				},
+				{
+					"name": "Payme - CheckPerformTransaction",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"CheckPerformTransaction\",\n    \"params\": {\n        \"amount\": 5125000,\n        \"account\": {\n            \"payment_id\": \"550e8400-e29b-41d4-a716-446655440000\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/payme/webhook/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "payme", "webhook", ""]
+						},
+						"description": "Payme JSON-RPC webhook - CheckPerformTransaction method."
+					},
+					"response": []
+				},
+				{
+					"name": "Payme - CreateTransaction",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 2,\n    \"method\": \"CreateTransaction\",\n    \"params\": {\n        \"id\": \"payme_trans_12345\",\n        \"time\": 1673784000000,\n        \"amount\": 5125000,\n        \"account\": {\n            \"payment_id\": \"550e8400-e29b-41d4-a716-446655440000\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/payme/webhook/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "payme", "webhook", ""]
+						},
+						"description": "Payme JSON-RPC webhook - CreateTransaction method."
+					},
+					"response": []
+				},
+				{
+					"name": "Payme - PerformTransaction",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 3,\n    \"method\": \"PerformTransaction\",\n    \"params\": {\n        \"id\": \"payme_trans_12345\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/payments/payme/webhook/",
+							"host": ["{{base_url}}"],
+							"path": ["payments", "payme", "webhook", ""]
+						},
+						"description": "Payme JSON-RPC webhook - PerformTransaction method."
+					},
+					"response": []
+				}
+			],
+			"description": "Internal webhook endpoints - called by payment gateways"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

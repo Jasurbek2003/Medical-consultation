@@ -1,0 +1,922 @@
+openapi: 3.0.3
+info:
+  title: Medical Consultation Platform - Payment API
+  description: |
+    Comprehensive payment API for medical consultation platform supporting:
+    - Wallet top-up via Click and Payme gateways
+    - Service billing (doctor views, consultations)
+    - Payment history and analytics
+    - Multi-currency support (UZS, USD, EUR, RUB)
+  version: 1.0.0
+  contact:
+    name: Medical Consultation Support
+    email: jasurbek2030615@gmail.com
+    url: https://github.com/Jasurbek2003/Medical-consultation
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://admin.medikon.uz/api
+    description: Production server
+
+tags:
+  - name: Payment Gateways
+    description: Payment gateway management and configuration
+  - name: Payments
+    description: Payment creation, tracking, and management
+  - name: Wallet
+    description: User wallet operations and balance management
+  - name: Billing
+    description: Service billing and charges
+  - name: Webhooks
+    description: Payment gateway webhooks (internal use)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    PaymentGateway:
+      type: object
+      properties:
+        name:
+          type: string
+          enum: [click, payme, uzcard, humo, stripe, paypal]
+          example: click
+        display_name:
+          type: string
+          example: Click
+        is_active:
+          type: boolean
+          example: true
+        min_amount:
+          type: number
+          format: decimal
+          example: 1000.00
+        max_amount:
+          type: number
+          format: decimal
+          example: 10000000.00
+        commission_type:
+          type: string
+          enum: [percentage, fixed, combined]
+          example: percentage
+        commission_percentage:
+          type: number
+          format: decimal
+          example: 2.5
+        default_currency:
+          type: string
+          example: UZS
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        reference_number:
+          type: string
+          example: PAY-1234567890-ABCD1234
+        user:
+          type: integer
+          example: 1
+        gateway:
+          type: string
+          example: click
+        payment_type:
+          type: string
+          enum: [wallet_topup, consultation, doctor_view, subscription, service]
+          example: wallet_topup
+        amount:
+          type: number
+          format: decimal
+          example: 50000.00
+        commission:
+          type: number
+          format: decimal
+          example: 1250.00
+        total_amount:
+          type: number
+          format: decimal
+          example: 51250.00
+        currency:
+          type: string
+          example: UZS
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled, expired]
+          example: pending
+        payment_url:
+          type: string
+          format: uri
+          example: https://my.click.uz/services/pay?service_id=123&amount=51250
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    Wallet:
+      type: object
+      properties:
+        balance:
+          type: number
+          format: decimal
+          example: 150000.00
+        total_spent:
+          type: number
+          format: decimal
+          example: 45000.00
+        total_topped_up:
+          type: number
+          format: decimal
+          example: 195000.00
+        is_blocked:
+          type: boolean
+          example: false
+        today_spending:
+          type: number
+          format: decimal
+          example: 5000.00
+        recent_transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletTransaction'
+
+    WalletTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [credit, debit]
+          example: credit
+        amount:
+          type: number
+          format: decimal
+          example: 50000.00
+        balance_after:
+          type: number
+          format: decimal
+          example: 150000.00
+        description:
+          type: string
+          example: Hamyon to'ldirish - Click - PAY-1234567890
+        status:
+          type: string
+          enum: [pending, completed, failed, cancelled]
+          example: completed
+        created_at:
+          type: string
+          format: date-time
+
+    BillingRule:
+      type: object
+      properties:
+        service_type:
+          type: string
+          enum: [doctor_view, consultation, chat_message, ai_diagnosis, prescription]
+          example: doctor_view
+        service_name:
+          type: string
+          example: Shifokor profilini ko'rish
+        price:
+          type: number
+          format: decimal
+          example: 5000.00
+        discount_percentage:
+          type: number
+          format: decimal
+          example: 10.00
+        min_quantity_for_discount:
+          type: integer
+          example: 5
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Payment not found
+
+paths:
+  # Payment Gateways
+  /payments/gateways/:
+    get:
+      tags: [Payment Gateways]
+      summary: List available payment gateways
+      description: Get all active payment gateways with their configuration
+      security: []
+      responses:
+        '200':
+          description: List of payment gateways
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  gateways:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentGateway'
+
+  /payments/gateways/status/:
+    get:
+      tags: [Payment Gateways]
+      summary: Check gateway availability
+      description: Check real-time availability status of all payment gateways
+      security: []
+      responses:
+        '200':
+          description: Gateway status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  gateways:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        gateway:
+                          type: string
+                          example: Click
+                        name:
+                          type: string
+                          example: click
+                        available:
+                          type: boolean
+                          example: true
+                        message:
+                          type: string
+                          example: Service available
+                        response_time:
+                          type: number
+                          example: 0.234
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  # Payments
+  /payments/create/:
+    post:
+      tags: [Payments]
+      summary: Create new payment
+      description: Create a payment for wallet top-up
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gateway, amount]
+              properties:
+                gateway:
+                  type: string
+                  enum: [click, payme]
+                  example: click
+                amount:
+                  type: number
+                  format: decimal
+                  example: 50000.00
+                callback_url:
+                  type: string
+                  format: uri
+                  example: https://example.com/payment/callback
+      responses:
+        '200':
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payment:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      amount:
+                        type: number
+                      total_amount:
+                        type: number
+                      commission:
+                        type: number
+                      status:
+                        type: string
+                      gateway:
+                        type: string
+                      payment_url:
+                        type: string
+                        format: uri
+                      expires_at:
+                        type: string
+                        format: date-time
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+
+  /payments/{payment_id}/status/:
+    get:
+      tags: [Payments]
+      summary: Get payment status
+      description: Check the status of a specific payment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payment:
+                    $ref: '#/components/schemas/Payment'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /payments/{payment_id}/cancel/:
+    post:
+      tags: [Payments]
+      summary: Cancel payment
+      description: Cancel a pending payment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Payment cancelled successfully
+        '404':
+          description: Payment not found or cannot be cancelled
+
+  /payments/{payment_id}/verify/:
+    post:
+      tags: [Payments]
+      summary: Verify payment
+      description: Manually verify payment status with gateway
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  verification_result:
+                    type: object
+                  payment_status:
+                    type: string
+
+  /payments/history/:
+    get:
+      tags: [Payments]
+      summary: Get payment history
+      description: Get user's payment history
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+
+  /payments/estimate/:
+    post:
+      tags: [Payments]
+      summary: Estimate payment cost
+      description: Calculate total amount including commission
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gateway, amount]
+              properties:
+                gateway:
+                  type: string
+                  example: click
+                amount:
+                  type: number
+                  example: 50000.00
+      responses:
+        '200':
+          description: Cost estimation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  estimate:
+                    type: object
+                    properties:
+                      amount:
+                        type: number
+                      commission:
+                        type: number
+                      total_amount:
+                        type: number
+                      gateway:
+                        type: string
+                      commission_percentage:
+                        type: number
+
+  # Wallet
+  /payments/wallet/:
+    get:
+      tags: [Wallet]
+      summary: Get wallet information
+      description: Get comprehensive user wallet information including balance and recent transactions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Wallet information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  wallet:
+                    $ref: '#/components/schemas/Wallet'
+
+  /payments/wallet/balance/:
+    get:
+      tags: [Wallet]
+      summary: Quick balance check
+      description: Get current wallet balance
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: number
+                    example: 150000.00
+                  is_blocked:
+                    type: boolean
+                    example: false
+
+  /payments/wallet/transactions/:
+    get:
+      tags: [Wallet]
+      summary: Get wallet transactions
+      description: Get paginated wallet transaction history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [credit, debit]
+        - name: status
+          in: query
+          schema:
+            type: string
+            default: completed
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Transaction list with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WalletTransaction'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total_count:
+                        type: integer
+                      total_pages:
+                        type: integer
+                      has_next:
+                        type: boolean
+                      has_previous:
+                        type: boolean
+
+  /payments/wallet/topup/:
+    post:
+      tags: [Wallet]
+      summary: Create wallet top-up
+      description: Create a payment to top-up wallet balance
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, gateway]
+              properties:
+                amount:
+                  type: number
+                  example: 50000.00
+                gateway:
+                  type: string
+                  example: click
+                return_url:
+                  type: string
+      responses:
+        '200':
+          description: Top-up payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  payment:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      payment_url:
+                        type: string
+                      amount:
+                        type: number
+                      total_amount:
+                        type: number
+
+  /payments/wallet/topup/history/:
+    get:
+      tags: [Wallet]
+      summary: Get top-up history
+      description: Get wallet top-up payment history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Top-up payment history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  payments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+                  pagination:
+                    type: object
+
+  # Billing
+  /payments/billing/rules/:
+    get:
+      tags: [Billing]
+      summary: Get billing rules
+      description: Get all active billing rules and prices
+      security: []
+      responses:
+        '200':
+          description: Billing rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  billing_rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BillingRule'
+                  settings:
+                    type: object
+                    properties:
+                      enable_billing:
+                        type: boolean
+                      free_views_per_day:
+                        type: integer
+                      min_wallet_topup:
+                        type: number
+                      max_wallet_balance:
+                        type: number
+
+  /payments/billing/check-access/:
+    post:
+      tags: [Billing]
+      summary: Check service access
+      description: Check if user can access a service
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service_type]
+              properties:
+                service_type:
+                  type: string
+                  enum: [doctor_view, consultation]
+                  example: doctor_view
+                quantity:
+                  type: integer
+                  default: 1
+      responses:
+        '200':
+          description: Access check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  can_access:
+                    type: boolean
+                  message:
+                    type: string
+                  price:
+                    type: number
+                  user_balance:
+                    type: number
+
+  /payments/billing/charge/:
+    post:
+      tags: [Billing]
+      summary: Charge for service
+      description: Charge user wallet for a service
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service_type]
+              properties:
+                service_type:
+                  type: string
+                  example: doctor_view
+                quantity:
+                  type: integer
+                  default: 1
+                related_object_id:
+                  type: integer
+                  description: ID of related object (e.g., doctor_id)
+      responses:
+        '200':
+          description: Service charged or free access granted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  charged:
+                    type: boolean
+                  amount_charged:
+                    type: number
+                  balance_after:
+                    type: number
+        '402':
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /payments/billing/summary/:
+    get:
+      tags: [Billing]
+      summary: Get billing summary
+      description: Get user billing summary for specified period
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Billing summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  summary:
+                    type: object
+
+  # Webhooks (Internal - Not for public use)
+  /payments/click/prepare/:
+    post:
+      tags: [Webhooks]
+      summary: Click prepare webhook
+      description: Internal webhook for Click payment gateway (prepare phase)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Prepare response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: integer
+                  error_note:
+                    type: string
+
+  /payments/click/complete/:
+    post:
+      tags: [Webhooks]
+      summary: Click complete webhook
+      description: Internal webhook for Click payment gateway (complete phase)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Complete response
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /payments/payme/webhook/:
+    post:
+      tags: [Webhooks]
+      summary: Payme JSON-RPC webhook
+      description: Internal webhook for Payme payment gateway (JSON-RPC 2.0)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  example: "2.0"
+                method:
+                  type: string
+                  enum: [CheckPerformTransaction, CreateTransaction, PerformTransaction, CancelTransaction, CheckTransaction]
+                params:
+                  type: object
+                id:
+                  type: integer
+      responses:
+        '200':
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  id:
+                    type: integer
+                  result:
+                    type: object
+                  error:
+                    type: object
