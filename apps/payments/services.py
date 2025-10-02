@@ -172,7 +172,8 @@ class ClickService:
         sign_string = data.get('sign_string')
         error = data.get('error', 0)
 
-        logger.info(f"Click complete - Processing transaction {merchant_trans_id}")  # noqa: F823
+        # logger.info(f"Click complete - Processing transaction {merchant_trans_id}")  # noqa: F823
+        print("Click complete - Processing transaction", merchant_trans_id)
 
         try:
             # Verify signature
@@ -219,6 +220,7 @@ class ClickService:
                 except Exception as e:
                     # Log error and return failure response
                     import logging
+                    print("Error completing payment:", str(e))
                     logger = logging.getLogger('apps.payments')
                     logger.error(f"Failed to complete payment {payment.id}: {str(e)}")
                     return {
