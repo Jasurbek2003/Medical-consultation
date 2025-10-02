@@ -121,6 +121,7 @@ class ClickService:
 
             # Check amount
             if Decimal(str(amount)) != payment.total_amount:
+                logger.warning("Click prepare - Amount mismatch: ", amount, payment.total_amount, type(amount), type(payment.total_amount))
                 return {
                     'error': -2,
                     'error_note': 'Invalid amount'
@@ -142,11 +143,13 @@ class ClickService:
             }
 
         except (Payment.DoesNotExist, PaymentGateway.DoesNotExist):
+            logger.error(f"Click prepare - Gateway not found")
             return {
                 'error': -5,
                 'error_note': 'Payment not found'
             }
         except Exception as e:
+            logger.error(f"Click prepare - Internal error: {str(e)}")
             return {
                 'error': -9,
                 'error_note': f'Internal error: {str(e)}'
@@ -173,7 +176,7 @@ class ClickService:
                 name='click',
                 service_id=service_id
             )
-            logger.debug(f"Click complete - Gateway: {gateway}")
+            print(f"Click complete - Gateway: {gateway}")
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -185,10 +188,10 @@ class ClickService:
                  str(action) +
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
-            logger.debug(f"Click complete - Expected signature: {expected_sign}")
+            print(f"Click complete - Expected signature: {expected_sign}")
 
             if expected_sign != sign_string:
-                logger.warning(f"Click complete - Invalid signature for transaction {merchant_trans_id}")
+                print(f"Click complete - Invalid signature for transaction {merchant_trans_id}")
                 return {
                     'error': -1,
                     'error_note': 'Invalid signature'
@@ -201,7 +204,7 @@ class ClickService:
             )
 
             click_transaction = payment.click_transaction
-            logger.debug(f"Click complete - Error code: {error} (type: {type(error).__name__})")
+            print(f"Click complete - Error code: {error} (type: {type(error).__name__})")
 
             if error == 0 or error == '0':
                 # Payment successful
