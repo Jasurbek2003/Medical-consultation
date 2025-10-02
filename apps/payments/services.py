@@ -92,6 +92,7 @@ class ClickService:
                 service_id=service_id
             )
             logger.debug(f"Click prepare - Gateway: {gateway}")
+            print("Click prepare - Gateway:", gateway)
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -104,6 +105,7 @@ class ClickService:
             ).hexdigest()
 
             logger.debug(f"Click prepare - Expected signature: {expected_sign}")
+            print("Click prepare - Expected signature:", expected_sign)
             if expected_sign != sign_string:
                 logger.warning(f"Click prepare - Invalid signature for transaction {merchant_trans_id}")
                 return {
@@ -118,10 +120,12 @@ class ClickService:
                 status='pending'
             )
             logger.info(f"Click prepare - Payment found: {payment.reference_number}")
+            print("Click prepare - Payment found:", payment.reference_number)
 
             # Check amount
             if Decimal(str(amount)) != payment.total_amount:
                 logger.warning("Click prepare - Amount mismatch: ", amount, payment.total_amount, type(amount), type(payment.total_amount))
+                print("Click prepare - Amount mismatch:", amount, payment.total_amount, type(amount), type(payment.total_amount))
                 return {
                     'error': -2,
                     'error_note': 'Invalid amount'
