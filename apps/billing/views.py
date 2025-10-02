@@ -1,19 +1,24 @@
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Sum
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from django.db import transaction
-from django.contrib.auth import get_user_model
-from decimal import Decimal
 
-from .models import UserWallet, BillingRule,DoctorViewCharge, BillingSettings
-from .serializers import (
-    UserWalletSerializer, WalletTransactionSerializer, BillingRuleSerializer, DoctorViewChargeSerializer
-)
 from apps.doctors.models import Doctor
+
+from .models import BillingRule, BillingSettings, DoctorViewCharge, UserWallet
+from .serializers import (
+    BillingRuleSerializer,
+    DoctorViewChargeSerializer,
+    UserWalletSerializer,
+    WalletTransactionSerializer,
+)
 from .services import BillingService
 
 User = get_user_model()
@@ -303,13 +308,52 @@ class ProtectedDoctorDetailView(APIView):
             })
 
         # Try to charge for view
-        charge_response = ChargeForServiceView().post(request, {
-            'service_type': 'doctor_view',
-            'object_id': doctor_id
-        })
+        # Manually call the charge logic
+        try:
+            with transaction.atomic():
+                billing_rule = BillingRule.objects.get(
+                    service_type='doctor_view',
+                    is_active=True
+                )
 
-        if not charge_response.data.get('success'):
-            return charge_response
+                wallet = get_object_or_404(UserWallet, user=request.user)
+                price_per_unit = billing_rule.get_effective_price(1)
+
+                if not wallet.has_sufficient_balance(price_per_unit):
+                    return Response({
+                        'success': False,
+                        'error': 'Insufficient balance',
+                        'current_balance': wallet.balance,
+                        'required_amount': price_per_unit
+                    }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+                wallet.deduct_balance(price_per_unit, f"{billing_rule.get_service_type_display()} (ID: {doctor_id})")
+                transaction_obj = wallet.transactions.first()
+
+                DoctorViewCharge.objects.create(
+                    user=request.user,
+                    doctor=doctor,
+                    transaction=transaction_obj,
+                    amount_charged=price_per_unit,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+
+                charged = True
+                amount_charged = price_per_unit
+                new_balance = wallet.balance
+                message = f'Successfully charged for {billing_rule.get_service_type_display()}'
+
+        except BillingRule.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Billing rule not found for this service'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Return doctor data
         from apps.doctors.serializers import DoctorSerializer
@@ -318,10 +362,10 @@ class ProtectedDoctorDetailView(APIView):
         return Response({
             'success': True,
             'doctor': serializer.data,
-            'charged': charge_response.data.get('charged', False),
-            'amount_charged': charge_response.data.get('amount_charged', 0),
-            'new_balance': charge_response.data.get('new_balance'),
-            'message': charge_response.data.get('message', 'Success')
+            'charged': charged,
+            'amount_charged': float(amount_charged),
+            'new_balance': float(new_balance),
+            'message': message
         })
 
 

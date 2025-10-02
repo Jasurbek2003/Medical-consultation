@@ -1,16 +1,17 @@
 import hashlib
 import json
+import logging
 import time
-import requests
+from datetime import datetime
 from decimal import Decimal
+
+import requests
 from django.conf import settings
 from django.db import transaction
-from datetime import datetime
 
-from .models import (
-    Payment, ClickTransaction, PaymeTransaction,
-    PaymentGateway
-)
+from .models import ClickTransaction, Payment, PaymentGateway, PaymeTransaction
+
+logger = logging.getLogger('apps.payments')
 
 
 class ClickService:
@@ -42,12 +43,14 @@ class ClickService:
     @staticmethod
     def _generate_payment_url(payment, gateway):
         """Generate Click payment URL"""
+        return_url = payment.callback_url or getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+
         params = {
             'service_id': gateway.service_id,
             'merchant_id': gateway.merchant_id,
             'amount': str(payment.total_amount),
             'transaction_param': str(payment.id),
-            'return_url': payment.callback_url or settings.FRONTEND_URL,
+            'return_url': return_url,
             # 'card_type': '1'  # All cards
         }
 
@@ -88,7 +91,7 @@ class ClickService:
                 name='click',
                 service_id=service_id
             )
-            print("getaway", gateway)
+            logger.debug(f"Click prepare - Gateway: {gateway}")
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -100,21 +103,21 @@ class ClickService:
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
 
-            print("expected_sign", expected_sign)
+            logger.debug(f"Click prepare - Expected signature: {expected_sign}")
             if expected_sign != sign_string:
+                logger.warning(f"Click prepare - Invalid signature for transaction {merchant_trans_id}")
                 return {
                     'error': -1,
                     'error_note': 'Invalid signature'
                 }
-            print(Payment.objects.filter(gateway=gateway, status='pending').values("id"))
-            print(merchant_trans_id)
+
             # Find payment
             payment = Payment.objects.get(
                 id=merchant_trans_id,
                 gateway=gateway,
                 status='pending'
             )
-            print("payment", payment)
+            logger.info(f"Click prepare - Payment found: {payment.reference_number}")
 
             # Check amount
             if Decimal(str(amount)) != payment.total_amount:
@@ -151,7 +154,6 @@ class ClickService:
 
     @staticmethod
     def complete(data):
-        print("complete data", data)
         """Handle Click complete request"""
         click_trans_id = data.get('click_trans_id')
         service_id = data.get('service_id')
@@ -163,13 +165,15 @@ class ClickService:
         sign_string = data.get('sign_string')
         error = data.get('error', 0)
 
+        logger.info(f"Click complete - Processing transaction {merchant_trans_id}")  # noqa: F823
+
         try:
             # Verify signature
             gateway = PaymentGateway.objects.get(
                 name='click',
                 service_id=service_id
             )
-            print("getaway", gateway)
+            logger.debug(f"Click complete - Gateway: {gateway}")
 
             expected_sign = hashlib.md5(
                 (str(click_trans_id) +
@@ -181,9 +185,10 @@ class ClickService:
                  str(action) +
                  str(sign_time)).encode('utf-8')
             ).hexdigest()
-            print("expected_sign", expected_sign)
+            logger.debug(f"Click complete - Expected signature: {expected_sign}")
 
             if expected_sign != sign_string:
+                logger.warning(f"Click complete - Invalid signature for transaction {merchant_trans_id}")
                 return {
                     'error': -1,
                     'error_note': 'Invalid signature'
@@ -196,7 +201,8 @@ class ClickService:
             )
 
             click_transaction = payment.click_transaction
-            print(type(error))
+            logger.debug(f"Click complete - Error code: {error} (type: {type(error).__name__})")
+
             if error == 0 or error == '0':
                 # Payment successful
                 try:
@@ -356,7 +362,6 @@ class PaymeService:
         """Create Payme transaction"""
         payme_id = params.get('id')
         payme_time = params.get('time')
-        amount = params.get('amount')
         account = params.get('account', {})
 
         try:
@@ -584,7 +589,7 @@ class PaymeService:
                 'payme_state': payme_transaction.state,
                 'message': 'Payment verified'
             }
-        except:
+        except PaymeTransaction.DoesNotExist:
             return {
                 'verified': False,
                 'status': payment.status,

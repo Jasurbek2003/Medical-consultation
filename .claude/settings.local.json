@@ -4,7 +4,8 @@
       "Bash(python manage.py shell:*)",
       "Bash(python manage.py:*)",
       "Bash(python:*)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(dir docs)"
     ],
     "deny": [],
     "ask": []

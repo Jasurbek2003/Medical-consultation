@@ -1,21 +1,20 @@
+import json
+from decimal import Decimal
+
+from django.http import JsonResponse
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.http import JsonResponse
-from decimal import Decimal
-import json
 
-from .models import (
-    PaymentGateway, Payment, PaymentWebhook,
-    PaymentProcessor
-)
+from .models import Payment, PaymentGateway, PaymentProcessor, PaymentWebhook
 from .serializers import (
-    PaymentSerializer, PaymentGatewaySerializer,
-    PaymentMethodSerializer
+    PaymentGatewaySerializer,
+    PaymentMethodSerializer,
+    PaymentSerializer,
 )
 from .services import ClickService, PaymeService
 
@@ -36,7 +35,7 @@ class PaymentGatewayListView(APIView):
 
 class CreatePaymentView(APIView):
     """Create a new payment"""
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         """Create payment for wallet topup"""
@@ -194,24 +193,26 @@ class ClickWebhookView(APIView):
             })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ClickPrepareView(APIView):
     """Click prepare endpoint"""
     permission_classes = []
     authentication_classes = []
 
     def post(self, request):
-        # """Handle Click prepare request"""
-        # try:
+        """Handle Click prepare request"""
+        try:
             data = request.data
             result = ClickService.prepare(data)
             return JsonResponse(result)
-        # except Exception as e:
-        #     return JsonResponse({
-        #         'error': -1,
-        #         'error_note': str(e)
-        #     })
+        except Exception as e:
+            return JsonResponse({
+                'error': -1,
+                'error_note': str(e)
+            })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ClickCompleteView(APIView):
     """Click complete endpoint"""
     permission_classes = []
@@ -220,10 +221,8 @@ class ClickCompleteView(APIView):
     def post(self, request):
         """Handle Click complete request"""
         try:
-            print("Click Complete Data:", request.data)
             data = request.data
             result = ClickService.complete(data)
-            print("Click Complete Result:", result)
             return JsonResponse(result)
         except Exception as e:
             return JsonResponse({
@@ -241,6 +240,7 @@ class PaymeWebhookView(APIView):
 
     def post(self, request):
         """Handle Payme JSON-RPC webhook"""
+        data = None
         try:
             data = json.loads(request.body)
 
@@ -261,10 +261,19 @@ class PaymeWebhookView(APIView):
 
             return JsonResponse(result)
 
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'jsonrpc': '2.0',
+                'id': 0,
+                'error': {
+                    'code': -32700,
+                    'message': 'Parse error'
+                }
+            })
         except Exception as e:
             return JsonResponse({
                 'jsonrpc': '2.0',
-                'id': data.get('id', 0),
+                'id': data.get('id', 0) if data else 0,
                 'error': {
                     'code': -32400,
                     'message': str(e)
@@ -362,8 +371,9 @@ class PaymentAnalyticsView(APIView):
 
     def get(self, request):
         """Get payment analytics"""
-        from django.db.models import Sum, Count, Avg
-        from datetime import datetime, timedelta
+        from datetime import timedelta
+
+        from django.db.models import Avg, Sum
 
         # Date range
         days = int(request.GET.get('days', 30))

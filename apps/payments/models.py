@@ -1,12 +1,12 @@
-from django.db import models, transaction
-from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
-from decimal import Decimal
 import uuid
-import json
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models, transaction
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -567,9 +567,18 @@ class Payment(models.Model):
 
     def mark_as_completed(self, gateway_transaction_id=None):
         """Mark payment as completed"""
+        import logging
+        logger = logging.getLogger('apps.payments')
+        logger.info(f"Marking payment {self.reference_number} as completed")
+
         try:
-            print("completed called")
             with transaction.atomic():
+                # Prevent double-completion by checking current status
+                current_payment = Payment.objects.select_for_update().get(id=self.id)
+                if current_payment.status in ['completed', 'refunded', 'partially_refunded']:
+                    logger.warning(f"Payment {self.reference_number} already completed with status {current_payment.status}")
+                    return
+
                 self.status = 'completed'
                 self.completed_at = timezone.now()
                 if gateway_transaction_id:
@@ -1675,8 +1684,8 @@ class PaymentProcessor:
 
 
 # Signal handlers
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
+from django.db.models.signals import post_save, pre_save  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
 
 
 @receiver(post_save, sender=Payment)
