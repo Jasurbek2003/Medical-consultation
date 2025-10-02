@@ -206,6 +206,7 @@ class ClickPrepareView(APIView):
             result = ClickService.prepare(data)
             return JsonResponse(result)
         except Exception as e:
+            print("Error in ClickPrepareView:", e)
             return JsonResponse({
                 'error': -1,
                 'error_note': str(e)
@@ -225,6 +226,7 @@ class ClickCompleteView(APIView):
             result = ClickService.complete(data)
             return JsonResponse(result)
         except Exception as e:
+            print("Error in ClickCompleteView:", e)
             return JsonResponse({
                 'error': -1,
                 'error_note': str(e)
