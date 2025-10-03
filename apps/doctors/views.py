@@ -1064,12 +1064,13 @@ class DoctorPhoneNumberView(APIView):
 
         # Get or create charge settings
         charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
+        user = doctor.user
 
         # Charge the doctor
         success, message = doctor.charge_wallet(
             amount=charge_settings.view_phone_charge,
             charge_type='view_phone',
-            user=request.user,
+            user=user,
             ip_address=self.get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', ''),
             metadata={
