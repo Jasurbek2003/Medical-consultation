@@ -22,6 +22,7 @@ from .services.translation_service import DoctorTranslationService
 from ..admin_panel.models import DoctorComplaint, DoctorComplaintFile
 from ..admin_panel.serializers import DoctorComplaintFileSerializer
 from ..hospitals.models import Districts, Regions
+from ..users.api_views import is_valid_ip, is_private_ip
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
@@ -1015,14 +1016,34 @@ class DoctorPhoneNumberView(APIView):
     """View doctor phone number with charge"""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_client_ip(self, request):
-        """Get client IP address"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+    @staticmethod
+    def get_client_ip(request):
+        """
+        Get client IP address from request with enhanced security
+        Handles multiple proxy scenarios and validates IP addresses
+        """
+        # List of headers to check in order of preference
+        ip_headers = [
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_REAL_IP',
+            'HTTP_CF_CONNECTING_IP',  # Cloudflare
+            'HTTP_X_FORWARDED',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+            'REMOTE_ADDR'
+        ]
+        for header in ip_headers:
+            ip_list = request.META.get(header)
+            if ip_list:
+                # Handle comma-separated IPs (first one is usually the original client)
+                ip = ip_list.split(',')[0].strip()
+
+                # Basic IP validation and private IP filtering
+                if is_valid_ip(ip) and not is_private_ip(ip):
+                    return ip
+
+        # Fallback to REMOTE_ADDR even if it might be private
+        return request.META.get('REMOTE_ADDR', '127.0.0.1')
 
     def post(self, request, pk):
         """View doctor phone number with charge deduction"""
@@ -1067,7 +1088,7 @@ class DoctorPhoneNumberView(APIView):
             'success': True,
             'phone': doctor.user.phone,
             'charged_amount': charge_settings.view_phone_charge,
-            'remaining_balance': doctor.wallet_balance
+            'remaining_balance': doctor.user.wallet.balance if hasattr(doctor.user, 'wallet') else 0
         })
 
 
@@ -1156,8 +1177,10 @@ class DoctorWalletView(APIView):
             )
 
         doctor = request.user.doctor_profile
+        wallet_balance = request.user.wallet.balance if hasattr(request.user, 'wallet') else 0
+
         return Response({
-            'wallet_balance': doctor.wallet_balance,
+            'wallet_balance': wallet_balance,
             'is_blocked': doctor.is_blocked,
-            'warning': 'Hamyon balansi 5000 dan kam bo\'lsa, profilingiz bloklanadi' if doctor.wallet_balance <= 10000 else None
+            'warning': 'Hamyon balansi 5000 dan kam bo\'lsa, profilingiz bloklanadi' if wallet_balance <= 10000 else None
         })

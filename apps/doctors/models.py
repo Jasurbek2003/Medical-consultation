@@ -151,16 +151,7 @@ class Doctor(models.Model):
     total_consultations = models.PositiveIntegerField(default=0, verbose_name="Jami konsultatsiyalar")
     successful_consultations = models.PositiveIntegerField(default=0, verbose_name="Muvaffaqiyatli konsultatsiyalar")
 
-    # Wallet balance
-    wallet_balance = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0.00,
-        validators=[MinValueValidator(0)],
-        verbose_name="Hamyon balansi"
-    )
-
-    # Blocked status
+    # Blocked status (based on user's wallet balance)
     is_blocked = models.BooleanField(default=False, verbose_name="Bloklangan")
 
     # View statistics
@@ -342,27 +333,33 @@ class Doctor(models.Model):
 
     def check_and_update_block_status(self):
         """Check wallet balance and update block status"""
-        if self.wallet_balance <= 5000:
+        wallet_balance = self.user.wallet.balance if hasattr(self.user, 'wallet') else 0
+
+        if wallet_balance <= 5000:
             self.is_blocked = True
             self.is_available = False
             self.save(update_fields=['is_blocked', 'is_available'])
-        elif self.is_blocked and self.wallet_balance > 5000:
+        elif self.is_blocked and wallet_balance > 5000:
             self.is_blocked = False
             self.save(update_fields=['is_blocked'])
 
     def charge_wallet(self, amount, charge_type, user=None, ip_address=None, user_agent=None, metadata=None):
-        """Charge amount from wallet and log the transaction"""
+        """Charge amount from user's wallet and log the transaction"""
         from decimal import Decimal
 
         if amount <= 0:
             return False, "Summa musbat bo'lishi kerak"
 
-        if self.wallet_balance < Decimal(str(amount)):
+        # Check if user has wallet
+        if not hasattr(self.user, 'wallet'):
+            return False, "Hamyon topilmadi"
+
+        if self.user.wallet.balance < Decimal(str(amount)):
             return False, "Hamyonda yetarli mablag' yo'q"
 
-        # Deduct from wallet
-        self.wallet_balance -= Decimal(str(amount))
-        self.save(update_fields=['wallet_balance'])
+        # Deduct from user's wallet
+        self.user.wallet.balance -= Decimal(str(amount))
+        self.user.wallet.save(update_fields=['balance'])
 
         # Create charge log
         ChargeLog.objects.create(

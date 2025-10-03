@@ -1005,6 +1005,7 @@ class DoctorChargeAdmin(admin.ModelAdmin):
 
     def get_doctor_info(self, obj):
         doctor = obj.doctor
+        wallet_balance = doctor.user.wallet.balance if hasattr(doctor.user, 'wallet') else 0
         return format_html(
             '<div>'
             '<strong>Dr. {} {}</strong>'
@@ -1013,7 +1014,7 @@ class DoctorChargeAdmin(admin.ModelAdmin):
             doctor.user.first_name,
             doctor.user.last_name,
             doctor.get_specialty_display(),
-            int(doctor.wallet_balance)
+            int(wallet_balance)
         )
     get_doctor_info.short_description = '👨‍⚕️ Shifokor'
 
@@ -1042,7 +1043,7 @@ class DoctorChargeAdmin(admin.ModelAdmin):
     view_phone_charge_badge.short_description = '📞 Telefon'
 
     def wallet_balance(self, obj):
-        balance = obj.doctor.wallet_balance
+        balance = obj.doctor.user.wallet.balance if hasattr(obj.doctor.user, 'wallet') else 0
         color = '#28a745' if balance > 10000 else '#ffc107' if balance > 5000 else '#dc3545'
         return format_html(
             '<div style="text-align: center; background: {}; color: white; padding: 6px; border-radius: 8px;">'
