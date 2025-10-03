@@ -95,6 +95,16 @@ class UserWallet(models.Model):
             balance_after=self.balance
         )
 
+        # Unblock doctor if balance topped up to more than 5000
+        if self.balance > 5000 and self.user.user_type == 'doctor':
+            try:
+                doctor = self.user.doctor_profile
+                if doctor.is_blocked:
+                    doctor.is_blocked = False
+                    doctor.save(update_fields=['is_blocked'])
+            except Exception:
+                pass  # User might not have doctor profile yet
+
 
 class BillingRule(models.Model):
     """Configurable billing rules for different services"""

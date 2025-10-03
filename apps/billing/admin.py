@@ -239,7 +239,7 @@ class UserWalletAdmin(admin.ModelAdmin):
     def add_bonus(self, request, queryset):
         """Add bonus to selected wallets"""
         # In production, this would open a form to enter bonus amount
-        bonus_amount = Decimal('10000.00')  # Example fixed bonus
+        bonus_amount = Decimal('11000.00')  # Example fixed bonus
         for wallet in queryset:
             wallet.add_balance(
                 bonus_amount,
