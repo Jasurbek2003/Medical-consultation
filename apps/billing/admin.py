@@ -19,13 +19,14 @@ class UserWalletAdmin(admin.ModelAdmin):
     """Admin configuration for User Wallets"""
 
     list_display = [
-        'user_info', 'balance_display', 'total_spent_display',
-        'total_topped_up_display', 'status_badge', 'last_transaction',
+        'user_info', 'user_type_badge', 'balance_display', 'total_spent_display',
+        'total_topped_up_display', 'status_badge', 'doctor_block_warning', 'last_transaction',
         'created_at'
     ]
 
     list_filter = [
         'is_blocked',
+        'user__user_type',
         ('created_at', admin.DateFieldListFilter),
         ('updated_at', admin.DateFieldListFilter),
     ]
@@ -60,7 +61,7 @@ class UserWalletAdmin(admin.ModelAdmin):
     )
 
     actions = [
-        'block_wallets', 'unblock_wallets', 'add_bonus',
+        'block_wallets', 'unblock_wallets', 'unblock_doctors', 'add_bonus',
         'export_wallet_report', 'reset_wallet_balance'
     ]
 
@@ -76,18 +77,61 @@ class UserWalletAdmin(admin.ModelAdmin):
     user_info.short_description = 'User'
     user_info.admin_order_field = 'user__username'
 
+    def user_type_badge(self, obj):
+        """Display user type with appropriate badge"""
+        user = obj.user
+        type_colors = {
+            'doctor': '#007bff',
+            'patient': '#28a745',
+            'hospital_admin': '#6f42c1',
+            'admin': '#dc3545',
+        }
+        type_icons = {
+            'doctor': '👨‍⚕️',
+            'patient': '👤',
+            'hospital_admin': '🏥',
+            'admin': '⚡',
+        }
+        color = type_colors.get(user.user_type, '#6c757d')
+        icon = type_icons.get(user.user_type, '👤')
+        return format_html(
+            '<span style="background: {}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">{} {}</span>',
+            color, icon, user.user_type.replace('_', ' ').title()
+        )
+
+    user_type_badge.short_description = 'Type'
+    user_type_badge.admin_order_field = 'user__user_type'
+
     def balance_display(self, obj):
         """Display balance with color coding"""
         balance = obj.balance
-        if balance < 1000:
-            color = 'red'
-        elif balance < 10000:
-            color = 'orange'
+        is_doctor = obj.user.user_type == 'doctor'
+
+        # Different thresholds for doctors (5000 critical) vs others
+        if is_doctor:
+            if balance <= 5000:
+                color = '#dc3545'  # Red - critical for doctors
+                icon = '🚨'
+            elif balance <= 10000:
+                color = '#ffc107'  # Yellow - warning
+                icon = '⚠️'
+            else:
+                color = '#28a745'  # Green - safe
+                icon = '✅'
         else:
-            color = 'green'
+            if balance < 1000:
+                color = '#dc3545'
+                icon = '💸'
+            elif balance < 10000:
+                color = '#ffc107'
+                icon = '💰'
+            else:
+                color = '#28a745'
+                icon = '💎'
+
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} UZS</span>',
-            color, balance
+            '<span style="color: {}; font-weight: bold; font-size: 13px;">{} {} UZS</span>',
+            color, icon, balance
         )
 
     balance_display.short_description = 'Balance'
@@ -124,6 +168,41 @@ class UserWalletAdmin(admin.ModelAdmin):
         )
 
     status_badge.short_description = 'Status'
+
+    def doctor_block_warning(self, obj):
+        """Display warning for doctors at risk of being blocked"""
+        if obj.user.user_type != 'doctor':
+            return '-'
+
+        try:
+            doctor = obj.user.doctor_profile
+            balance = obj.balance
+
+            if balance <= 5000:
+                if doctor.is_blocked:
+                    return format_html(
+                        '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">'
+                        '🚫 BLOCKED</span>'
+                    )
+                else:
+                    return format_html(
+                        '<span style="background: #ffc107; color: black; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">'
+                        '⚠️ AT RISK</span>'
+                    )
+            elif balance <= 10000:
+                return format_html(
+                    '<span style="background: #17a2b8; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">'
+                    'ℹ️ Low Balance</span>'
+                )
+            else:
+                return format_html(
+                    '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">'
+                    '✅ Safe</span>'
+                )
+        except Exception:
+            return '-'
+
+    doctor_block_warning.short_description = 'Doctor Status'
 
     def last_transaction(self, obj):
         """Display last transaction info"""
@@ -235,6 +314,39 @@ class UserWalletAdmin(admin.ModelAdmin):
         self.message_user(request, f'{count} wallet(s) unblocked successfully.')
 
     unblock_wallets.short_description = 'Unblock selected wallets'
+
+    def unblock_doctors(self, request, queryset):
+        """Unblock doctors if their balance is sufficient"""
+        unblocked_count = 0
+        insufficient_balance = 0
+
+        for wallet in queryset:
+            if wallet.user.user_type == 'doctor':
+                try:
+                    doctor = wallet.user.doctor_profile
+                    if wallet.balance > 5000 and doctor.is_blocked:
+                        doctor.is_blocked = False
+                        doctor.save(update_fields=['is_blocked'])
+                        unblocked_count += 1
+                    elif wallet.balance <= 5000:
+                        insufficient_balance += 1
+                except Exception:
+                    pass
+
+        if unblocked_count > 0:
+            self.message_user(
+                request,
+                f'✅ {unblocked_count} doctor(s) unblocked successfully.',
+                level='success'
+            )
+        if insufficient_balance > 0:
+            self.message_user(
+                request,
+                f'⚠️ {insufficient_balance} doctor(s) have insufficient balance (≤ 5000).',
+                level='warning'
+            )
+
+    unblock_doctors.short_description = '🩺 Unblock doctors (if balance > 5000)'
 
     def add_bonus(self, request, queryset):
         """Add bonus to selected wallets"""

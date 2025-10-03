@@ -1014,7 +1014,7 @@ class DoctorComplaintFileViewSet(viewsets.ModelViewSet):
 
 class DoctorPhoneNumberView(APIView):
     """View doctor phone number with charge"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     @staticmethod
     def get_client_ip(request):
