@@ -9,12 +9,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.views import APIView
 
-from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName
+from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName, DoctorCharge, ChargeLog
 from .serializers import (
     DoctorSerializer, DoctorRegistrationSerializer, DoctorUpdateSerializer,
     DoctorProfileSerializer, DoctorFilesSerializer, DoctorFileUploadSerializer,
     DoctorLocationUpdateSerializer, RegionSerializer, DistrictSerializer,
-    DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer
+    DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer,
+    DoctorChargeSerializer, DoctorChargeUpdateSerializer, ChargeLogSerializer
 )
 from .filters import DoctorFilter
 from .services.translation_service import DoctorTranslationService
@@ -63,8 +64,8 @@ class DoctorViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if not user.is_authenticated:
-            # Public access - only show approved doctors
-            return queryset.filter(verification_status='approved')
+            # Public access - only show approved and non-blocked doctors
+            return queryset.filter(verification_status='approved', is_blocked=False)
 
         if user.is_admin():
             # Admin can see all doctors
@@ -74,13 +75,13 @@ class DoctorViewSet(viewsets.ModelViewSet):
             # Hospital admin can see their hospital's doctors
             return queryset.filter(hospital=user.managed_hospital)
         elif user.is_doctor():
-            # Doctors can see their own profile and approved doctors
+            # Doctors can see their own profile and approved non-blocked doctors
             return queryset.filter(
-                Q(user=user) | Q(verification_status='approved')
+                Q(user=user) | Q(verification_status='approved', is_blocked=False)
             )
         else:
-            # Patients can only see approved doctors
-            return queryset.filter(verification_status='approved')
+            # Patients can only see approved and non-blocked doctors
+            return queryset.filter(verification_status='approved', is_blocked=False)
 
     def perform_create(self, serializer):
         """Handle doctor creation with file uploads"""
@@ -351,8 +352,11 @@ class DoctorSpecializationViewSet(viewsets.ModelViewSet):
 class DoctorListView(generics.ListAPIView):
     """List all approved doctors"""
 
-    queryset = Doctor.objects.filter(verification_status='approved').select_related(
-        'user', 'hospital',
+    queryset = Doctor.objects.filter(
+        verification_status='approved',
+        is_blocked=False
+    ).select_related(
+        'user', 'hospital', 'charges'
     ).prefetch_related('files')
 
     serializer_class = DoctorSerializer
@@ -363,8 +367,8 @@ class DoctorListView(generics.ListAPIView):
         'user__first_name', 'user__last_name', 'specialty',
         'workplace', 'bio', 'region__name', 'district__name'
     ]
-    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience']
-    ordering = ['-rating']
+    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience', 'charges__search_charge']
+    ordering = ['-charges__search_charge', '-rating']
 
 
 class DoctorDetailView(generics.RetrieveAPIView):
@@ -747,14 +751,15 @@ class DoctorSearchView(generics.ListAPIView):
         'user__first_name', 'user__last_name', 'specialty',
         'workplace', 'bio', 'region__name', 'district__name'
     ]
-    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience']
+    ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience', 'charges__search_charge']
 
     def get_queryset(self):
         """Custom queryset with location filtering"""
         queryset = Doctor.objects.filter(
-            verification_status='approved'
+            verification_status='approved',
+            is_blocked=False
         ).select_related(
-            'user', 'hospital', 'region', 'district'
+            'user', 'hospital', 'region', 'district', 'charges'
         ).prefetch_related('files')
 
         # Location filtering
@@ -802,7 +807,8 @@ class DoctorSearchView(generics.ListAPIView):
         if min_rating:
             queryset = queryset.filter(rating__gte=min_rating)
 
-        return queryset
+        # Default ordering by search charge (higher charge = higher ranking)
+        return queryset.order_by('-charges__search_charge', '-rating', '-total_reviews')
 
 
 class DoctorStatsView(generics.RetrieveAPIView):
@@ -1003,3 +1009,155 @@ class DoctorComplaintFileViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Fayl muvaffaqiyatli o\'chirildi'
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+class DoctorPhoneNumberView(APIView):
+    """View doctor phone number with charge"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_client_ip(self, request):
+        """Get client IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def post(self, request, pk):
+        """View doctor phone number with charge deduction"""
+        try:
+            doctor = Doctor.objects.get(id=pk)
+        except Doctor.DoesNotExist:
+            return Response(
+                {'error': 'Shifokor topilmadi'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if doctor is blocked
+        if doctor.is_blocked:
+            return Response(
+                {'error': 'Shifokor bloklangan'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get or create charge settings
+        charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
+
+        # Charge the doctor
+        success, message = doctor.charge_wallet(
+            amount=charge_settings.view_phone_charge,
+            charge_type='view_phone',
+            user=request.user,
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            metadata={
+                'doctor_id': doctor.id,
+                'viewer_id': request.user.id
+            }
+        )
+
+        if not success:
+            return Response(
+                {'error': message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            'success': True,
+            'phone': doctor.user.phone,
+            'charged_amount': charge_settings.view_phone_charge,
+            'remaining_balance': doctor.wallet_balance
+        })
+
+
+class DoctorChargeSettingsView(APIView):
+    """Get and update doctor charge settings"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get charge settings for authenticated doctor"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Faqat shifokorlar uchun'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
+
+        serializer = DoctorChargeSerializer(charge_settings)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        """Update customizable charge settings"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Faqat shifokorlar uchun'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
+
+        serializer = DoctorChargeUpdateSerializer(
+            charge_settings,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(DoctorChargeSerializer(charge_settings).data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DoctorChargeLogsView(APIView):
+    """View doctor charge logs"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get charge logs for authenticated doctor"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Faqat shifokorlar uchun'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        logs = ChargeLog.objects.filter(doctor=doctor).order_by('-created_at')
+
+        # Filter by charge type if provided
+        charge_type = request.query_params.get('charge_type')
+        if charge_type:
+            logs = logs.filter(charge_type=charge_type)
+
+        # Pagination
+        from rest_framework.pagination import PageNumberPagination
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        result_page = paginator.paginate_queryset(logs, request)
+
+        serializer = ChargeLogSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class DoctorWalletView(APIView):
+    """View doctor wallet balance"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get wallet balance for authenticated doctor"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Faqat shifokorlar uchun'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        return Response({
+            'wallet_balance': doctor.wallet_balance,
+            'is_blocked': doctor.is_blocked,
+            'warning': 'Hamyon balansi 5000 dan kam bo\'lsa, profilingiz bloklanadi' if doctor.wallet_balance <= 10000 else None
+        })

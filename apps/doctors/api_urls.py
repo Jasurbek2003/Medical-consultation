@@ -8,7 +8,8 @@ from .views import (
     DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
     DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
     DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView,
-    DoctorProfileTranslationAPIView, DoctorComplaintFileViewSet
+    DoctorProfileTranslationAPIView, DoctorComplaintFileViewSet,
+    DoctorPhoneNumberView, DoctorChargeSettingsView, DoctorChargeLogsView, DoctorWalletView
 )
 from .api_views import DoctorServiceNameViewSet
 from ..admin_panel.views import doctor_complaint_list, doctor_create_complaint, doctor_complaint_detail
@@ -55,4 +56,10 @@ urlpatterns = [
     path('complaints/', doctor_complaint_list, name='doctor-complaint-list'),
     path('complaints/create/', doctor_create_complaint, name='doctor-create-complaint'),
     path('complaints/<int:complaint_id>/', doctor_complaint_detail, name='doctor-complaint-detail'),
+
+    # Charge management endpoints
+    path('<int:pk>/phone/', DoctorPhoneNumberView.as_view(), name='doctor-phone-view'),
+    path('charges/', DoctorChargeSettingsView.as_view(), name='doctor-charge-settings'),
+    path('charges/logs/', DoctorChargeLogsView.as_view(), name='doctor-charge-logs'),
+    path('wallet/', DoctorWalletView.as_view(), name='doctor-wallet'),
 ]

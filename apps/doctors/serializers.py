@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 
 from .models import (
     Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName, DoctorTranslation,
+    DoctorCharge, ChargeLog,
 )
 from .services.translation_service import TranslationConfig
 from ..hospitals.models import Regions, Districts
@@ -92,10 +93,11 @@ class DoctorSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
-    phone = serializers.CharField(source='user.phone', read_only=True)
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
 
     translations = serializers.SerializerMethodField()
+
+    # NOTE: phone is intentionally excluded from main list for privacy
 
     def get_translations(self, obj):
         """Get translations for bio and achievements"""
@@ -126,8 +128,8 @@ class DoctorSerializer(serializers.ModelSerializer):
             'success_rate', 'avatar', 'region_name', 'hospital_id',
             'district_name', 'region_id', 'district_id', 'files', 'services',
             'work_start_time', 'work_end_time', 'work_days',
-            'first_name', 'last_name', 'middle_name', 'phone', 'full_name', 'translations'
-
+            'first_name', 'last_name', 'middle_name', 'full_name', 'translations'
+            # NOTE: 'phone' is excluded from main list - use dedicated endpoint
         ]
 
 
@@ -471,8 +473,70 @@ class DoctorServiceNameSerializer(serializers.ModelSerializer):
 
 class DoctorServiceNameListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing DoctorServiceName"""
-    
+
     class Meta:
         model = DoctorServiceName
         fields = ['id', 'name', 'name_en', 'name_ru', 'name_kr', 'description']
+
+
+class DoctorChargeSerializer(serializers.ModelSerializer):
+    """Serializer for DoctorCharge model"""
+
+    doctor_name = serializers.CharField(source='doctor.full_name', read_only=True)
+
+    class Meta:
+        model = DoctorCharge
+        fields = [
+            'id', 'doctor', 'doctor_name',
+            'search_charge', 'view_card_charge', 'view_phone_charge',
+            'first_register_charge', 'add_service_charge', 'add_speciality_charge',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'doctor', 'doctor_name', 'created_at', 'updated_at',
+                           'first_register_charge', 'add_service_charge', 'add_speciality_charge']
+
+
+class DoctorChargeUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating customizable charges"""
+
+    class Meta:
+        model = DoctorCharge
+        fields = ['search_charge', 'view_card_charge', 'view_phone_charge']
+
+    def validate_search_charge(self, value):
+        """Validate search charge minimum"""
+        if value < 0:
+            raise serializers.ValidationError("Qidiruv to'lovi 0 dan kam bo'lishi mumkin emas")
+        return value
+
+    def validate_view_card_charge(self, value):
+        """Validate view card charge minimum"""
+        if value < 500:
+            raise serializers.ValidationError("Kartani ko'rish to'lovi kamida 500 bo'lishi kerak")
+        return value
+
+    def validate_view_phone_charge(self, value):
+        """Validate view phone charge minimum"""
+        if value < 1000:
+            raise serializers.ValidationError("Telefon ko'rish to'lovi kamida 1000 bo'lishi kerak")
+        return value
+
+
+class ChargeLogSerializer(serializers.ModelSerializer):
+    """Serializer for ChargeLog model"""
+
+    doctor_name = serializers.CharField(source='doctor.full_name', read_only=True)
+    charge_type_display = serializers.CharField(source='get_charge_type_display', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = ChargeLog
+        fields = [
+            'id', 'doctor', 'doctor_name', 'charge_type', 'charge_type_display',
+            'amount', 'ip_address', 'user_agent', 'user', 'user_name',
+            'created_at', 'metadata'
+        ]
+        read_only_fields = ['id', 'doctor', 'doctor_name', 'charge_type', 'charge_type_display',
+                           'amount', 'ip_address', 'user_agent', 'user', 'user_name',
+                           'created_at', 'metadata']
 

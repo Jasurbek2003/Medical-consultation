@@ -151,6 +151,18 @@ class Doctor(models.Model):
     total_consultations = models.PositiveIntegerField(default=0, verbose_name="Jami konsultatsiyalar")
     successful_consultations = models.PositiveIntegerField(default=0, verbose_name="Muvaffaqiyatli konsultatsiyalar")
 
+    # Wallet balance
+    wallet_balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Hamyon balansi"
+    )
+
+    # Blocked status
+    is_blocked = models.BooleanField(default=False, verbose_name="Bloklangan")
+
     # View statistics
     profile_views = models.PositiveIntegerField(default=0, verbose_name="Profil ko'rishlar")
     weekly_views = models.PositiveIntegerField(default=0, verbose_name="Haftalik ko'rishlar")
@@ -327,6 +339,46 @@ class Doctor(models.Model):
             return self.translations.get_available_languages()
         except DoctorTranslation.DoesNotExist:
             return []
+
+    def check_and_update_block_status(self):
+        """Check wallet balance and update block status"""
+        if self.wallet_balance <= 5000:
+            self.is_blocked = True
+            self.is_available = False
+            self.save(update_fields=['is_blocked', 'is_available'])
+        elif self.is_blocked and self.wallet_balance > 5000:
+            self.is_blocked = False
+            self.save(update_fields=['is_blocked'])
+
+    def charge_wallet(self, amount, charge_type, user=None, ip_address=None, user_agent=None, metadata=None):
+        """Charge amount from wallet and log the transaction"""
+        from decimal import Decimal
+
+        if amount <= 0:
+            return False, "Summa musbat bo'lishi kerak"
+
+        if self.wallet_balance < Decimal(str(amount)):
+            return False, "Hamyonda yetarli mablag' yo'q"
+
+        # Deduct from wallet
+        self.wallet_balance -= Decimal(str(amount))
+        self.save(update_fields=['wallet_balance'])
+
+        # Create charge log
+        ChargeLog.objects.create(
+            doctor=self,
+            charge_type=charge_type,
+            amount=amount,
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=metadata or {}
+        )
+
+        # Check if doctor should be blocked
+        self.check_and_update_block_status()
+
+        return True, "To'lov muvaffaqiyatli amalga oshirildi"
 
 
 class DoctorFiles(models.Model):
@@ -701,3 +753,159 @@ class DoctorService(models.Model):
 
     def __str__(self):
         return f"{self.doctor.full_name} - {self.name}"
+
+
+class DoctorCharge(models.Model):
+    """Shifokor to'lovlari"""
+
+    CHARGE_TYPES = [
+        ('search', 'Qidiruv'),
+        ('view_card', 'Kartani ko\'rish'),
+        ('view_phone', 'Telefon raqamini ko\'rish'),
+        ('first_register', 'Birinchi ro\'yxatdan o\'tish'),
+        ('add_service', 'Xizmat qo\'shish'),
+        ('add_speciality', 'Mutaxassislik qo\'shish'),
+    ]
+
+    doctor = models.OneToOneField(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='charges',
+        verbose_name="Shifokor"
+    )
+
+    # Customizable charges (doctors can change these)
+    search_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=500.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Qidiruv to'lovi"
+    )
+
+    view_card_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=1000.00,
+        validators=[MinValueValidator(500)],
+        verbose_name="Kartani ko'rish to'lovi"
+    )
+
+    view_phone_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=2000.00,
+        validators=[MinValueValidator(1000)],
+        verbose_name="Telefon ko'rish to'lovi"
+    )
+
+    # Fixed charges (doctors cannot change these)
+    first_register_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=250000.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Ro'yxatdan o'tish to'lovi"
+    )
+
+    add_service_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=10000.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Xizmat qo'shish to'lovi"
+    )
+
+    add_speciality_charge = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=250000.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Mutaxassislik qo'shish to'lovi"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
+
+    class Meta:
+        verbose_name = "Shifokor to'lovi"
+        verbose_name_plural = "Shifokor to'lovlari"
+
+    def __str__(self):
+        return f"{self.doctor.full_name} - To'lovlar"
+
+
+class ChargeLog(models.Model):
+    """To'lov tarixi"""
+
+    CHARGE_TYPES = [
+        ('search', 'Qidiruv'),
+        ('view_card', 'Kartani ko\'rish'),
+        ('view_phone', 'Telefon raqamini ko\'rish'),
+        ('first_register', 'Birinchi ro\'yxatdan o\'tish'),
+        ('add_service', 'Xizmat qo\'shish'),
+        ('add_speciality', 'Mutaxassislik qo\'shish'),
+    ]
+
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.CASCADE,
+        related_name='charge_logs',
+        verbose_name="Shifokor"
+    )
+
+    charge_type = models.CharField(
+        max_length=20,
+        choices=CHARGE_TYPES,
+        verbose_name="To'lov turi"
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Summa"
+    )
+
+    # Request information
+    ip_address = models.GenericIPAddressField(
+        blank=True,
+        null=True,
+        verbose_name="IP manzil"
+    )
+
+    user_agent = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Foydalanuvchi agenti"
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='doctor_charges',
+        verbose_name="Foydalanuvchi"
+    )
+
+    # Timestamp
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
+
+    # Additional metadata
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Qo'shimcha ma'lumot"
+    )
+
+    class Meta:
+        verbose_name = "To'lov tarixi"
+        verbose_name_plural = "To'lovlar tarixi"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['doctor', 'charge_type']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.doctor.full_name} - {self.get_charge_type_display()} - {self.amount}"

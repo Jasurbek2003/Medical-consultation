@@ -4,7 +4,7 @@ from django.urls import reverse, path
 from django.utils.html import format_html
 
 from .models import Doctor, DoctorSchedule, DoctorSpecialization, DoctorTranslation, DoctorFiles, DoctorServiceName, \
-    DoctorService
+    DoctorService, DoctorCharge, ChargeLog
 from .services.translation_service import DoctorTranslationService
 
 
@@ -971,3 +971,180 @@ class DoctorServiceAdmin(admin.ModelAdmin):
             level='INFO'
         )
     deactivate_services.short_description = "❌ Xizmatlarni nofaol qilish"
+
+
+@admin.register(DoctorCharge)
+class DoctorChargeAdmin(admin.ModelAdmin):
+    list_display = ['get_doctor_info', 'search_charge_badge', 'view_card_charge_badge', 'view_phone_charge_badge', 'wallet_balance']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name']
+    list_filter = ['doctor__specialty']
+    autocomplete_fields = ['doctor']
+    list_per_page = 20
+
+    fieldsets = (
+        ('👨‍⚕️ Shifokor', {
+            'fields': ('doctor',),
+        }),
+        ('💰 O\'zgartiriladigan To\'lovlar', {
+            'fields': ('search_charge', 'view_card_charge', 'view_phone_charge'),
+            'classes': ('wide',),
+            'description': 'Shifokor bu to\'lovlarni o\'zgartirishi mumkin'
+        }),
+        ('💰 Doimiy To\'lovlar', {
+            'fields': ('first_register_charge', 'add_service_charge', 'add_speciality_charge'),
+            'classes': ('wide',),
+            'description': 'Bu to\'lovlar doimiy va o\'zgartirilmaydi'
+        }),
+        ('📅 Vaqt', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ['created_at', 'updated_at']
+
+    def get_doctor_info(self, obj):
+        doctor = obj.doctor
+        return format_html(
+            '<div>'
+            '<strong>Dr. {} {}</strong>'
+            '<br><small style="color: #666;">🩺 {} | 💰 {} so\'m</small>'
+            '</div>',
+            doctor.user.first_name,
+            doctor.user.last_name,
+            doctor.get_specialty_display(),
+            int(doctor.wallet_balance)
+        )
+    get_doctor_info.short_description = '👨‍⚕️ Shifokor'
+
+    def search_charge_badge(self, obj):
+        return format_html(
+            '<span style="background: #007bff; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+            '🔍 {} so\'m</span>',
+            int(obj.search_charge)
+        )
+    search_charge_badge.short_description = '🔍 Qidiruv'
+
+    def view_card_charge_badge(self, obj):
+        return format_html(
+            '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+            '👀 {} so\'m</span>',
+            int(obj.view_card_charge)
+        )
+    view_card_charge_badge.short_description = '👀 Karta'
+
+    def view_phone_charge_badge(self, obj):
+        return format_html(
+            '<span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">'
+            '📞 {} so\'m</span>',
+            int(obj.view_phone_charge)
+        )
+    view_phone_charge_badge.short_description = '📞 Telefon'
+
+    def wallet_balance(self, obj):
+        balance = obj.doctor.wallet_balance
+        color = '#28a745' if balance > 10000 else '#ffc107' if balance > 5000 else '#dc3545'
+        return format_html(
+            '<div style="text-align: center; background: {}; color: white; padding: 6px; border-radius: 8px;">'
+            '<span style="font-weight: 600;">💰 {} so\'m</span>'
+            '</div>',
+            color,
+            int(balance)
+        )
+    wallet_balance.short_description = '💰 Hamyon'
+
+
+@admin.register(ChargeLog)
+class ChargeLogAdmin(admin.ModelAdmin):
+    list_display = ['get_doctor_info', 'charge_type_badge', 'amount_formatted', 'user_info', 'ip_address', 'created_at_formatted']
+    list_filter = ['charge_type', 'created_at', 'doctor__specialty']
+    search_fields = ['doctor__user__first_name', 'doctor__user__last_name', 'user__first_name', 'user__last_name', 'ip_address']
+    date_hierarchy = 'created_at'
+    list_per_page = 50
+
+    fieldsets = (
+        ('👨‍⚕️ Shifokor', {
+            'fields': ('doctor',),
+        }),
+        ('💰 To\'lov Ma\'lumotlari', {
+            'fields': ('charge_type', 'amount'),
+            'classes': ('wide',)
+        }),
+        ('👤 Foydalanuvchi Ma\'lumotlari', {
+            'fields': ('user', 'ip_address', 'user_agent'),
+            'classes': ('wide',)
+        }),
+        ('📊 Qo\'shimcha Ma\'lumotlar', {
+            'fields': ('metadata',),
+            'classes': ('collapse',)
+        }),
+        ('📅 Vaqt', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ['doctor', 'charge_type', 'amount', 'user', 'ip_address', 'user_agent', 'metadata', 'created_at']
+
+    def get_doctor_info(self, obj):
+        doctor = obj.doctor
+        return format_html(
+            '<div>'
+            '<strong>Dr. {} {}</strong>'
+            '<br><small style="color: #666;">🩺 {}</small>'
+            '</div>',
+            doctor.user.first_name,
+            doctor.user.last_name,
+            doctor.get_specialty_display()
+        )
+    get_doctor_info.short_description = '👨‍⚕️ Shifokor'
+
+    def charge_type_badge(self, obj):
+        type_colors = {
+            'search': '#007bff',
+            'view_card': '#28a745',
+            'view_phone': '#dc3545',
+            'first_register': '#6f42c1',
+            'add_service': '#ffc107',
+            'add_speciality': '#17a2b8',
+        }
+        color = type_colors.get(obj.charge_type, '#6c757d')
+        return format_html(
+            '<span style="background: {}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">{}</span>',
+            color,
+            obj.get_charge_type_display()
+        )
+    charge_type_badge.short_description = '📊 Turi'
+
+    def amount_formatted(self, obj):
+        return format_html(
+            '<div style="text-align: center; background: #f8f9fa; padding: 6px; border-radius: 8px; border-left: 3px solid #dc3545;">'
+            '<span style="color: #dc3545; font-weight: 600; font-size: 13px;">-{} so\'m</span>'
+            '</div>',
+            int(obj.amount)
+        )
+    amount_formatted.short_description = '💸 Summa'
+
+    def user_info(self, obj):
+        if obj.user:
+            return format_html(
+                '<div>'
+                '<strong>{}</strong>'
+                '<br><small style="color: #666;">📱 {}</small>'
+                '</div>',
+                obj.user.get_full_name(),
+                obj.user.phone
+            )
+        return format_html('<span style="color: #6c757d;">Anonim</span>')
+    user_info.short_description = '👤 Foydalanuvchi'
+
+    def created_at_formatted(self, obj):
+        return format_html(
+            '<div style="text-align: center;">'
+            '<strong style="color: #333;">{}</strong>'
+            '<br><small style="color: #666;">{}</small>'
+            '</div>',
+            obj.created_at.strftime('%Y-%m-%d'),
+            obj.created_at.strftime('%H:%M:%S')
+        )
+    created_at_formatted.short_description = '📅 Vaqt'
