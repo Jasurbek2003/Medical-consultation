@@ -42,7 +42,7 @@ class DoctorAdmin(admin.ModelAdmin):
         'availability_status', 'total_reviews', 'region_info'
     ]
     list_filter = [
-        'specialty', 'degree', 'is_available', 'verification_status',
+        'specialty', 'degree', 'is_available', 'verification_status', 'is_blocked'
         # 'is_online_consultation', 'created_at', 'user__region'
     ]
     search_fields = [
@@ -72,7 +72,7 @@ class DoctorAdmin(admin.ModelAdmin):
         ('🏥 Professional Ma\'lumotlar', {
             'fields': (
                 'specialty', 'degree', 'experience', 'license_number',
-                'education', 'achievements', 'bio', 'verification_status'
+                'education', 'achievements', 'bio', 'verification_status', 'is_blocked',
             ),
             'classes': ('wide',),
             'description': 'Professional malaka va tajriba'
