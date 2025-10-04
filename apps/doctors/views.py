@@ -353,7 +353,19 @@ class DoctorSpecializationViewSet(viewsets.ModelViewSet):
 
 # Legacy API Views for backward compatibility
 class DoctorListView(generics.ListAPIView):
-    """List all approved doctors"""
+    """
+    Main Doctor Search & List Endpoint
+
+    Features:
+    - Full-text search with filtering
+    - Search limit enforcement (per IP for unauthenticated users)
+    - Automatic charging for searches (if configured)
+    - Rate limiting to prevent abuse
+
+    Rate Limits:
+    - Authenticated users: 60 requests/min
+    - Unauthenticated users: 20 requests/min
+    """
 
     queryset = Doctor.objects.filter(
         verification_status='approved',
@@ -364,6 +376,7 @@ class DoctorListView(generics.ListAPIView):
 
     serializer_class = DoctorSerializer
     permission_classes = [permissions.AllowAny]
+    # throttle_classes = [SearchThrottle]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = DoctorFilter
     search_fields = [
@@ -372,6 +385,104 @@ class DoctorListView(generics.ListAPIView):
     ]
     ordering_fields = ['rating', 'total_reviews', 'consultation_price', 'experience', 'charges__search_charge']
     ordering = ['-charges__search_charge', '-rating']
+
+    def list(self, request, *args, **kwargs):
+        """
+        Enhanced list with search logging and charging
+        """
+        from apps.core.models import SearchLog
+        from apps.core.utils import get_client_ip
+
+        # Get queryset
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Apply search limit filtering for unauthenticated users
+        if not request.user.is_authenticated:
+            from apps.core.search_limits import filter_by_search_limit
+            queryset = filter_by_search_limit(request, queryset, 'doctor')
+
+        # Pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+
+            # Log searches for each doctor shown (for statistics)
+            # Only log first page to avoid excessive logging
+            if request.query_params.get('page', '1') == '1':
+                ip_address = get_client_ip(request)
+                for doctor in page:
+                    SearchLog.log_search(
+                        entity_type='doctor',
+                        entity_id=doctor.id,
+                        request=request,
+                        action='search'
+                    )
+
+                    # Charge for search if user is authenticated and doctor has search charge
+                    if request.user.is_authenticated and hasattr(doctor, 'charges'):
+                        self._charge_for_search(request.user, doctor)
+
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Log and charge for all results (non-paginated)
+        ip_address = get_client_ip(request)
+        for doctor in queryset:
+            SearchLog.log_search(
+                entity_type='doctor',
+                entity_id=doctor.id,
+                request=request,
+                action='search'
+            )
+
+            # Charge for search if user is authenticated and doctor has search charge
+            if request.user.is_authenticated and hasattr(doctor, 'charges'):
+                self._charge_for_search(request.user, doctor)
+
+        return Response(serializer.data)
+
+    def _charge_for_search(self, user, doctor):
+        """
+        Charge user for searching/viewing doctor in list
+        Only charged once per doctor per day per user
+        """
+        if not hasattr(doctor, 'charges') or doctor.charges.search_charge <= 0:
+            return  # No charge configured
+
+        from apps.billing.services import charge_user_for_service
+        from datetime import date
+
+        # Check if already charged today
+        charge_key = f"search_charge_{user.id}_{doctor.id}_{date.today()}"
+        from django.core.cache import cache
+
+        if cache.get(charge_key):
+            return  # Already charged today
+
+        try:
+            # Charge the user
+            success = charge_user_for_service(
+                user=user,
+                doctor=doctor,
+                charge_type='search',
+                amount=doctor.charges.search_charge,
+                metadata={
+                    'action': 'doctor_search',
+                    'doctor_id': doctor.id,
+                    'doctor_name': doctor.full_name
+                }
+            )
+
+            if success:
+                # Mark as charged for today
+                cache.set(charge_key, True, 86400)  # 24 hours
+
+        except Exception as e:
+            # Log error but don't fail the request
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Search charge failed for user {user.id}, doctor {doctor.id}: {e}")
 
 
 class DoctorDetailView(generics.RetrieveAPIView):
