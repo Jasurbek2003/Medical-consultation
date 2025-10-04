@@ -9,7 +9,8 @@ from .views import (
     DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
     DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView,
     DoctorProfileTranslationAPIView, DoctorComplaintFileViewSet,
-    DoctorPhoneNumberView, DoctorChargeSettingsView, DoctorChargeLogsView, DoctorWalletView
+    DoctorPhoneNumberView, DoctorChargeSettingsView, DoctorChargeLogsView, DoctorWalletView,
+    DoctorSearchLimitView, DoctorSearchStatsView
 )
 from .api_views import DoctorServiceNameViewSet
 from ..admin_panel.views import doctor_complaint_list, doctor_create_complaint, doctor_complaint_detail
@@ -62,4 +63,8 @@ urlpatterns = [
     path('charges/', DoctorChargeSettingsView.as_view(), name='doctor-charge-settings'),
     path('charges/logs/', DoctorChargeLogsView.as_view(), name='doctor-charge-logs'),
     path('wallet/', DoctorWalletView.as_view(), name='doctor-wallet'),
+
+    # Search limit management endpoints
+    path('search-limit/', DoctorSearchLimitView.as_view(), name='doctor-search-limit'),
+    path('search-stats/', DoctorSearchStatsView.as_view(), name='doctor-search-stats'),
 ]

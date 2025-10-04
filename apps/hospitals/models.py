@@ -82,6 +82,13 @@ class Hospital(models.Model):
         verbose_name="Reyting"
     )
 
+    # Search limit for unauthenticated users (per IP per day)
+    daily_search_limit = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Kunlik qidiruv limiti",
+        help_text="0 = unlimited. Limits how many times unauthenticated users can search/view this hospital per day"
+    )
+
     # latitude and longitude for map location
     latitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Kenglik")
     longitude = models.CharField(max_length=50, blank=True, null=True, verbose_name="Uzunlik")

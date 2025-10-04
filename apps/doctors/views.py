@@ -15,7 +15,8 @@ from .serializers import (
     DoctorProfileSerializer, DoctorFilesSerializer, DoctorFileUploadSerializer,
     DoctorLocationUpdateSerializer, RegionSerializer, DistrictSerializer,
     DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer,
-    DoctorChargeSerializer, DoctorChargeUpdateSerializer, ChargeLogSerializer
+    DoctorChargeSerializer, DoctorChargeUpdateSerializer, ChargeLogSerializer,
+    DoctorSearchLimitSerializer, DoctorSearchStatsSerializer, SearchRemainingSerializer
 )
 from .filters import DoctorFilter
 from apps.core.utils import get_client_ip, is_valid_ip, is_private_ip
@@ -1186,3 +1187,63 @@ class DoctorWalletView(APIView):
             'is_blocked': doctor.is_blocked,
             'warning': 'Hamyon balansi 5000 dan kam bo\'lsa, profilingiz bloklanadi' if wallet_balance <= 10000 else None
         })
+
+
+class DoctorSearchLimitView(APIView):
+    """Manage doctor's daily search limit"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get current search limit"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Only doctors can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        serializer = DoctorSearchLimitSerializer(doctor)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        """Update search limit"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Only doctors can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        serializer = DoctorSearchLimitSerializer(doctor, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'message': 'Search limit updated successfully',
+                'data': serializer.data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DoctorSearchStatsView(APIView):
+    """View doctor search statistics"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get search statistics for authenticated doctor"""
+        if request.user.user_type != 'doctor':
+            return Response(
+                {'error': 'Only doctors can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doctor = request.user.doctor_profile
+        days = int(request.GET.get('days', 7))  # Default to 7 days
+
+        from apps.core.search_limits import get_search_stats
+
+        stats = get_search_stats('doctor', doctor.id, days)
+        stats['current_limit'] = doctor.daily_search_limit
+
+        serializer = DoctorSearchStatsSerializer(stats)
+        return Response(serializer.data)

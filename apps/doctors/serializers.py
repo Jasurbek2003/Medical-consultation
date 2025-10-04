@@ -553,3 +553,40 @@ class ChargeLogSerializer(serializers.ModelSerializer):
                            'amount', 'ip_address', 'user_agent', 'user', 'user_name',
                            'created_at', 'metadata']
 
+
+class DoctorSearchLimitSerializer(serializers.ModelSerializer):
+    """Serializer for managing doctor's daily search limit"""
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'daily_search_limit']
+        read_only_fields = ['id']
+
+    def validate_daily_search_limit(self, value):
+        """Validate search limit is not negative"""
+        if value < 0:
+            raise serializers.ValidationError("Daily search limit cannot be negative. Use 0 for unlimited.")
+        return value
+
+
+class DoctorSearchStatsSerializer(serializers.Serializer):
+    """Serializer for doctor search statistics"""
+
+    total_searches = serializers.IntegerField(read_only=True)
+    unique_ips = serializers.IntegerField(read_only=True)
+    authenticated_searches = serializers.IntegerField(read_only=True)
+    unauthenticated_searches = serializers.IntegerField(read_only=True)
+    period_days = serializers.IntegerField(read_only=True)
+    by_date = serializers.ListField(read_only=True)
+    current_limit = serializers.IntegerField(read_only=True)
+
+
+class SearchRemainingSerializer(serializers.Serializer):
+    """Serializer for remaining search count"""
+
+    limit = serializers.IntegerField(allow_null=True, read_only=True)
+    used = serializers.IntegerField(read_only=True)
+    remaining = serializers.CharField(read_only=True)  # Can be number or "unlimited"
+    unlimited = serializers.BooleanField(read_only=True)
+    exceeded = serializers.BooleanField(default=False, read_only=True)
+

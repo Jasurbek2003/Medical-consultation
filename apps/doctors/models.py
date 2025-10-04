@@ -159,6 +159,13 @@ class Doctor(models.Model):
     weekly_views = models.PositiveIntegerField(default=0, verbose_name="Haftalik ko'rishlar")
     monthly_views = models.PositiveIntegerField(default=0, verbose_name="Oylik ko'rishlar")
 
+    # Search limit for unauthenticated users (per IP per day)
+    daily_search_limit = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Kunlik qidiruv limiti",
+        help_text="0 = unlimited. Limits how many times unauthenticated users can search/view this doctor per day"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan")
