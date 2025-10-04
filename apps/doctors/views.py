@@ -418,9 +418,10 @@ class DoctorListView(generics.ListAPIView):
                         action='search'
                     )
 
-                    # Charge for search if user is authenticated and doctor has search charge
-                    if request.user.is_authenticated and hasattr(doctor, 'charges'):
-                        self._charge_for_search(request.user, doctor)
+                    # Charge doctor for appearing in search (if configured)
+                    if hasattr(doctor, 'charges'):
+                        user = request.user if request.user.is_authenticated else None
+                        self._charge_for_search(user, doctor)
 
             return self.get_paginated_response(serializer.data)
 
@@ -436,53 +437,105 @@ class DoctorListView(generics.ListAPIView):
                 action='search'
             )
 
-            # Charge for search if user is authenticated and doctor has search charge
-            if request.user.is_authenticated and hasattr(doctor, 'charges'):
-                self._charge_for_search(request.user, doctor)
+            # Charge doctor for appearing in search (if configured)
+            if hasattr(doctor, 'charges'):
+                user = request.user if request.user.is_authenticated else None
+                self._charge_for_search(user, doctor)
 
         return Response(serializer.data)
 
     def _charge_for_search(self, user, doctor):
         """
-        Charge user for searching/viewing doctor in list
-        Only charged once per doctor per day per user
+        Charge DOCTOR for appearing in search results
+        Doctor pays for visibility/advertising in search
+        Only charged once per user/IP per doctor per day
         """
         if not hasattr(doctor, 'charges') or doctor.charges.search_charge <= 0:
             return  # No charge configured
 
-        from apps.billing.services import charge_user_for_service
+        from apps.billing.models import UserWallet, DoctorViewCharge, WalletTransaction
         from datetime import date
-
-        # Check if already charged today
-        charge_key = f"search_charge_{user.id}_{doctor.id}_{date.today()}"
         from django.core.cache import cache
+        from apps.core.utils import get_client_ip
+
+        # Create unique charge key based on user ID or IP address
+        if user:
+            charge_identifier = f"user_{user.id}"
+        else:
+            ip_address = get_client_ip(self.request) if hasattr(self, 'request') else '0.0.0.0'
+            charge_identifier = f"ip_{ip_address}"
+
+        charge_key = f"doctor_search_charge_{doctor.id}_{charge_identifier}_{date.today()}"
 
         if cache.get(charge_key):
-            return  # Already charged today
+            return  # Already charged today for this user/IP
 
         try:
-            # Charge the user
-            success = charge_user_for_service(
-                user=user,
+            # Get doctor's wallet
+            doctor_wallet, created = UserWallet.objects.get_or_create(user=doctor.user)
+
+            # Check if doctor's wallet is blocked
+            if doctor_wallet.is_blocked:
+                return
+
+            # Check if doctor has sufficient balance
+            if not doctor_wallet.has_sufficient_balance(doctor.charges.search_charge):
+                return  # Insufficient balance, don't charge
+
+            # Deduct from doctor's wallet
+            balance_before = doctor_wallet.balance
+            doctor_wallet.balance -= doctor.charges.search_charge
+            doctor_wallet.total_spent += doctor.charges.search_charge
+            doctor_wallet.save()
+
+            # Create wallet transaction
+            viewer_name = (user.get_full_name() or user.username) if user else 'anonymous user'
+            transaction = WalletTransaction.objects.create(
+                wallet=doctor_wallet,
+                transaction_type='debit',
+                amount=doctor.charges.search_charge,
+                balance_before=balance_before,
+                balance_after=doctor_wallet.balance,
+                description=f"Search visibility charge - viewed by {viewer_name}",
+                status='completed'
+            )
+
+            # Get IP address for tracking
+            ip_addr = get_client_ip(self.request) if hasattr(self, 'request') else '0.0.0.0'
+
+            # Create DoctorViewCharge record (tracks who viewed the doctor)
+            if user:
+                DoctorViewCharge.objects.create(
+                    user=user,
+                    doctor=doctor,
+                    transaction=transaction,
+                    amount_charged=doctor.charges.search_charge,
+                    ip_address=ip_addr
+                )
+
+            # Create ChargeLog for doctor's records
+            ChargeLog.objects.create(
                 doctor=doctor,
                 charge_type='search',
                 amount=doctor.charges.search_charge,
+                user=user,  # Can be None for unauthenticated
+                ip_address=ip_addr,
+                user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:255] if hasattr(self, 'request') else '',
                 metadata={
-                    'action': 'doctor_search',
-                    'doctor_id': doctor.id,
-                    'doctor_name': doctor.full_name
+                    'action': 'search_visibility',
+                    'charged_to': 'doctor',
+                    'viewer': user.username if user else f'anonymous_{ip_addr}'
                 }
             )
 
-            if success:
-                # Mark as charged for today
-                cache.set(charge_key, True, 86400)  # 24 hours
+            # Mark as charged for today
+            cache.set(charge_key, True, 86400)  # 24 hours
 
         except Exception as e:
             # Log error but don't fail the request
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"Search charge failed for user {user.id}, doctor {doctor.id}: {e}")
+            logger.error(f"Doctor search charge failed for doctor {doctor.id}, user {user.id}: {e}")
 
 
 class DoctorDetailView(generics.RetrieveAPIView):
