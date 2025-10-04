@@ -8,6 +8,7 @@ from .models import (
     UserWallet, BillingRule, DoctorViewCharge,
     BillingSettings, WalletTransaction
 )
+from apps.doctors.models import ChargeLog
 
 User = get_user_model()
 
@@ -370,3 +371,51 @@ class BillingService:
             raise ValueError("Wallet is blocked")
 
         return True
+
+
+def charge_user_for_service(user, doctor, charge_type, amount, metadata=None):
+    """
+    Charge user for doctor-related services (search, view card, view phone)
+
+    Args:
+        user: User object to charge
+        doctor: Doctor object providing the service
+        charge_type: Type of charge ('search', 'view_card', 'view_phone')
+        amount: Amount to charge (Decimal)
+        metadata: Optional dict with additional information
+
+    Returns:
+        bool: True if charge successful, False otherwise
+    """
+    try:
+        # Get or create user wallet
+        wallet, created = UserWallet.objects.get_or_create(user=user)
+
+        # Check if wallet is blocked
+        if wallet.is_blocked:
+            return False
+
+        # Check sufficient balance
+        if not wallet.has_sufficient_balance(amount):
+            return False
+
+        # Deduct balance
+        description = f"{dict(ChargeLog.CHARGE_TYPES).get(charge_type, 'Service')} - Dr. {doctor.full_name}"
+        wallet.deduct_balance(amount, description)
+
+        # Create charge log
+        from apps.core.utils import get_client_ip
+        ChargeLog.objects.create(
+            doctor=doctor,
+            charge_type=charge_type,
+            amount=amount,
+            user=user,
+            ip_address=metadata.get('ip_address', '0.0.0.0') if metadata else '0.0.0.0',
+            user_agent=metadata.get('user_agent', '') if metadata else '',
+            metadata=metadata or {}
+        )
+
+        return True
+
+    except Exception:
+        return False

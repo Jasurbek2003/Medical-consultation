@@ -20,7 +20,7 @@ from .serializers import (
 )
 from .filters import DoctorFilter
 from apps.core.utils import get_client_ip, is_valid_ip, is_private_ip
-from apps.core.throttling import FileUploadThrottle
+from apps.core.throttling import FileUploadThrottle, SearchThrottle
 from .services.translation_service import DoctorTranslationService
 from ..admin_panel.models import DoctorComplaint, DoctorComplaintFile
 from ..admin_panel.serializers import DoctorComplaintFileSerializer
@@ -376,7 +376,7 @@ class DoctorListView(generics.ListAPIView):
 
     serializer_class = DoctorSerializer
     permission_classes = [permissions.AllowAny]
-    # throttle_classes = [SearchThrottle]
+    throttle_classes = [SearchThrottle]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = DoctorFilter
     search_fields = [

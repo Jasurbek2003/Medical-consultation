@@ -10,7 +10,9 @@
       "Bash(timeout:*)",
       "Bash(findstr:*)",
       "Bash(del test_schema.py)",
-      "Bash(if exist test_schema.py del test_schema.py)"
+      "Bash(if exist test_schema.py del test_schema.py)",
+      "Bash(if exist schema.yml del schema.yml)",
+      "Bash(del schema.yml)"
     ],
     "deny": [],
     "ask": []
