@@ -18,11 +18,12 @@ from .serializers import (
     DoctorChargeSerializer, DoctorChargeUpdateSerializer, ChargeLogSerializer
 )
 from .filters import DoctorFilter
+from apps.core.utils import get_client_ip, is_valid_ip, is_private_ip
+from apps.core.throttling import FileUploadThrottle
 from .services.translation_service import DoctorTranslationService
 from ..admin_panel.models import DoctorComplaint, DoctorComplaintFile
 from ..admin_panel.serializers import DoctorComplaintFileSerializer
 from ..hospitals.models import Districts, Regions
-from ..users.api_views import is_valid_ip, is_private_ip
 
 
 class DoctorViewSet(viewsets.ModelViewSet):

@@ -425,23 +425,36 @@ class DoctorFileUploadSerializer(serializers.ModelSerializer):
 
 
 class DoctorLocationUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating doctor location"""
+    """Serializer for updating doctor location (workplace address and coordinates)"""
 
-    region_name = serializers.CharField(source='region.name', read_only=True)
-    district_name = serializers.CharField(source='district.name', read_only=True)
+    hospital_name = serializers.CharField(source='hospital.name', read_only=True)
 
     class Meta:
         model = Doctor
-        fields = ['region', 'district', 'region_name', 'district_name', 'workplace_address']
+        fields = [
+            'workplace',
+            'workplace_address',
+            'latitude',
+            'longitude',
+            'hospital',
+            'hospital_name'
+        ]
+        read_only_fields = ['hospital_name']
 
     def validate(self, attrs):
-        """Validate region and district relationship"""
-        region = attrs.get('region')
-        district = attrs.get('district')
+        """Validate location data"""
+        latitude = attrs.get('latitude')
+        longitude = attrs.get('longitude')
 
-        if district and region and district.region != region:
+        # If latitude is provided, longitude should also be provided
+        if latitude and not longitude:
             raise serializers.ValidationError(
-                "Selected district does not belong to the selected region"
+                {"longitude": "Longitude is required when latitude is provided"}
+            )
+
+        if longitude and not latitude:
+            raise serializers.ValidationError(
+                {"latitude": "Latitude is required when longitude is provided"}
             )
 
         return attrs

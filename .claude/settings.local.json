@@ -5,7 +5,12 @@
       "Bash(python manage.py:*)",
       "Bash(python:*)",
       "Bash(ruff check:*)",
-      "Bash(dir docs)"
+      "Bash(dir docs)",
+      "Bash(uv pip install:*)",
+      "Bash(timeout:*)",
+      "Bash(findstr:*)",
+      "Bash(del test_schema.py)",
+      "Bash(if exist test_schema.py del test_schema.py)"
     ],
     "deny": [],
     "ask": []

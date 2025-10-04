@@ -38,9 +38,11 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'channels',
     'django_filters',
+    'drf_spectacular',  # OpenAPI/Swagger documentation
 ]
 
 LOCAL_APPS = [
+    'apps.core',  # Core utilities and common functionality
     'apps.users',
     'apps.doctors',
     'apps.chat',
@@ -185,6 +187,30 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    # Throttling (Rate Limiting) Configuration
+    'DEFAULT_THROTTLE_CLASSES': [
+        'apps.core.throttling.BurstRateThrottle',
+        'apps.core.throttling.SustainedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # User throttles (authenticated)
+        'burst': '60/min',  # 60 requests per minute for burst
+        'sustained': '1000/hour',  # 1000 requests per hour sustained
+
+        # Anonymous throttles (unauthenticated)
+        'anon_burst': '20/min',  # 20 requests per minute for anonymous
+        'anon_sustained': '100/hour',  # 100 requests per hour for anonymous
+
+        # Specific endpoint throttles
+        'chat': '30/min',  # Chat messages
+        'auth': '5/min',  # Login/register attempts (prevents brute force)
+        'payment': '10/min',  # Payment operations
+        'search': '60/min',  # Search queries
+        'upload': '20/hour',  # File uploads
+        'webhook': '200/min',  # Payment webhooks (high rate for providers)
+    },
+    # Schema generation for API documentation
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # CORS Settings (Frontend bilan ishlash uchun)
@@ -300,3 +326,108 @@ ADMIN_URL = 'admin/'  # Admin panel URL'ini o'zgartirish mumkin
 ADMIN_SITE_HEADER = "🏥 Tibbiy Konsultatsiya Admin"
 ADMIN_SITE_TITLE = "Tibbiy Admin"
 ADMIN_INDEX_TITLE = "Boshqaruv Paneli"
+
+# drf-spectacular (OpenAPI/Swagger) Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Medical Consultation Platform API',
+    'DESCRIPTION': """
+    # Medical Consultation Platform API Documentation
+
+    AI-powered medical consultation platform built with Django REST Framework.
+    This platform connects patients with doctors through secure chat and video consultations,
+    featuring real-time translation and AI-assisted medical guidance.
+
+    ## Features
+    - **Multi-language Support**: Uzbek, Russian, English
+    - **Real-time Chat**: WebSocket-based messaging with translation
+    - **AI Medical Assistant**: Google Gemini integration for medical guidance
+    - **Doctor-Patient Matching**: Location-based doctor finding
+    - **Secure Authentication**: Token-based API authentication
+    - **Payment Integration**: Billing and payment processing
+
+    ## Authentication
+    All authenticated endpoints require a token in the Authorization header:
+    ```
+    Authorization: Token <your-token>
+    ```
+
+    Obtain a token by calling the `/api/v1/users/auth/login/` endpoint.
+
+    ## Rate Limiting
+    - **Authenticated users**: 60 requests/min (burst), 1000 requests/hour (sustained)
+    - **Anonymous users**: 20 requests/min (burst), 100 requests/hour (sustained)
+    - **Authentication endpoints**: 5 requests/min (prevents brute force)
+    - **Chat endpoints**: 30 messages/min
+    - **Search endpoints**: 60 requests/min
+    - **File uploads**: 20 uploads/hour
+    - **Payment endpoints**: 10 requests/min
+
+    ## Support
+    - **Repository**: https://github.com/Jasurbek2003/Medical-consultation
+    - **Email**: jasurbek2030615@gmail.com
+    """,
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+        'filter': True,
+        'tryItOutEnabled': True,
+    },
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SORT_OPERATIONS': False,
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication and registration'},
+        {'name': 'Users', 'description': 'User profile management'},
+        {'name': 'Doctors', 'description': 'Doctor profiles and services'},
+        {'name': 'Hospitals', 'description': 'Hospital information and services'},
+        {'name': 'Consultations', 'description': 'Medical consultations management'},
+        {'name': 'Chat', 'description': 'Real-time chat and AI assistance'},
+        {'name': 'Payments', 'description': 'Payment processing and billing'},
+        {'name': 'Translate', 'description': 'Multi-language translation'},
+        {'name': 'Search', 'description': 'Search doctors and services'},
+        {'name': 'System', 'description': 'System health and monitoring'},
+    ],
+    'CONTACT': {
+        'name': 'Medical Consultation Support',
+        'email': 'jasurbek2030615@gmail.com',
+    },
+    'LICENSE': {
+        'name': 'Proprietary',
+    },
+    'EXTERNAL_DOCS': {
+        'description': 'GitHub Repository',
+        'url': 'https://github.com/Jasurbek2003/Medical-consultation',
+    },
+    # Security schemes
+    'SECURITY': [
+        {
+            'tokenAuth': [],
+        }
+    ],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'tokenAuth': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization',
+                'description': 'Token-based authentication. Format: `Token <your-token>`'
+            }
+        }
+    },
+    'ENUM_NAME_OVERRIDES': {
+        'ValidationErrorEnum': 'drf_spectacular.utils.validation_error_name',
+    },
+    'POSTPROCESSING_HOOKS': [],
+    'PREPROCESSING_HOOKS': [],
+    # Disable warnings for cleaner output
+    'DISABLE_ERRORS_AND_WARNINGS': False,
+    # Simplify schema generation by excluding problematic patterns
+    'SCHEMA_PATH_PREFIX': r'/api/v1/',
+    'SCHEMA_PATH_PREFIX_TRIM': True,
+    # Skip views that can't be properly introspected
+    'SPECTACULAR_DEFAULTS': {
+        'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    },
+}

@@ -1,10 +1,12 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.db.models import Count, Avg, Q
 from django.utils import timezone
 from datetime import date, timedelta
 
+from apps.core.utils import get_client_ip
+from apps.core.throttling import ChatThrottle, SearchThrottle
 from apps.doctors.models import Doctor
 from apps.chat.models import ChatSession, ChatMessage
 from apps.consultations.models import Consultation, Review
@@ -60,6 +62,7 @@ def api_overview(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([ChatThrottle])
 def quick_send_message(request):
     """Tez chat xabar yuborish - to'liq AI tahlil bilan"""
     try:
@@ -176,6 +179,7 @@ def quick_send_message(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([ChatThrottle])
 def quick_classify_issue(request):
     """Tez klassifikatsiya - faqat tahlil"""
     try:
@@ -348,6 +352,7 @@ def quick_doctors_by_specialty(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@throttle_classes([SearchThrottle])
 def quick_search_doctors(request):
     """Tez shifokor qidirish"""
     query = request.GET.get('q', '').strip()
@@ -657,14 +662,7 @@ def get_emergency_info(request):
     })
 
 
-def get_client_ip(request):
-    """Client IP manzilini olish"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+# get_client_ip is now centralized in apps.core.utils
 
 
 def custom_404(request, exception):

@@ -9,11 +9,14 @@ from rest_framework.decorators import (
     api_view,
     parser_classes,
     permission_classes,
+    throttle_classes,
 )
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.utils import get_client_ip
+from apps.core.throttling import AuthenticationThrottle, SearchThrottle, FileUploadThrottle
 from .models import UserMedicalHistory, UserPreferences
 from .serializers import (
     ChangePasswordSerializer,
@@ -36,6 +39,7 @@ User = get_user_model()
 
 class CustomAuthToken(ObtainAuthToken):
     """Custom authentication token with user data"""
+    throttle_classes = [AuthenticationThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data,
@@ -46,8 +50,8 @@ class CustomAuthToken(ObtainAuthToken):
         # Create or get token
         token, created = Token.objects.get_or_create(user=user)
 
-        # Update last login IP
-        user.last_login_ip = self.get_client_ip(request)
+        # Update last login IP using centralized utility
+        user.last_login_ip = get_client_ip(request)
         user.save(update_fields=['last_login_ip'])
 
         return Response({
@@ -56,15 +60,6 @@ class CustomAuthToken(ObtainAuthToken):
             'user_type': user.user_type,
             'user': UserSerializer(user).data
         })
-
-    def get_client_ip(self, request):
-        """Get client IP address"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -373,15 +368,6 @@ class UserViewSet(viewsets.ModelViewSet):
         else:
             return target_user == current_user
 
-    def get_client_ip(self, request):
-        """Get client IP address"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-
 
 class UserMedicalHistoryViewSet(viewsets.ModelViewSet):
     """User Medical History API"""
@@ -419,6 +405,7 @@ class UserRegistrationAPIView(generics.CreateAPIView):
     """
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthenticationThrottle]
 
     def create(self, request, *args, **kwargs):
         print(request.data)
@@ -545,6 +532,7 @@ class UploadAvatarAPIView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
+    throttle_classes = [FileUploadThrottle]
 
     def post(self, request):
         if 'avatar' not in request.FILES:
@@ -567,6 +555,7 @@ class UploadAvatarAPIView(APIView):
 # Quick API endpoints for easy integration
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AuthenticationThrottle])
 def quick_register(request):
     """
     Quick registration endpoint
@@ -595,6 +584,7 @@ def quick_register(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([AuthenticationThrottle])
 def quick_login(request):
     """
     Quick login endpoint
@@ -677,56 +667,8 @@ def update_my_profile(request):
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
-def is_valid_ip(ip):
-    """Validate IP address format"""
-    import re
-    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-    ipv6_pattern = r'^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$'
-
-    if re.match(ipv4_pattern, ip):
-        # Check if all octets are valid (0-255)
-        return all(0 <= int(octet) <= 255 for octet in ip.split('.'))
-    elif re.match(ipv6_pattern, ip):
-        return True
-    return False
-
-
-def is_private_ip(ip):
-    """Check if IP is in private range"""
-    import ipaddress
-    try:
-        return ipaddress.ip_address(ip).is_private
-    except ValueError:
-        return False
-
-
-def get_client_ip(request):
-    """
-    Get client IP address from request with enhanced security
-    Handles multiple proxy scenarios and validates IP addresses
-    """
-    # List of headers to check in order of preference
-    ip_headers = [
-        'HTTP_X_FORWARDED_FOR',
-        'HTTP_X_REAL_IP',
-        'HTTP_CF_CONNECTING_IP',  # Cloudflare
-        'HTTP_X_FORWARDED',
-        'HTTP_FORWARDED_FOR',
-        'HTTP_FORWARDED',
-        'REMOTE_ADDR'
-    ]
-    for header in ip_headers:
-        ip_list = request.META.get(header)
-        if ip_list:
-            # Handle comma-separated IPs (first one is usually the original client)
-            ip = ip_list.split(',')[0].strip()
-
-            # Basic IP validation and private IP filtering
-            if is_valid_ip(ip) and not is_private_ip(ip):
-                return ip
-
-    # Fallback to REMOTE_ADDR even if it might be private
-    return request.META.get('REMOTE_ADDR', '127.0.0.1')
+# IP utility functions are now centralized in apps.core.utils
+# Import them from there instead of defining here
 
 
 def expand_search_terms(query):
@@ -783,6 +725,7 @@ class ServiceSearchAPIView(APIView):
     Returns doctors and hospitals that provide matching services.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [SearchThrottle]
 
     def get(self, request):
         query = request.GET.get('q', '').strip()
