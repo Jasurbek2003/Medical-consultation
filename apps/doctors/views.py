@@ -550,7 +550,7 @@ class DoctorDetailView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         print("retrieve called")
-        """Override retrieve to track views"""
+        """Override retrieve to track views and charge doctor"""
         instance = self.get_object()
 
         # Track profile view if user is authenticated
@@ -560,8 +560,105 @@ class DoctorDetailView(generics.RetrieveAPIView):
             instance.monthly_views += 1
             instance.save(update_fields=['profile_views', 'weekly_views', 'monthly_views'])
 
+        # Charge doctor for card view
+        self._charge_for_card_view(request, instance)
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    def _charge_for_card_view(self, request, doctor):
+        """
+        Charge DOCTOR for card view
+        Only charged once per user/IP per doctor per day
+        """
+        from apps.billing.models import UserWallet, DoctorViewCharge, WalletTransaction
+        from datetime import date
+        from django.core.cache import cache
+
+        # Get or create charge settings
+        charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
+
+        if charge_settings.view_card_charge <= 0:
+            return  # No charge configured
+
+        # Create unique charge key based on user ID or IP address
+        if request.user.is_authenticated:
+            charge_identifier = f"user_{request.user.id}"
+        else:
+            ip_address = get_client_ip(request)
+            charge_identifier = f"ip_{ip_address}"
+
+        charge_key = f"doctor_card_view_charge_{doctor.id}_{charge_identifier}_{date.today()}"
+
+        if cache.get(charge_key):
+            return  # Already charged today for this user/IP
+
+        try:
+            # Get doctor's wallet
+            doctor_wallet, created = UserWallet.objects.get_or_create(user=doctor.user)
+
+            # Check if doctor's wallet is blocked
+            if doctor_wallet.is_blocked:
+                return
+
+            # Check if doctor has sufficient balance
+            if not doctor_wallet.has_sufficient_balance(charge_settings.view_card_charge):
+                return  # Insufficient balance, don't charge
+
+            # Deduct from doctor's wallet
+            balance_before = doctor_wallet.balance
+            doctor_wallet.balance -= charge_settings.view_card_charge
+            doctor_wallet.total_spent += charge_settings.view_card_charge
+            doctor_wallet.save()
+
+            # Create wallet transaction
+            viewer_name = (request.user.get_full_name() or request.user.username) if request.user.is_authenticated else 'anonymous user'
+            transaction = WalletTransaction.objects.create(
+                wallet=doctor_wallet,
+                transaction_type='debit',
+                amount=charge_settings.view_card_charge,
+                balance_before=balance_before,
+                balance_after=doctor_wallet.balance,
+                description=f"Card view charge - viewed by {viewer_name}",
+                status='completed'
+            )
+
+            # Get IP address for tracking
+            ip_addr = get_client_ip(request)
+
+            # Create DoctorViewCharge record (tracks who viewed the doctor)
+            if request.user.is_authenticated:
+                DoctorViewCharge.objects.create(
+                    user=request.user,
+                    doctor=doctor,
+                    transaction=transaction,
+                    amount_charged=charge_settings.view_card_charge,
+                    ip_address=ip_addr
+                )
+
+            # Create ChargeLog for doctor's records
+            ChargeLog.objects.create(
+                doctor=doctor,
+                charge_type='view_card',
+                amount=charge_settings.view_card_charge,
+                user=request.user if request.user.is_authenticated else None,
+                ip_address=ip_addr,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+                metadata={
+                    'action': 'card_view',
+                    'charged_to': 'doctor',
+                    'viewer': request.user.username if request.user.is_authenticated else f'anonymous_{ip_addr}'
+                }
+            )
+
+            # Mark as charged for today
+            cache.set(charge_key, True, 86400)  # 24 hours
+
+        except Exception as e:
+            # Log error but don't fail the request
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Doctor card view charge failed for doctor {doctor.id}: {e}")
 
 
 class DoctorProfileView(APIView):
