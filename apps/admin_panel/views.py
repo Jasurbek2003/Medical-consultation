@@ -141,15 +141,59 @@ def approve_doctor(request, doctor_id):
     if request.method == 'POST':
         doctor = get_object_or_404(Doctor, id=doctor_id)
 
-        # Approve the doctor
-        doctor.approve(request.user)
+        # Check if doctor has a wallet
+        if not hasattr(doctor.user, 'wallet'):
+            return JsonResponse({
+                'success': False,
+                'error': 'Shifokor hamyoni topilmadi'
+            }, status=400)
 
-        messages.success(request, f'Shifokor {doctor.full_name} muvaffaqiyatli tasdiqlandi.')
+        wallet = doctor.user.wallet
 
-        return JsonResponse({
-            'success': True,
-            'message': 'Shifokor tasdiqlandi'
-        })
+        # Check if wallet has sufficient balance (250,000 sums)
+        required_amount = 250000
+        if wallet.balance < required_amount:
+            return JsonResponse({
+                'success': False,
+                'error': f'Hamyonda yetarli mablag\' yo\'q. Kerakli summa: {required_amount:,.0f} so\'m, Mavjud: {wallet.balance:,.2f} so\'m'
+            }, status=400)
+
+        # Check if wallet is blocked
+        if wallet.is_blocked:
+            return JsonResponse({
+                'success': False,
+                'error': 'Hamyon bloklangan'
+            }, status=400)
+
+        try:
+            # Deduct the approval fee from wallet
+            wallet.deduct_balance(
+                amount=required_amount,
+                description="Shifokor tasdiqlash to'lovi / Doctor approval fee"
+            )
+
+            # Approve the doctor
+            doctor.approve(request.user)
+
+            messages.success(request, f'Shifokor {doctor.full_name} muvaffaqiyatli tasdiqlandi.')
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Shifokor tasdiqlandi',
+                'amount_charged': required_amount,
+                'remaining_balance': float(wallet.balance)
+            })
+
+        except ValueError as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'To\'lov xatoligi: {str(e)}'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Xatolik: {str(e)}'
+            }, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
