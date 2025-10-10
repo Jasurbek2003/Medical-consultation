@@ -1,30 +1,51 @@
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.views import APIView
 
-from .models import Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName, DoctorCharge, ChargeLog
-from .serializers import (
-    DoctorSerializer, DoctorRegistrationSerializer, DoctorUpdateSerializer,
-    DoctorProfileSerializer, DoctorFilesSerializer, DoctorFileUploadSerializer,
-    DoctorLocationUpdateSerializer, RegionSerializer, DistrictSerializer,
-    DoctorScheduleSerializer, DoctorSpecializationSerializer, DoctorServiceSerializer,
-    DoctorChargeSerializer, DoctorChargeUpdateSerializer, ChargeLogSerializer,
-    DoctorSearchLimitSerializer, DoctorSearchStatsSerializer, SearchRemainingSerializer
-)
-from .filters import DoctorFilter
-from apps.core.utils import get_client_ip, is_valid_ip, is_private_ip
-from apps.core.throttling import FileUploadThrottle, SearchThrottle
-from .services.translation_service import DoctorTranslationService
+from apps.core.throttling import SearchThrottle
+from apps.core.utils import get_client_ip, is_private_ip, is_valid_ip
+
 from ..admin_panel.models import DoctorComplaint, DoctorComplaintFile
 from ..admin_panel.serializers import DoctorComplaintFileSerializer
 from ..hospitals.models import Districts, Regions
+from .filters import DoctorFilter
+from .models import (
+    ChargeLog,
+    Doctor,
+    DoctorCharge,
+    DoctorFiles,
+    DoctorSchedule,
+    DoctorService,
+    DoctorServiceName,
+    DoctorSpecialization,
+)
+from .serializers import (
+    ChargeLogSerializer,
+    DistrictSerializer,
+    DoctorChargeSerializer,
+    DoctorChargeUpdateSerializer,
+    DoctorFilesSerializer,
+    DoctorFileUploadSerializer,
+    DoctorLocationUpdateSerializer,
+    DoctorProfileSerializer,
+    DoctorRegistrationSerializer,
+    DoctorScheduleSerializer,
+    DoctorSearchLimitSerializer,
+    DoctorSearchStatsSerializer,
+    DoctorSerializer,
+    DoctorServiceSerializer,
+    DoctorSpecializationSerializer,
+    DoctorUpdateSerializer,
+    RegionSerializer,
+)
+from .services.translation_service import DoctorTranslationService
 
 
 class DoctorViewSet(viewsets.ModelViewSet):
@@ -453,9 +474,11 @@ class DoctorListView(generics.ListAPIView):
         if not hasattr(doctor, 'charges') or doctor.charges.search_charge <= 0:
             return  # No charge configured
 
-        from apps.billing.models import UserWallet, DoctorViewCharge, WalletTransaction
         from datetime import date
+
         from django.core.cache import cache
+
+        from apps.billing.models import DoctorViewCharge, UserWallet, WalletTransaction
         from apps.core.utils import get_client_ip
 
         # Create unique charge key based on user ID or IP address
@@ -571,9 +594,11 @@ class DoctorDetailView(generics.RetrieveAPIView):
         Charge DOCTOR for card view
         Only charged once per user/IP per doctor per day
         """
-        from apps.billing.models import UserWallet, DoctorViewCharge, WalletTransaction
         from datetime import date
+
         from django.core.cache import cache
+
+        from apps.billing.models import DoctorViewCharge, UserWallet, WalletTransaction
 
         # Get or create charge settings
         charge_settings, created = DoctorCharge.objects.get_or_create(doctor=doctor)
@@ -872,17 +897,65 @@ class DoctorServiceCreateView(APIView):
                 {'error': 'Service name not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        service = DoctorService.objects.create(
-            doctor=doctor,
-            name=service_name,
-            description=description,
-            price=price,
-            duration=duration
-        )
-        return Response(
-            DoctorServiceSerializer(service).data,
-            status=status.HTTP_201_CREATED
-        )
+
+        # Check if doctor has a wallet
+        if not hasattr(doctor.user, 'wallet'):
+            return Response({
+                'success': False,
+                'error': 'Shifokor hamyoni topilmadi'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet = doctor.user.wallet
+
+        # Check if wallet has sufficient balance (10,000 sums)
+        required_amount = 10000
+        if wallet.balance < required_amount:
+            return Response({
+                'success': False,
+                'error': f'Hamyonda yetarli mablag\' yo\'q. Kerakli summa: {required_amount:,.0f} so\'m, Mavjud: {wallet.balance:,.2f} so\'m'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if wallet is blocked
+        if wallet.is_blocked:
+            return Response({
+                'success': False,
+                'error': 'Hamyon bloklangan'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Deduct the service creation fee from wallet
+            wallet.deduct_balance(
+                amount=required_amount,
+                description=f"Xizmat qo'shish to'lovi / Service creation fee - {service_name.name}"
+            )
+
+            # Create the service
+            service = DoctorService.objects.create(
+                doctor=doctor,
+                name=service_name,
+                description=description,
+                price=price,
+                duration=duration
+            )
+
+            return Response({
+                'success': True,
+                'message': 'Xizmat muvaffaqiyatli yaratildi',
+                'service': DoctorServiceSerializer(service).data,
+                'amount_charged': required_amount,
+                'remaining_balance': float(wallet.balance)
+            }, status=status.HTTP_201_CREATED)
+
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': f'To\'lov xatoligi: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Xatolik: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get(self, request):
         """Get all services for the authenticated doctor"""
