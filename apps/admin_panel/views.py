@@ -11,8 +11,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.billing.models import WalletTransaction
 from apps.consultations.models import Consultation
-from apps.doctors.models import Doctor
+from apps.doctors.models import ChargeLog, Doctor
 from apps.doctors.serializers import DoctorSerializer
 from apps.hospitals.models import Districts, Hospital, Regions
 from apps.hospitals.serializers import HospitalSerializer
@@ -25,11 +26,14 @@ from .serializers import (
     AdminHospitalAdminUpdateSerializer,
     AdminHospitalSerializer,
     AdminUserSerializer,
+    ChargeLogSerializer,
     DoctorComplaintCreateSerializer,
     DoctorComplaintFileSerializer,
     DoctorComplaintSerializer,
     DoctorComplaintStatisticsSerializer,
     DoctorComplaintUpdateSerializer,
+    TransactionStatisticsSerializer,
+    WalletTransactionSerializer,
 )
 
 User = get_user_model()
@@ -1576,3 +1580,394 @@ def doctor_complaint_detail(request, complaint_id):
     return Response({
         'complaint': serializer.data
     })
+
+
+# ==================== Transaction Management APIs ====================
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def wallet_transactions_list(request):
+    """
+    Get all wallet transactions with filtering and pagination
+    Supports filters: user_type, transaction_type, status, date_from, date_to, search
+    """
+    # Base queryset
+    queryset = WalletTransaction.objects.select_related(
+        'wallet', 'wallet__user'
+    ).all()
+
+    # Apply filters
+    user_type = request.GET.get('user_type', None)
+    if user_type:
+        queryset = queryset.filter(wallet__user__user_type=user_type)
+
+    transaction_type = request.GET.get('transaction_type', None)
+    if transaction_type:
+        queryset = queryset.filter(transaction_type=transaction_type)
+
+    status_filter = request.GET.get('status', None)
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    # Date filtering
+    date_from = request.GET.get('date_from', None)
+    if date_from:
+        queryset = queryset.filter(created_at__gte=date_from)
+
+    date_to = request.GET.get('date_to', None)
+    if date_to:
+        queryset = queryset.filter(created_at__lte=date_to)
+
+    # Search by user name or phone
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(wallet__user__first_name__icontains=search) |
+            Q(wallet__user__last_name__icontains=search) |
+            Q(wallet__user__phone__icontains=search) |
+            Q(description__icontains=search)
+        )
+
+    # Order by latest first
+    queryset = queryset.order_by('-created_at')
+
+    # Pagination
+    paginator = Paginator(queryset, int(request.GET.get('page_size', 20)))
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize
+    serializer = WalletTransactionSerializer(page_obj, many=True)
+
+    return Response({
+        'transactions': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': int(request.GET.get('page_size', 20))
+        },
+        'filters': {
+            'transaction_types': dict(WalletTransaction.TRANSACTION_TYPES),
+            'statuses': dict(WalletTransaction.TRANSACTION_STATUS),
+            'current_filters': {
+                'user_type': user_type,
+                'transaction_type': transaction_type,
+                'status': status_filter,
+                'date_from': date_from,
+                'date_to': date_to,
+                'search': search
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def doctor_charges_list(request):
+    """
+    Get all doctor charges (ChargeLog) with filtering and pagination
+    Supports filters: doctor_id, hospital_id, charge_type, date_from, date_to, search
+    """
+    # Base queryset
+    queryset = ChargeLog.objects.select_related(
+        'doctor', 'doctor__user', 'doctor__hospital', 'user'
+    ).all()
+
+    # Apply filters
+    doctor_id = request.GET.get('doctor_id', None)
+    if doctor_id:
+        queryset = queryset.filter(doctor_id=doctor_id)
+
+    hospital_id = request.GET.get('hospital_id', None)
+    if hospital_id:
+        queryset = queryset.filter(doctor__hospital_id=hospital_id)
+
+    charge_type = request.GET.get('charge_type', None)
+    if charge_type:
+        queryset = queryset.filter(charge_type=charge_type)
+
+    # Date filtering
+    date_from = request.GET.get('date_from', None)
+    if date_from:
+        queryset = queryset.filter(created_at__gte=date_from)
+
+    date_to = request.GET.get('date_to', None)
+    if date_to:
+        queryset = queryset.filter(created_at__lte=date_to)
+
+    # Search by doctor name or phone
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(doctor__user__first_name__icontains=search) |
+            Q(doctor__user__last_name__icontains=search) |
+            Q(doctor__user__phone__icontains=search)
+        )
+
+    # Order by latest first
+    queryset = queryset.order_by('-created_at')
+
+    # Pagination
+    paginator = Paginator(queryset, int(request.GET.get('page_size', 20)))
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize
+    serializer = ChargeLogSerializer(page_obj, many=True)
+
+    return Response({
+        'charges': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': int(request.GET.get('page_size', 20))
+        },
+        'filters': {
+            'charge_types': dict(ChargeLog.CHARGE_TYPES),
+            'current_filters': {
+                'doctor_id': doctor_id,
+                'hospital_id': hospital_id,
+                'charge_type': charge_type,
+                'date_from': date_from,
+                'date_to': date_to,
+                'search': search
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def hospital_transactions(request, hospital_id):
+    """
+    Get all transactions for a specific hospital
+    Shows all ChargeLog entries for doctors in this hospital
+    """
+    # Verify hospital exists
+    hospital = get_object_or_404(Hospital, id=hospital_id)
+
+    # Get all charge logs for doctors in this hospital
+    queryset = ChargeLog.objects.select_related(
+        'doctor', 'doctor__user', 'doctor__hospital', 'user'
+    ).filter(doctor__hospital=hospital)
+
+    # Apply filters
+    charge_type = request.GET.get('charge_type', None)
+    if charge_type:
+        queryset = queryset.filter(charge_type=charge_type)
+
+    # Date filtering
+    date_from = request.GET.get('date_from', None)
+    if date_from:
+        queryset = queryset.filter(created_at__gte=date_from)
+
+    date_to = request.GET.get('date_to', None)
+    if date_to:
+        queryset = queryset.filter(created_at__lte=date_to)
+
+    # Search by doctor name
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(doctor__user__first_name__icontains=search) |
+            Q(doctor__user__last_name__icontains=search) |
+            Q(doctor__user__phone__icontains=search)
+        )
+
+    # Order by latest first
+    queryset = queryset.order_by('-created_at')
+
+    # Calculate statistics
+    from django.db.models import Count, Sum
+    stats = queryset.aggregate(
+        total_amount=Sum('amount'),
+        total_transactions=Count('id')
+    )
+
+    # Pagination
+    paginator = Paginator(queryset, int(request.GET.get('page_size', 20)))
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize
+    serializer = ChargeLogSerializer(page_obj, many=True)
+
+    return Response({
+        'hospital': {
+            'id': hospital.id,
+            'name': hospital.name,
+            'address': hospital.address
+        },
+        'transactions': serializer.data,
+        'statistics': {
+            'total_amount': stats['total_amount'] or 0,
+            'total_transactions': stats['total_transactions']
+        },
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': int(request.GET.get('page_size', 20))
+        },
+        'filters': {
+            'charge_types': dict(ChargeLog.CHARGE_TYPES),
+            'current_filters': {
+                'charge_type': charge_type,
+                'date_from': date_from,
+                'date_to': date_to,
+                'search': search
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def doctor_transactions(request, doctor_id):
+    """
+    Get all transactions for a specific doctor
+    Shows ChargeLog entries for this doctor
+    """
+    # Verify doctor exists
+    doctor = get_object_or_404(Doctor, id=doctor_id)
+
+    # Get all charge logs for this doctor
+    queryset = ChargeLog.objects.select_related(
+        'doctor', 'doctor__user', 'doctor__hospital', 'user'
+    ).filter(doctor=doctor)
+
+    # Apply filters
+    charge_type = request.GET.get('charge_type', None)
+    if charge_type:
+        queryset = queryset.filter(charge_type=charge_type)
+
+    # Date filtering
+    date_from = request.GET.get('date_from', None)
+    if date_from:
+        queryset = queryset.filter(created_at__gte=date_from)
+
+    date_to = request.GET.get('date_to', None)
+    if date_to:
+        queryset = queryset.filter(created_at__lte=date_to)
+
+    # Order by latest first
+    queryset = queryset.order_by('-created_at')
+
+    # Calculate statistics
+    from django.db.models import Count, Sum
+    stats = queryset.aggregate(
+        total_amount=Sum('amount'),
+        total_transactions=Count('id')
+    )
+
+    # Get wallet info
+    wallet_info = {}
+    if hasattr(doctor.user, 'wallet'):
+        wallet = doctor.user.wallet
+        wallet_info = {
+            'balance': float(wallet.balance),
+            'total_spent': float(wallet.total_spent),
+            'total_topped_up': float(wallet.total_topped_up),
+            'is_blocked': wallet.is_blocked
+        }
+
+    # Pagination
+    paginator = Paginator(queryset, int(request.GET.get('page_size', 20)))
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize
+    serializer = ChargeLogSerializer(page_obj, many=True)
+
+    return Response({
+        'doctor': {
+            'id': doctor.id,
+            'name': doctor.user.get_full_name(),
+            'phone': doctor.user.phone,
+            'specialty': doctor.get_specialty_display(),
+            'hospital': doctor.hospital.name if doctor.hospital else None,
+            'wallet': wallet_info
+        },
+        'transactions': serializer.data,
+        'statistics': {
+            'total_amount': stats['total_amount'] or 0,
+            'total_transactions': stats['total_transactions']
+        },
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': int(request.GET.get('page_size', 20))
+        },
+        'filters': {
+            'charge_types': dict(ChargeLog.CHARGE_TYPES),
+            'current_filters': {
+                'charge_type': charge_type,
+                'date_from': date_from,
+                'date_to': date_to
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def transaction_statistics(request):
+    """
+    Get comprehensive transaction statistics
+    """
+    from datetime import timedelta
+
+    from django.db.models import Count, Sum
+
+    now = timezone.now()
+    today = now.date()
+    this_week_start = now - timedelta(weeks=1)
+    this_month_start = now - timedelta(days=30)
+
+    # Wallet transaction statistics
+    wallet_stats = WalletTransaction.objects.aggregate(
+        total_transactions=Count('id'),
+        total_amount=Sum('amount'),
+        credit_count=Count('id', filter=Q(transaction_type='credit')),
+        credit_amount=Sum('amount', filter=Q(transaction_type='credit')),
+        debit_count=Count('id', filter=Q(transaction_type='debit')),
+        debit_amount=Sum('amount', filter=Q(transaction_type='debit')),
+        transactions_today=Count('id', filter=Q(created_at__date=today)),
+        transactions_this_week=Count('id', filter=Q(created_at__gte=this_week_start)),
+        transactions_this_month=Count('id', filter=Q(created_at__gte=this_month_start))
+    )
+
+    # Doctor charge statistics
+    charge_stats = ChargeLog.objects.aggregate(
+        total_doctor_charges=Count('id'),
+        total_charge_amount=Sum('amount')
+    )
+
+    # Combine statistics
+    stats = {
+        'total_transactions': wallet_stats['total_transactions'] or 0,
+        'total_amount': wallet_stats['total_amount'] or 0,
+        'credit_count': wallet_stats['credit_count'] or 0,
+        'credit_amount': wallet_stats['credit_amount'] or 0,
+        'debit_count': wallet_stats['debit_count'] or 0,
+        'debit_amount': wallet_stats['debit_amount'] or 0,
+        'total_doctor_charges': charge_stats['total_doctor_charges'] or 0,
+        'total_charge_amount': charge_stats['total_charge_amount'] or 0,
+        'transactions_today': wallet_stats['transactions_today'] or 0,
+        'transactions_this_week': wallet_stats['transactions_this_week'] or 0,
+        'transactions_this_month': wallet_stats['transactions_this_month'] or 0
+    }
+
+    serializer = TransactionStatisticsSerializer(stats)
+    return Response(serializer.data)

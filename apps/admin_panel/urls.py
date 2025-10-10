@@ -35,4 +35,11 @@ urlpatterns = [
     path('filter-options/', views.get_filter_options, name='filter-options'),
     path('bulk-actions/', views.bulk_actions, name='bulk-actions'),
 
+    # Transaction Management
+    path('transactions/wallet/', views.wallet_transactions_list, name='wallet_transactions_list'),
+    path('transactions/doctor-charges/', views.doctor_charges_list, name='doctor_charges_list'),
+    path('transactions/hospital/<int:hospital_id>/', views.hospital_transactions, name='hospital_transactions'),
+    path('transactions/doctor/<int:doctor_id>/', views.doctor_transactions, name='doctor_transactions'),
+    path('transactions/statistics/', views.transaction_statistics, name='transaction_statistics'),
+
 ]

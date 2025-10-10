@@ -3,13 +3,16 @@ Admin Panel Serializers for DRF
 Comprehensive serializers for hospital and doctor management
 """
 
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from apps.hospitals.models import Hospital, HospitalService
-from apps.doctors.models import Doctor, DoctorTranslation
+from rest_framework import serializers
+
+from apps.billing.models import DoctorViewCharge, WalletTransaction
 from apps.consultations.models import Consultation
-from .models import DoctorComplaint, DoctorComplaintFile
+from apps.doctors.models import ChargeLog, Doctor, DoctorTranslation
+from apps.hospitals.models import Hospital, HospitalService
+
 from ..doctors.services.translation_service import TranslationConfig
+from .models import DoctorComplaint, DoctorComplaintFile
 
 User = get_user_model()
 
@@ -434,7 +437,6 @@ class BulkActionSerializer(serializers.Serializer):
     def validate(self, data):
         """Validate bulk action data"""
         action = data.get('action')
-        item_type = data.get('type')
 
         # Check if reason is required for certain actions
         if action == 'reject' and not data.get('reason'):
@@ -529,17 +531,17 @@ class AdminRecentActivitySerializer(serializers.Serializer):
 
 class DoctorComplaintFileSerializer(serializers.ModelSerializer):
     """Serializer for DoctorComplaintFile model"""
-    
+
     file_url = serializers.SerializerMethodField()
     file_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = DoctorComplaintFile
         fields = [
             'id', 'file', 'file_url', 'file_name', 'uploaded_at'
         ]
         read_only_fields = ['id', 'uploaded_at']
-    
+
     def get_file_url(self, obj):
         """Get file URL"""
         if obj.file:
@@ -548,7 +550,7 @@ class DoctorComplaintFileSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
         return None
-    
+
     def get_file_name(self, obj):
         """Get original file name"""
         if obj.file:
@@ -558,21 +560,21 @@ class DoctorComplaintFileSerializer(serializers.ModelSerializer):
 
 class DoctorComplaintSerializer(serializers.ModelSerializer):
     """Serializer for DoctorComplaint model with nested files"""
-    
+
     # Doctor information
     doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
     doctor_phone = serializers.CharField(source='doctor.user.phone', read_only=True)
     doctor_specialty = serializers.CharField(source='doctor.get_specialty_display', read_only=True)
-    
+
     # Display fields
     complaint_type_display = serializers.CharField(source='get_complaint_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
-    
+
     # Files related to this complaint
     files = DoctorComplaintFileSerializer(many=True, read_only=True)
     files_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = DoctorComplaint
         fields = [
@@ -582,11 +584,11 @@ class DoctorComplaintSerializer(serializers.ModelSerializer):
             'files', 'files_count', 'created_at', 'updated_at', 'resolution_notes'
         ]
         read_only_fields = ['id', 'priority', 'created_at', 'updated_at']
-    
+
     def get_files_count(self, obj):
         """Get number of files attached to this complaint"""
         return obj.files.count()
-    
+
     def validate_subject(self, value):
         """Validate complaint subject"""
         if not value or len(value.strip()) < 5:
@@ -594,7 +596,7 @@ class DoctorComplaintSerializer(serializers.ModelSerializer):
                 "Shikoyat sarlavhasi kamida 5 ta belgidan iborat bo'lishi kerak"
             )
         return value.strip()
-    
+
     def validate_description(self, value):
         """Validate complaint description"""
         if value and len(value.strip()) < 10:
@@ -606,27 +608,27 @@ class DoctorComplaintSerializer(serializers.ModelSerializer):
 
 class AdminDoctorComplaintSerializer(DoctorComplaintSerializer):
     """Extended serializer for admin panel with additional fields"""
-    
+
     # Hospital information
     hospital_name = serializers.CharField(
-        source='doctor.hospital.name', 
-        read_only=True, 
+        source='doctor.hospital.name',
+        read_only=True,
         allow_null=True
     )
-    
+
     # Admin actions
     can_be_resolved = serializers.SerializerMethodField()
     days_since_created = serializers.SerializerMethodField()
-    
+
     class Meta(DoctorComplaintSerializer.Meta):
         fields = DoctorComplaintSerializer.Meta.fields + [
             'hospital_name', 'can_be_resolved', 'days_since_created'
         ]
-    
+
     def get_can_be_resolved(self, obj):
         """Check if complaint can be resolved"""
         return obj.status == 'in_progress'
-    
+
     def get_days_since_created(self, obj):
         """Calculate days since complaint was created"""
         from django.utils import timezone
@@ -636,24 +638,24 @@ class AdminDoctorComplaintSerializer(DoctorComplaintSerializer):
 
 class DoctorComplaintCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating doctor complaints"""
-    
+
     class Meta:
         model = DoctorComplaint
         fields = [
             'doctor', 'subject', 'description', 'complaint_type', 'priority'
         ]
-    
+
     def validate_doctor(self, value):
         """Validate doctor exists and is verified"""
         if not hasattr(value, 'verification_status'):
             raise serializers.ValidationError("Shifokor topilmadi")
-        
+
         if value.verification_status != 'approved':
             raise serializers.ValidationError(
                 "Faqat tasdiqlangan shifokorlar shikoyat yubora oladi"
             )
         return value
-    
+
     def create(self, validated_data):
         """Create complaint with automatic priority setting"""
         complaint = super().create(validated_data)
@@ -663,17 +665,17 @@ class DoctorComplaintCreateSerializer(serializers.ModelSerializer):
 
 class DoctorComplaintUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating complaint status (admin only)"""
-    
+
     resolution_notes = serializers.CharField(
-        required=False, 
+        required=False,
         allow_blank=True,
         help_text="Notes about complaint resolution"
     )
-    
+
     class Meta:
         model = DoctorComplaint
         fields = ['status', 'resolution_notes']
-    
+
     def validate_status(self, value):
         """Validate status transition"""
         if self.instance and self.instance.status == 'closed':
@@ -681,7 +683,7 @@ class DoctorComplaintUpdateSerializer(serializers.ModelSerializer):
                 "Yopilgan shikoyat holatini o'zgartirib bo'lmaydi"
             )
         return value
-    
+
     def validate(self, data):
         """Validate status change"""
         status = data.get('status')
@@ -834,3 +836,113 @@ class AdminHospitalAdminUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+# Transaction Serializers
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    """Serializer for WalletTransaction model"""
+
+    # User information
+    user_id = serializers.IntegerField(source='wallet.user.id', read_only=True)
+    user_name = serializers.CharField(source='wallet.user.get_full_name', read_only=True)
+    user_phone = serializers.CharField(source='wallet.user.phone', read_only=True)
+    user_type = serializers.CharField(source='wallet.user.user_type', read_only=True)
+
+    # Display fields
+    transaction_type_display = serializers.CharField(source='get_transaction_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = WalletTransaction
+        fields = [
+            'id', 'user_id', 'user_name', 'user_phone', 'user_type',
+            'transaction_type', 'transaction_type_display',
+            'amount', 'balance_before', 'balance_after',
+            'description', 'status', 'status_display',
+            'object_id', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ChargeLogSerializer(serializers.ModelSerializer):
+    """Serializer for ChargeLog model (Doctor charges)"""
+
+    # Doctor information
+    doctor_id = serializers.IntegerField(source='doctor.id', read_only=True)
+    doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
+    doctor_phone = serializers.CharField(source='doctor.user.phone', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.get_specialty_display', read_only=True)
+
+    # Hospital information
+    hospital_id = serializers.IntegerField(source='doctor.hospital.id', read_only=True, allow_null=True)
+    hospital_name = serializers.CharField(source='doctor.hospital.name', read_only=True, allow_null=True)
+
+    # User who triggered the charge (if applicable)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True, allow_null=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True, allow_null=True)
+
+    # Display fields
+    charge_type_display = serializers.CharField(source='get_charge_type_display', read_only=True)
+
+    class Meta:
+        model = ChargeLog
+        fields = [
+            'id', 'doctor_id', 'doctor_name', 'doctor_phone', 'doctor_specialty',
+            'hospital_id', 'hospital_name',
+            'charge_type', 'charge_type_display', 'amount',
+            'user', 'user_name', 'user_phone',
+            'ip_address', 'user_agent', 'metadata',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class DoctorViewChargeSerializer(serializers.ModelSerializer):
+    """Serializer for DoctorViewCharge model"""
+
+    # User information
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True)
+
+    # Doctor information
+    doctor_id = serializers.IntegerField(source='doctor.id', read_only=True)
+    doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.get_specialty_display', read_only=True)
+
+    # Transaction information
+    transaction_id = serializers.UUIDField(source='transaction.id', read_only=True)
+
+    class Meta:
+        model = DoctorViewCharge
+        fields = [
+            'id', 'user_id', 'user_name', 'user_phone',
+            'doctor_id', 'doctor_name', 'doctor_specialty',
+            'transaction_id', 'amount_charged', 'view_duration',
+            'ip_address', 'user_agent', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class TransactionStatisticsSerializer(serializers.Serializer):
+    """Serializer for transaction statistics"""
+
+    # Overall statistics
+    total_transactions = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    # By type
+    credit_count = serializers.IntegerField()
+    credit_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    debit_count = serializers.IntegerField()
+    debit_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    # Doctor charges
+    total_doctor_charges = serializers.IntegerField()
+    total_charge_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    # Time-based
+    transactions_today = serializers.IntegerField()
+    transactions_this_week = serializers.IntegerField()
+    transactions_this_month = serializers.IntegerField()
