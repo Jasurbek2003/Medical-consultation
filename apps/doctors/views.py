@@ -42,6 +42,7 @@ from .serializers import (
     DoctorSerializer,
     DoctorServiceSerializer,
     DoctorSpecializationSerializer,
+    DoctorStatisticsOverviewSerializer,
     DoctorUpdateSerializer,
     RegionSerializer,
 )

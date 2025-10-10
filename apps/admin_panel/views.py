@@ -32,6 +32,8 @@ from .serializers import (
     DoctorComplaintSerializer,
     DoctorComplaintStatisticsSerializer,
     DoctorComplaintUpdateSerializer,
+    DoctorStatisticsSerializer,
+    DoctorStatisticsSummarySerializer,
     TransactionStatisticsSerializer,
     WalletTransactionSerializer,
 )
@@ -1970,4 +1972,285 @@ def transaction_statistics(request):
     }
 
     serializer = TransactionStatisticsSerializer(stats)
+    return Response(serializer.data)
+
+
+# ==================== Doctor Statistics APIs ====================
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def doctor_statistics_detail(request, doctor_id):
+    """
+    Get comprehensive statistics for a specific doctor
+    """
+    from django.db.models import Count, Sum
+
+    # Get doctor
+    doctor = get_object_or_404(
+        Doctor.objects.select_related('user', 'hospital'),
+        id=doctor_id
+    )
+
+    # Get charge statistics
+    charge_stats = ChargeLog.objects.filter(doctor=doctor).aggregate(
+        total_searches=Count('id', filter=Q(charge_type='search')),
+        total_card_views=Count('id', filter=Q(charge_type='view_card')),
+        total_phone_views=Count('id', filter=Q(charge_type='view_phone')),
+        total_charges=Count('id'),
+        total_charge_amount=Sum('amount')
+    )
+
+    # Calculate success rate
+    success_rate = 0
+    if doctor.total_consultations > 0:
+        success_rate = round((doctor.successful_consultations / doctor.total_consultations) * 100, 2)
+
+    # Get wallet info
+    wallet_balance = None
+    if hasattr(doctor.user, 'wallet'):
+        wallet_balance = float(doctor.user.wallet.balance)
+
+    # Prepare statistics
+    stats = {
+        'doctor_id': doctor.id,
+        'doctor_name': doctor.user.get_full_name(),
+        'doctor_phone': doctor.user.phone,
+        'doctor_specialty': doctor.specialty,
+        'doctor_specialty_display': doctor.get_specialty_display(),
+        'hospital_name': doctor.hospital.name if doctor.hospital else None,
+
+        # View statistics
+        'total_profile_views': doctor.profile_views,
+        'weekly_views': doctor.weekly_views,
+        'monthly_views': doctor.monthly_views,
+
+        # Contact statistics
+        'total_searches': charge_stats['total_searches'] or 0,
+        'total_card_views': charge_stats['total_card_views'] or 0,
+        'total_phone_views': charge_stats['total_phone_views'] or 0,
+
+        # Consultation statistics
+        'total_consultations': doctor.total_consultations,
+        'successful_consultations': doctor.successful_consultations,
+        'success_rate': success_rate,
+
+        # Rating statistics
+        'rating': doctor.rating,
+        'total_reviews': doctor.total_reviews,
+
+        # Financial statistics
+        'total_charges': charge_stats['total_charges'] or 0,
+        'total_charge_amount': charge_stats['total_charge_amount'] or 0,
+
+        # Wallet information
+        'wallet_balance': wallet_balance,
+        'is_blocked': doctor.is_blocked,
+
+        # Status
+        'is_available': doctor.is_available,
+        'verification_status': doctor.verification_status,
+
+        # Timestamps
+        'created_at': doctor.created_at,
+        'last_activity': doctor.last_activity
+    }
+
+    serializer = DoctorStatisticsSerializer(stats)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def doctors_statistics_list(request):
+    """
+    Get statistics for all doctors with filtering and sorting
+    """
+    from django.db.models import Count, Sum
+
+    # Base queryset
+    doctors = Doctor.objects.select_related('user', 'hospital').all()
+
+    # Apply filters
+    specialty = request.GET.get('specialty', None)
+    if specialty:
+        doctors = doctors.filter(specialty=specialty)
+
+    hospital_id = request.GET.get('hospital_id', None)
+    if hospital_id:
+        doctors = doctors.filter(hospital_id=hospital_id)
+
+    verification_status = request.GET.get('verification_status', None)
+    if verification_status:
+        doctors = doctors.filter(verification_status=verification_status)
+
+    is_available = request.GET.get('is_available', None)
+    if is_available is not None:
+        doctors = doctors.filter(is_available=is_available.lower() == 'true')
+
+    is_blocked = request.GET.get('is_blocked', None)
+    if is_blocked is not None:
+        doctors = doctors.filter(is_blocked=is_blocked.lower() == 'true')
+
+    # Search
+    search = request.GET.get('search', '')
+    if search:
+        doctors = doctors.filter(
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(user__phone__icontains=search)
+        )
+
+    # Sorting
+    sort_by = request.GET.get('sort_by', '-profile_views')
+    valid_sorts = [
+        'profile_views', '-profile_views',
+        'total_consultations', '-total_consultations',
+        'rating', '-rating',
+        'created_at', '-created_at'
+    ]
+    if sort_by in valid_sorts:
+        doctors = doctors.order_by(sort_by)
+
+    # Prepare statistics for each doctor
+    doctors_stats = []
+    for doctor in doctors:
+        # Get charge statistics for this doctor
+        charge_stats = ChargeLog.objects.filter(doctor=doctor).aggregate(
+            total_searches=Count('id', filter=Q(charge_type='search')),
+            total_card_views=Count('id', filter=Q(charge_type='view_card')),
+            total_phone_views=Count('id', filter=Q(charge_type='view_phone')),
+            total_charges=Count('id'),
+            total_charge_amount=Sum('amount')
+        )
+
+        # Calculate success rate
+        success_rate = 0
+        if doctor.total_consultations > 0:
+            success_rate = round((doctor.successful_consultations / doctor.total_consultations) * 100, 2)
+
+        # Get wallet info
+        wallet_balance = None
+        if hasattr(doctor.user, 'wallet'):
+            wallet_balance = float(doctor.user.wallet.balance)
+
+        doctors_stats.append({
+            'doctor_id': doctor.id,
+            'doctor_name': doctor.user.get_full_name(),
+            'doctor_phone': doctor.user.phone,
+            'doctor_specialty': doctor.specialty,
+            'doctor_specialty_display': doctor.get_specialty_display(),
+            'hospital_name': doctor.hospital.name if doctor.hospital else None,
+
+            'total_profile_views': doctor.profile_views,
+            'weekly_views': doctor.weekly_views,
+            'monthly_views': doctor.monthly_views,
+
+            'total_searches': charge_stats['total_searches'] or 0,
+            'total_card_views': charge_stats['total_card_views'] or 0,
+            'total_phone_views': charge_stats['total_phone_views'] or 0,
+
+            'total_consultations': doctor.total_consultations,
+            'successful_consultations': doctor.successful_consultations,
+            'success_rate': success_rate,
+
+            'rating': doctor.rating,
+            'total_reviews': doctor.total_reviews,
+
+            'total_charges': charge_stats['total_charges'] or 0,
+            'total_charge_amount': charge_stats['total_charge_amount'] or 0,
+
+            'wallet_balance': wallet_balance,
+            'is_blocked': doctor.is_blocked,
+
+            'is_available': doctor.is_available,
+            'verification_status': doctor.verification_status,
+
+            'created_at': doctor.created_at,
+            'last_activity': doctor.last_activity
+        })
+
+    # Pagination
+    paginator = Paginator(doctors_stats, int(request.GET.get('page_size', 20)))
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize
+    serializer = DoctorStatisticsSerializer(page_obj, many=True)
+
+    return Response({
+        'doctors': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': int(request.GET.get('page_size', 20))
+        },
+        'filters': {
+            'specialties': dict(Doctor.SPECIALTIES),
+            'verification_statuses': dict(Doctor.VERIFICATION_STATUS),
+            'current_filters': {
+                'specialty': specialty,
+                'hospital_id': hospital_id,
+                'verification_status': verification_status,
+                'is_available': is_available,
+                'is_blocked': is_blocked,
+                'search': search,
+                'sort_by': sort_by
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def doctors_statistics_summary(request):
+    """
+    Get summary statistics for all doctors
+    """
+    from django.db.models import Avg, Count, Sum
+
+    # Overall doctor statistics
+    doctor_stats = Doctor.objects.aggregate(
+        total_doctors=Count('id'),
+        active_doctors=Count('id', filter=Q(is_available=True)),
+        verified_doctors=Count('id', filter=Q(verification_status='approved')),
+        blocked_doctors=Count('id', filter=Q(is_blocked=True)),
+        total_profile_views=Sum('profile_views'),
+        total_consultations=Sum('total_consultations'),
+        average_rating=Avg('rating'),
+        total_reviews=Sum('total_reviews')
+    )
+
+    # Charge statistics
+    charge_stats = ChargeLog.objects.aggregate(
+        total_searches=Count('id', filter=Q(charge_type='search')),
+        total_card_views=Count('id', filter=Q(charge_type='view_card')),
+        total_phone_views=Count('id', filter=Q(charge_type='view_phone')),
+        total_charges=Count('id'),
+        total_charge_amount=Sum('amount')
+    )
+
+    # Combine statistics
+    summary = {
+        'total_doctors': doctor_stats['total_doctors'] or 0,
+        'active_doctors': doctor_stats['active_doctors'] or 0,
+        'verified_doctors': doctor_stats['verified_doctors'] or 0,
+        'blocked_doctors': doctor_stats['blocked_doctors'] or 0,
+
+        'total_profile_views': doctor_stats['total_profile_views'] or 0,
+        'total_searches': charge_stats['total_searches'] or 0,
+        'total_card_views': charge_stats['total_card_views'] or 0,
+        'total_phone_views': charge_stats['total_phone_views'] or 0,
+
+        'total_consultations': doctor_stats['total_consultations'] or 0,
+        'average_rating': round(doctor_stats['average_rating'], 2) if doctor_stats['average_rating'] else 0,
+        'total_reviews': doctor_stats['total_reviews'] or 0,
+
+        'total_charges': charge_stats['total_charges'] or 0,
+        'total_charge_amount': charge_stats['total_charge_amount'] or 0
+    }
+
+    serializer = DoctorStatisticsSummarySerializer(summary)
     return Response(serializer.data)

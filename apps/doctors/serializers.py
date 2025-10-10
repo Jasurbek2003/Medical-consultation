@@ -1,14 +1,21 @@
-from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
-from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
+from ..hospitals.models import Districts, Regions
 from .models import (
-    Doctor, DoctorFiles, DoctorSchedule, DoctorSpecialization, DoctorService, DoctorServiceName, DoctorTranslation,
-    DoctorCharge, ChargeLog,
+    ChargeLog,
+    Doctor,
+    DoctorCharge,
+    DoctorFiles,
+    DoctorSchedule,
+    DoctorService,
+    DoctorServiceName,
+    DoctorSpecialization,
+    DoctorTranslation,
 )
 from .services.translation_service import TranslationConfig
-from ..hospitals.models import Regions, Districts
 
 User = get_user_model()
 
@@ -372,9 +379,9 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             return DoctorTranslation.objects.get(doctor=obj).translations
         except DoctorTranslation.DoesNotExist:
             return {
-                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
+                'bio': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
                        for lang_item in TranslationConfig.LANGUAGES},
-                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: "" 
+                'achievements': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
                                 for lang_item in TranslationConfig.LANGUAGES},
                 'education': {lang_item[0] if isinstance(lang_item, tuple) else lang_item: ""
                                 for lang_item in TranslationConfig.LANGUAGES},
@@ -462,7 +469,7 @@ class DoctorLocationUpdateSerializer(serializers.ModelSerializer):
 
 class DoctorServiceNameSerializer(serializers.ModelSerializer):
     """Serializer for DoctorServiceName CRUD operations"""
-    
+
     class Meta:
         model = DoctorServiceName
         fields = ['id', 'name', 'name_en', 'name_ru', 'name_kr', 'description', 'created_at', 'updated_at']
@@ -472,15 +479,15 @@ class DoctorServiceNameSerializer(serializers.ModelSerializer):
         """Validate that service name is not empty and unique"""
         if not value or not value.strip():
             raise serializers.ValidationError("Service name cannot be empty")
-        
+
         # Check for uniqueness, excluding current instance if updating
         existing = DoctorServiceName.objects.filter(name=value)
         if self.instance:
             existing = existing.exclude(id=self.instance.id)
-        
+
         if existing.exists():
             raise serializers.ValidationError("A service with this name already exists")
-            
+
         return value.strip()
 
 
@@ -589,4 +596,57 @@ class SearchRemainingSerializer(serializers.Serializer):
     remaining = serializers.CharField(read_only=True)  # Can be number or "unlimited"
     unlimited = serializers.BooleanField(read_only=True)
     exceeded = serializers.BooleanField(default=False, read_only=True)
+
+
+class DoctorStatisticsOverviewSerializer(serializers.Serializer):
+    """Comprehensive statistics for doctor's own profile overview"""
+
+    # Doctor basic info
+    doctor_id = serializers.IntegerField()
+    doctor_name = serializers.CharField()
+    specialty = serializers.CharField()
+    specialty_display = serializers.CharField()
+    hospital_name = serializers.CharField(allow_null=True)
+    is_blocked = serializers.BooleanField()
+    is_available = serializers.BooleanField()
+    verification_status = serializers.CharField()
+
+    # View statistics
+    total_profile_views = serializers.IntegerField()
+    weekly_views = serializers.IntegerField()
+    monthly_views = serializers.IntegerField()
+
+    # Contact statistics (from ChargeLog)
+    total_searches = serializers.IntegerField()
+    total_card_views = serializers.IntegerField()
+    total_phone_views = serializers.IntegerField()
+    searches_this_month = serializers.IntegerField()
+    card_views_this_month = serializers.IntegerField()
+    phone_views_this_month = serializers.IntegerField()
+
+    # Consultation statistics
+    total_consultations = serializers.IntegerField()
+    successful_consultations = serializers.IntegerField()
+    success_rate = serializers.FloatField()
+    consultations_this_month = serializers.IntegerField()
+
+    # Rating statistics
+    rating = serializers.FloatField()
+    total_reviews = serializers.IntegerField()
+    reviews_this_month = serializers.IntegerField()
+
+    # Financial statistics
+    total_charges = serializers.IntegerField()
+    total_charge_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    charges_this_month = serializers.IntegerField()
+    charge_amount_this_month = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    # Wallet information
+    wallet_balance = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    wallet_total_spent = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    wallet_total_topped_up = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+
+    # Recent activity
+    last_activity = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
 

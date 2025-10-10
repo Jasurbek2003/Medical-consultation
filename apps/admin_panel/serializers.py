@@ -946,3 +946,73 @@ class TransactionStatisticsSerializer(serializers.Serializer):
     transactions_today = serializers.IntegerField()
     transactions_this_week = serializers.IntegerField()
     transactions_this_month = serializers.IntegerField()
+
+
+# Doctor Statistics Serializers
+
+class DoctorStatisticsSerializer(serializers.Serializer):
+    """Comprehensive statistics for a doctor"""
+
+    # Doctor basic info
+    doctor_id = serializers.IntegerField()
+    doctor_name = serializers.CharField()
+    doctor_phone = serializers.CharField()
+    doctor_specialty = serializers.CharField()
+    doctor_specialty_display = serializers.CharField()
+    hospital_name = serializers.CharField(allow_null=True)
+
+    # View statistics
+    total_profile_views = serializers.IntegerField()
+    weekly_views = serializers.IntegerField()
+    monthly_views = serializers.IntegerField()
+
+    # Contact statistics (from ChargeLog)
+    total_searches = serializers.IntegerField()
+    total_card_views = serializers.IntegerField()
+    total_phone_views = serializers.IntegerField()
+
+    # Consultation statistics
+    total_consultations = serializers.IntegerField()
+    successful_consultations = serializers.IntegerField()
+    success_rate = serializers.FloatField()
+
+    # Rating statistics
+    rating = serializers.FloatField()
+    total_reviews = serializers.IntegerField()
+
+    # Financial statistics
+    total_charges = serializers.IntegerField()
+    total_charge_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    # Wallet information
+    wallet_balance = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    is_blocked = serializers.BooleanField()
+
+    # Status
+    is_available = serializers.BooleanField()
+    verification_status = serializers.CharField()
+
+    # Timestamps
+    created_at = serializers.DateTimeField()
+    last_activity = serializers.DateTimeField(allow_null=True)
+
+
+class DoctorStatisticsSummarySerializer(serializers.Serializer):
+    """Summary statistics for all doctors"""
+
+    total_doctors = serializers.IntegerField()
+    active_doctors = serializers.IntegerField()
+    verified_doctors = serializers.IntegerField()
+    blocked_doctors = serializers.IntegerField()
+
+    total_profile_views = serializers.IntegerField()
+    total_searches = serializers.IntegerField()
+    total_card_views = serializers.IntegerField()
+    total_phone_views = serializers.IntegerField()
+
+    total_consultations = serializers.IntegerField()
+    average_rating = serializers.FloatField()
+    total_reviews = serializers.IntegerField()
+
+    total_charges = serializers.IntegerField()
+    total_charge_amount = serializers.DecimalField(max_digits=12, decimal_places=2)

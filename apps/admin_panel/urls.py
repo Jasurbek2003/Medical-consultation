@@ -42,4 +42,9 @@ urlpatterns = [
     path('transactions/doctor/<int:doctor_id>/', views.doctor_transactions, name='doctor_transactions'),
     path('transactions/statistics/', views.transaction_statistics, name='transaction_statistics'),
 
+    # Doctor Statistics
+    path('doctors-statistics/', views.doctors_statistics_list, name='doctors_statistics_list'),
+    path('doctors-statistics/<int:doctor_id>/', views.doctor_statistics_detail, name='doctor_statistics_detail'),
+    path('doctors-statistics/summary/', views.doctors_statistics_summary, name='doctors_statistics_summary'),
+
 ]

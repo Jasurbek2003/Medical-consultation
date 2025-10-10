@@ -1,19 +1,44 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    DoctorViewSet, RegionViewSet, DistrictViewSet, DoctorFilesViewSet,
-    DoctorScheduleViewSet, DoctorSpecializationViewSet,
-    DoctorListView, DoctorDetailView, DoctorRegistrationView,
-    DoctorLocationUpdateView, DoctorFileUploadView, DoctorSearchView,
-    DoctorStatsView, LocationAPIView, RegionDistrictsView, DoctorFileDeleteView, DoctorServiceCreateView,
-    DoctorProfileView, DoctorAvailabilityToggleView, DoctorSpecialtiesView, DoctorServiceNameAPIView,
-    DoctorProfileTranslationAPIView, DoctorComplaintFileViewSet,
-    DoctorPhoneNumberView, DoctorChargeSettingsView, DoctorChargeLogsView, DoctorWalletView,
-    DoctorSearchLimitView, DoctorSearchStatsView
+from ..admin_panel.views import (
+    doctor_complaint_detail,
+    doctor_complaint_list,
+    doctor_create_complaint,
 )
 from .api_views import DoctorServiceNameViewSet
-from ..admin_panel.views import doctor_complaint_list, doctor_create_complaint, doctor_complaint_detail
+from .views import (
+    DistrictViewSet,
+    DoctorAvailabilityToggleView,
+    DoctorChargeLogsView,
+    DoctorChargeSettingsView,
+    DoctorComplaintFileViewSet,
+    DoctorDetailView,
+    DoctorFileDeleteView,
+    DoctorFilesViewSet,
+    DoctorFileUploadView,
+    DoctorListView,
+    DoctorLocationUpdateView,
+    DoctorPhoneNumberView,
+    DoctorProfileTranslationAPIView,
+    DoctorProfileView,
+    DoctorRegistrationView,
+    DoctorScheduleViewSet,
+    DoctorSearchLimitView,
+    DoctorSearchStatsView,
+    DoctorSearchView,
+    DoctorServiceCreateView,
+    DoctorServiceNameAPIView,
+    DoctorSpecializationViewSet,
+    DoctorSpecialtiesView,
+    DoctorStatsView,
+    DoctorViewSet,
+    DoctorWalletView,
+    LocationAPIView,
+    RegionDistrictsView,
+    RegionViewSet,
+)
+from .views_statistics import DoctorStatisticsOverviewView
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -36,6 +61,7 @@ urlpatterns = [
     path('list/', DoctorListView.as_view(), name='doctor-list'),
     path('<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
     path('profile/', DoctorProfileView.as_view(), name='doctor-detail'),
+    path('statistics-overview/', DoctorStatisticsOverviewView.as_view(), name='doctor-statistics-overview'),
     path('translate/', DoctorProfileTranslationAPIView.as_view(), name='doctor-detail'),
     path('toggle-availability/', DoctorAvailabilityToggleView.as_view(), name='doctor-detail'),
     path('register/', DoctorRegistrationView.as_view(), name='doctor-register'),
