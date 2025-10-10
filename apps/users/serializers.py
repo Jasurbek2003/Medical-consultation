@@ -57,7 +57,7 @@ class DoctorRegistrationSerializer(serializers.ModelSerializer):
     # Doctor-specific fields
     specialty = serializers.CharField(max_length=50)
     license_number = serializers.CharField(max_length=50)
-    experience = serializers.IntegerField(min_value=0, max_value=60)
+    experience = serializers.IntegerField(min_value=0, max_value=90)
     education = serializers.CharField()
     workplace = serializers.CharField(max_length=200)
     consultation_price = serializers.IntegerField(min_value=0)

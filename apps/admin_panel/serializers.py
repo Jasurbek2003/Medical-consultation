@@ -281,9 +281,9 @@ class AdminDoctorSerializer(serializers.ModelSerializer):
 
     def validate_experience(self, value):
         """Validate experience years"""
-        if value is not None and (value < 0 or value > 60):
+        if value is not None and (value < 0 or value > 90):
             raise serializers.ValidationError(
-                "Tajriba 0 dan 60 yil orasida bo'lishi kerak"
+                "Tajriba 0 dan 90 yil orasida bo'lishi kerak"
             )
         return value
 

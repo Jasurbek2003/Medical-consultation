@@ -83,7 +83,7 @@ class Doctor(models.Model):
     )
 
     experience = models.PositiveIntegerField(
-        validators=[MinValueValidator(0), MaxValueValidator(60)],
+        validators=[MinValueValidator(0), MaxValueValidator(90)],
         verbose_name="Tajriba (yil)"
     )
 
