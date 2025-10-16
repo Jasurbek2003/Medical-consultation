@@ -34,4 +34,8 @@ urlpatterns = [
     path('services/search/', api_views.ServiceSearchAPIView.as_view(), name='service_search'),
     path('services/doctors/', api_views.DoctorServicesAPIView.as_view(), name='doctor_services'),
     path('services/hospitals/', api_views.HospitalServicesAPIView.as_view(), name='hospital_services'),
+
+    # Hospital detail endpoints (authenticated users only)
+    path('hospitals/<uuid:hospital_id>/', api_views.HospitalDetailAPIView.as_view(), name='hospital_detail'),
+    path('hospitals/<uuid:hospital_id>/phone/', api_views.HospitalPhoneAPIView.as_view(), name='hospital_phone'),
 ]

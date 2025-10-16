@@ -604,3 +604,76 @@ class ServiceSearchResultSerializer(serializers.Serializer):
     total_hospitals = serializers.IntegerField()
     search_query = serializers.CharField()
     expanded_search_terms = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+# Hospital Detail Serializers (for authenticated users)
+
+class HospitalDetailSerializer(serializers.Serializer):
+    """Hospital detail without phone number"""
+    id = serializers.CharField()
+    name = serializers.CharField()
+    short_name = serializers.CharField(allow_null=True)
+    hospital_type = serializers.CharField()
+    hospital_type_display = serializers.SerializerMethodField()
+
+    # Contact info (without phone)
+    email = serializers.CharField(allow_null=True)
+    website = serializers.CharField(allow_null=True)
+
+    # Location
+    address = serializers.CharField()
+    region_name = serializers.SerializerMethodField()
+    district_name = serializers.SerializerMethodField()
+    latitude = serializers.CharField(allow_null=True)
+    longitude = serializers.CharField(allow_null=True)
+
+    # Info
+    description = serializers.CharField(allow_null=True)
+    specialization = serializers.CharField(allow_null=True)
+    founded_year = serializers.IntegerField(allow_null=True)
+    working_hours = serializers.CharField(allow_null=True)
+    working_days = serializers.CharField(allow_null=True)
+
+    # Statistics
+    rating = serializers.FloatField()
+    total_doctors = serializers.IntegerField()
+    total_patients = serializers.IntegerField()
+
+    # Status
+    is_active = serializers.BooleanField()
+    is_verified = serializers.BooleanField()
+
+    # Media
+    logo = serializers.SerializerMethodField()
+
+    # Timestamps
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    def get_hospital_type_display(self, obj):
+        """Get display name for hospital type"""
+        return obj.get_hospital_type_display()
+
+    def get_region_name(self, obj):
+        """Get region name"""
+        return obj.region.name if obj.region else None
+
+    def get_district_name(self, obj):
+        """Get district name"""
+        return obj.district.name if obj.district else None
+
+    def get_logo(self, obj):
+        """Get logo URL"""
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+
+class HospitalPhoneSerializer(serializers.Serializer):
+    """Serializer for hospital phone number only"""
+    hospital_id = serializers.CharField()
+    hospital_name = serializers.CharField()
+    phone = serializers.CharField()

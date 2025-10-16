@@ -15,13 +15,20 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.throttling import (
+    AuthenticationThrottle,
+    FileUploadThrottle,
+    SearchThrottle,
+)
 from apps.core.utils import get_client_ip
-from apps.core.throttling import AuthenticationThrottle, SearchThrottle, FileUploadThrottle
+
 from .models import UserMedicalHistory, UserPreferences
 from .serializers import (
     ChangePasswordSerializer,
     DoctorRegistrationSerializer,
     DoctorWithServicesSerializer,
+    HospitalDetailSerializer,
+    HospitalPhoneSerializer,
     HospitalWithServicesSerializer,
     LoginSerializer,
     RegisterSerializer,
@@ -1038,4 +1045,66 @@ class HospitalServicesAPIView(APIView):
             'success': True,
             'total_hospitals': len(hospitals_data),
             'hospitals': serializer.data
+        })
+
+
+# Hospital Detail APIs (for authenticated users)
+
+class HospitalDetailAPIView(APIView):
+    """
+    Get hospital details without phone number (authenticated users only)
+
+    GET /api/users/hospitals/<hospital_id>/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, hospital_id):
+        from apps.hospitals.models import Hospital
+
+        try:
+            hospital = Hospital.objects.select_related(
+                'region', 'district'
+            ).get(id=hospital_id, is_active=True)
+        except Hospital.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Shifoxona topilmadi'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = HospitalDetailSerializer(hospital, context={'request': request})
+
+        return Response({
+            'success': True,
+            'hospital': serializer.data
+        })
+
+
+class HospitalPhoneAPIView(APIView):
+    """
+    Get hospital phone number (authenticated users only, separate endpoint)
+
+    GET /api/users/hospitals/<hospital_id>/phone/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, hospital_id):
+        from apps.hospitals.models import Hospital
+
+        try:
+            hospital = Hospital.objects.get(id=hospital_id, is_active=True)
+        except Hospital.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Shifoxona topilmadi'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = HospitalPhoneSerializer({
+            'hospital_id': str(hospital.id),
+            'hospital_name': hospital.name,
+            'phone': hospital.phone
+        })
+
+        return Response({
+            'success': True,
+            'phone_info': serializer.data
         })
