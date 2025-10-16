@@ -1016,3 +1016,306 @@ class DoctorStatisticsSummarySerializer(serializers.Serializer):
 
     total_charges = serializers.IntegerField()
     total_charge_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+# Doctor Service Name Serializers
+
+class DoctorServiceNameCreateSerializer(serializers.Serializer):
+    """Serializer for creating DoctorServiceName with automatic translation"""
+
+    name = serializers.CharField(
+        max_length=255,
+        required=True,
+        help_text="Xizmat nomi (Lotin alifbosida)"
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Xizmat tavsifi"
+    )
+
+    def validate_name(self, value):
+        """Validate service name uniqueness"""
+        from apps.doctors.models import DoctorServiceName
+
+        if DoctorServiceName.objects.filter(name=value).exists():
+            raise serializers.ValidationError(
+                "Bu xizmat nomi allaqachon mavjud"
+            )
+        return value.strip()
+
+    def create(self, validated_data):
+        """Create DoctorServiceName with automatic translation"""
+        from apps.doctors.models import DoctorServiceName
+        from apps.doctors.services.translation_service import (
+            TahrirchiTranslationService,
+        )
+
+        name = validated_data.get('name')
+        description = validated_data.get('description', '')
+
+        # Initialize translation service
+        translator = TahrirchiTranslationService()
+
+        # Translate name to all languages
+        name_en = translator.translate_text(name, 'uzn_Latn', 'eng_Latn')
+        name_ru = translator.translate_text(name, 'uzn_Latn', 'rus_Cyrl')
+        name_kr = translator.translate_text(name, 'uzn_Latn', 'uzn_Cyrl')
+
+        # Create DoctorServiceName instance
+        service_name = DoctorServiceName.objects.create(
+            name=name,
+            name_en=name_en if name_en else name,
+            name_ru=name_ru if name_ru else name,
+            name_kr=name_kr if name_kr else name,
+            description=description
+        )
+
+        return service_name
+
+
+class DoctorServiceNameSerializer(serializers.Serializer):
+    """Serializer for DoctorServiceName display"""
+
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField()
+    name_en = serializers.CharField()
+    name_ru = serializers.CharField()
+    name_kr = serializers.CharField()
+    description = serializers.CharField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+
+# User Complaint Serializers
+
+class UserComplaintFileSerializer(serializers.ModelSerializer):
+    """Serializer for UserComplaintFile model"""
+
+    file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = None  # Will be set during runtime
+        fields = [
+            'id', 'file', 'file_url', 'file_name', 'uploaded_at'
+        ]
+        read_only_fields = ['id', 'uploaded_at']
+
+    def get_file_url(self, obj):
+        """Get file URL"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+    def get_file_name(self, obj):
+        """Get original file name"""
+        if obj.file:
+            return obj.file.name.split('/')[-1]
+        return None
+
+
+class UserComplaintCreateSerializer(serializers.Serializer):
+    """Serializer for creating user complaints about doctors"""
+
+    doctor_id = serializers.IntegerField(
+        required=True,
+        help_text="ID shifokor haqida shikoyat"
+    )
+
+    subject = serializers.CharField(
+        max_length=255,
+        required=True,
+        help_text="Shikoyat mavzusi"
+    )
+
+    description = serializers.CharField(
+        required=True,
+        help_text="Shikoyat tavsifi"
+    )
+
+    complaint_type = serializers.ChoiceField(
+        choices=[
+            ("wrong_information", "Wrong Information"),
+            ("fake_credentials", "Fake Credentials"),
+            ("unprofessional_behavior", "Unprofessional Behavior"),
+            ("pricing_issue", "Pricing Issue"),
+            ("other", "Other"),
+        ],
+        default="other",
+        required=False,
+        help_text="Shikoyat turi"
+    )
+
+    def validate_doctor_id(self, value):
+        """Validate doctor exists"""
+        from apps.doctors.models import Doctor
+
+        try:
+            Doctor.objects.get(id=value)
+        except Doctor.DoesNotExist:
+            raise serializers.ValidationError("Shifokor topilmadi")
+        return value
+
+    def validate_subject(self, value):
+        """Validate complaint subject"""
+        if not value or len(value.strip()) < 5:
+            raise serializers.ValidationError(
+                "Shikoyat mavzusi kamida 5 ta belgidan iborat bo'lishi kerak"
+            )
+        return value.strip()
+
+    def validate_description(self, value):
+        """Validate complaint description"""
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError(
+                "Shikoyat tavsifi kamida 10 ta belgidan iborat bo'lishi kerak"
+            )
+        return value.strip()
+
+    def create(self, validated_data):
+        """Create user complaint"""
+        from apps.doctors.models import Doctor
+
+        from .models import UserComplaint
+
+        # Get user from context
+        user = self.context['request'].user
+
+        # Get doctor
+        doctor = Doctor.objects.get(id=validated_data['doctor_id'])
+
+        complaint = UserComplaint.objects.create(
+            user=user,
+            doctor=doctor,
+            subject=validated_data['subject'],
+            description=validated_data['description'],
+            complaint_type=validated_data.get('complaint_type', 'other')
+        )
+
+        return complaint
+
+
+class UserComplaintSerializer(serializers.Serializer):
+    """Serializer for displaying user complaints"""
+
+    id = serializers.IntegerField(read_only=True)
+
+    # User information
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True)
+    user_type = serializers.CharField(source='user.user_type', read_only=True)
+
+    # Doctor information
+    doctor_id = serializers.IntegerField(source='doctor.id', read_only=True)
+    doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.get_specialty_display', read_only=True)
+    doctor_phone = serializers.CharField(source='doctor.user.phone', read_only=True)
+
+    # Complaint details
+    subject = serializers.CharField()
+    description = serializers.CharField()
+    complaint_type = serializers.CharField()
+    complaint_type_display = serializers.SerializerMethodField()
+
+    status = serializers.CharField()
+    status_display = serializers.SerializerMethodField()
+
+    priority = serializers.CharField()
+    priority_display = serializers.SerializerMethodField()
+
+    # Resolution information
+    resolution_notes = serializers.CharField(allow_null=True)
+    resolved_by_name = serializers.CharField(
+        source='resolved_by.get_full_name',
+        read_only=True,
+        allow_null=True
+    )
+    resolved_at = serializers.DateTimeField(allow_null=True)
+
+    # Timestamps
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    # Files
+    files_count = serializers.SerializerMethodField()
+
+    def get_complaint_type_display(self, obj):
+        """Get display name for complaint type"""
+        return obj.get_complaint_type_display()
+
+    def get_status_display(self, obj):
+        """Get display name for status"""
+        return obj.get_status_display()
+
+    def get_priority_display(self, obj):
+        """Get display name for priority"""
+        return obj.get_priority_display()
+
+    def get_files_count(self, obj):
+        """Get number of files attached"""
+        return obj.files.count()
+
+
+class UserComplaintUpdateSerializer(serializers.Serializer):
+    """Serializer for updating user complaint status (admin only)"""
+
+    status = serializers.ChoiceField(
+        choices=[
+            ("pending", "Kutilmoqda / Pending"),
+            ("in_progress", "Jarayonda / In Progress"),
+            ("resolved", "Hal qilindi / Resolved"),
+            ("closed", "Yopildi / Closed"),
+        ],
+        required=True
+    )
+
+    resolution_notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Yechim eslatmalari"
+    )
+
+    def validate(self, data):
+        """Validate status change"""
+        status = data.get('status')
+
+        if status in ['resolved', 'closed'] and not data.get('resolution_notes'):
+            raise serializers.ValidationError({
+                'resolution_notes': 'Shikoyatni yechish yoki yopish uchun izoh majburiy'
+            })
+
+        return data
+
+
+class UserComplaintStatisticsSerializer(serializers.Serializer):
+    """Serializer for user complaint statistics"""
+
+    total_complaints = serializers.IntegerField()
+    pending_complaints = serializers.IntegerField()
+    in_progress_complaints = serializers.IntegerField()
+    resolved_complaints = serializers.IntegerField()
+    closed_complaints = serializers.IntegerField()
+
+    # By type
+    wrong_information_complaints = serializers.IntegerField()
+    fake_credentials_complaints = serializers.IntegerField()
+    unprofessional_behavior_complaints = serializers.IntegerField()
+    pricing_issue_complaints = serializers.IntegerField()
+    other_complaints = serializers.IntegerField()
+
+    # By priority
+    urgent_complaints = serializers.IntegerField()
+    high_complaints = serializers.IntegerField()
+    medium_complaints = serializers.IntegerField()
+    low_complaints = serializers.IntegerField()
+
+    # Time-based
+    complaints_today = serializers.IntegerField()
+    complaints_this_week = serializers.IntegerField()
+    complaints_this_month = serializers.IntegerField()
+    average_resolution_days = serializers.FloatField()

@@ -1495,6 +1495,10 @@ def doctor_complaint_list(request):
     priority = request.GET.get('priority', 'all')
     search = request.GET.get('search', '')
 
+    doctor_id = request.GET.get('doctor_id', None)
+    if doctor_id:
+        queryset = queryset.filter(doctor_id=doctor_id)
+
     # Base queryset - only doctor's own complaints
     queryset = DoctorComplaint.objects.filter(
         doctor=doctor
@@ -1513,7 +1517,9 @@ def doctor_complaint_list(request):
     if search:
         queryset = queryset.filter(
             Q(subject__icontains=search) |
-            Q(description__icontains=search)
+            Q(description__icontains=search) |
+            Q(doctor__user__first_name__icontains=search) |
+            Q(doctor__user__last_name__icontains=search)
         )
 
     # Order by creation date (newest first)
@@ -2253,4 +2259,553 @@ def doctors_statistics_summary(request):
     }
 
     serializer = DoctorStatisticsSummarySerializer(summary)
+    return Response(serializer.data)
+
+
+# ==================== Doctor Service Name Management APIs ====================
+
+@api_view(['POST'])
+@permission_classes([IsAdminPermission])
+def create_doctor_service_name(request):
+    """
+    Create a new DoctorServiceName with automatic translation
+
+    Request body:
+    {
+        "name": "Yurak tekshiruvi",
+        "description": "To'liq yurak tekshiruvi va diagnostika"
+    }
+
+    Response:
+    {
+        "success": true,
+        "message": "Xizmat nomi muvaffaqiyatli yaratildi",
+        "service_name": {
+            "id": 1,
+            "name": "Yurak tekshiruvi",
+            "name_en": "Heart examination",
+            "name_ru": "Обследование сердца",
+            "name_kr": "Юрак текшируви",
+            "description": "To'liq yurak tekshiruvi va diagnostika",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    }
+    """
+    from .serializers import (
+        DoctorServiceNameCreateSerializer,
+        DoctorServiceNameSerializer,
+    )
+
+    # Validate and create
+    serializer = DoctorServiceNameCreateSerializer(data=request.data)
+
+    if serializer.is_valid():
+        service_name = serializer.save()
+
+        # Return created service name with translations
+        response_serializer = DoctorServiceNameSerializer(service_name)
+
+        return Response({
+            'success': True,
+            'message': 'Xizmat nomi muvaffaqiyatli yaratildi va tarjima qilindi',
+            'service_name': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def list_doctor_service_names(request):
+    """
+    Get list of all DoctorServiceName entries
+
+    Query parameters:
+    - search: Search by name
+    - page: Page number
+    - page_size: Items per page (default: 20)
+    """
+    from apps.doctors.models import DoctorServiceName
+
+    from .serializers import DoctorServiceNameSerializer
+
+    # Base queryset
+    queryset = DoctorServiceName.objects.all()
+
+    # Search functionality
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search) |
+            Q(name_en__icontains=search) |
+            Q(name_ru__icontains=search) |
+            Q(name_kr__icontains=search) |
+            Q(description__icontains=search)
+        )
+
+    # Order by creation date (newest first)
+    queryset = queryset.order_by('-created_at')
+
+    # Pagination
+    page_size = int(request.GET.get('page_size', 20))
+    page_number = request.GET.get('page', 1)
+
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize data
+    serializer = DoctorServiceNameSerializer(page_obj, many=True)
+
+    return Response({
+        'service_names': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': page_size
+        },
+        'filters': {
+            'search': search
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def get_doctor_service_name_detail(request, service_id):
+    """Get detailed information about a specific DoctorServiceName"""
+    from apps.doctors.models import DoctorServiceName
+
+    from .serializers import DoctorServiceNameSerializer
+
+    try:
+        service_name = DoctorServiceName.objects.get(id=service_id)
+    except DoctorServiceName.DoesNotExist:
+        return Response({
+            'error': 'Xizmat nomi topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = DoctorServiceNameSerializer(service_name)
+
+    # Get usage statistics
+    usage_count = service_name.doctor_services.count()
+
+    return Response({
+        'service_name': serializer.data,
+        'usage_statistics': {
+            'total_doctors_using': usage_count
+        }
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminPermission])
+def delete_doctor_service_name(request, service_id):
+    """Delete a DoctorServiceName (only if not in use)"""
+    from apps.doctors.models import DoctorServiceName
+
+    try:
+        service_name = DoctorServiceName.objects.get(id=service_id)
+    except DoctorServiceName.DoesNotExist:
+        return Response({
+            'error': 'Xizmat nomi topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if service is in use
+    usage_count = service_name.doctor_services.count()
+    if usage_count > 0:
+        return Response({
+            'error': f'Bu xizmat nomi {usage_count} ta shifokor tomonidan ishlatilmoqda. Avval ularni boshqa xizmatga o\'tkazing.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Delete the service name
+    service_name_text = service_name.name
+    service_name.delete()
+
+    return Response({
+        'success': True,
+        'message': f'"{service_name_text}" xizmat nomi muvaffaqiyatli o\'chirildi'
+    }, status=status.HTTP_200_OK)
+
+
+# ==================== User Complaint Management APIs ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_user_complaint(request):
+    """
+    Create a new user complaint about a doctor (authenticated users only)
+
+    Request body:
+    {
+        "doctor_id": 1,
+        "subject": "Muammo mavzusi",
+        "description": "Muammo tavsifi",
+        "complaint_type": "wrong_information"  // optional: wrong_information, fake_credentials, unprofessional_behavior, pricing_issue, other
+    }
+
+    Response:
+    {
+        "success": true,
+        "message": "Shikoyat muvaffaqiyatli yaratildi",
+        "complaint": {...}
+    }
+    """
+    from .serializers import UserComplaintCreateSerializer, UserComplaintSerializer
+
+    # Create complaint
+    serializer = UserComplaintCreateSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+
+    if serializer.is_valid():
+        complaint = serializer.save()
+
+        # Return created complaint
+        response_serializer = UserComplaintSerializer(complaint)
+
+        return Response({
+            'success': True,
+            'message': 'Shikoyat muvaffaqiyatli yaratildi',
+            'complaint': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_complaint_list(request):
+    """
+    Get list of authenticated user's own complaints
+
+    Query parameters:
+    - status: Filter by status (pending, in_progress, resolved, closed)
+    - complaint_type: Filter by type (wrong_information, fake_credentials, unprofessional_behavior, pricing_issue, other)
+    - doctor_id: Filter by doctor
+    - search: Search by subject or description
+    - page: Page number
+    - page_size: Items per page (default: 10)
+    """
+    from .models import UserComplaint
+    from .serializers import UserComplaintSerializer
+
+    # Base queryset - only user's own complaints
+    queryset = UserComplaint.objects.filter(
+        user=request.user
+    ).select_related('user', 'doctor', 'doctor__user', 'resolved_by').prefetch_related('files')
+
+    # Apply filters
+    status_filter = request.GET.get('status', None)
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    complaint_type = request.GET.get('complaint_type', None)
+    if complaint_type:
+        queryset = queryset.filter(complaint_type=complaint_type)
+
+    doctor_id = request.GET.get('doctor_id', None)
+    if doctor_id:
+        queryset = queryset.filter(doctor_id=doctor_id)
+
+    # Search functionality
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(subject__icontains=search) |
+            Q(description__icontains=search) |
+            Q(doctor__user__first_name__icontains=search) |
+            Q(doctor__user__last_name__icontains=search)
+        )
+
+    # Order by creation date (newest first)
+    queryset = queryset.order_by('-created_at')
+
+    # Pagination
+    page_size = int(request.GET.get('page_size', 10))
+    page_number = request.GET.get('page', 1)
+
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize data
+    serializer = UserComplaintSerializer(page_obj, many=True)
+
+    return Response({
+        'complaints': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': page_size
+        },
+        'filters': {
+            'current_filters': {
+                'status': status_filter,
+                'complaint_type': complaint_type,
+                'doctor_id': doctor_id,
+                'search': search
+            }
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_complaint_detail(request, complaint_id):
+    """Get specific complaint details (user's own complaint only)"""
+    from .models import UserComplaint
+    from .serializers import UserComplaintSerializer
+
+    try:
+        complaint = UserComplaint.objects.select_related(
+            'user', 'resolved_by'
+        ).prefetch_related('files').get(
+            id=complaint_id,
+            user=request.user
+        )
+    except UserComplaint.DoesNotExist:
+        return Response({
+            'error': 'Shikoyat topilmadi yoki sizga tegishli emas'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UserComplaintSerializer(complaint)
+
+    return Response({
+        'complaint': serializer.data
+    })
+
+
+# Admin-only views for managing all user complaints
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def admin_user_complaint_list(request):
+    """
+    Get list of all user complaints (admin only)
+
+    Query parameters:
+    - status: Filter by status
+    - complaint_type: Filter by type
+    - priority: Filter by priority
+    - user_id: Filter by user
+    - search: Search by subject, description, or user name
+    - page: Page number
+    - page_size: Items per page (default: 20)
+    """
+    from .models import UserComplaint
+    from .serializers import UserComplaintSerializer
+
+    # Base queryset - all complaints
+    queryset = UserComplaint.objects.select_related(
+        'user', 'resolved_by'
+    ).prefetch_related('files').all()
+
+    # Apply filters
+    status_filter = request.GET.get('status', None)
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    complaint_type = request.GET.get('complaint_type', None)
+    if complaint_type:
+        queryset = queryset.filter(complaint_type=complaint_type)
+
+    doctor_id = request.GET.get('doctor_id', None)
+    if doctor_id:
+        queryset = queryset.filter(doctor_id=doctor_id)
+
+    priority = request.GET.get('priority', None)
+    if priority:
+        queryset = queryset.filter(priority=priority)
+
+    user_id = request.GET.get('user_id', None)
+    if user_id:
+        queryset = queryset.filter(user_id=user_id)
+
+    doctor_id = request.GET.get('doctor_id', None)
+    if doctor_id:
+        queryset = queryset.filter(doctor_id=doctor_id)
+
+    # Search functionality
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(
+            Q(subject__icontains=search) |
+            Q(description__icontains=search) |
+            Q(doctor__user__first_name__icontains=search) |
+            Q(doctor__user__last_name__icontains=search)
+        )
+
+    # Order by creation date (newest first)
+    queryset = queryset.order_by('-created_at')
+
+    # Pagination
+    page_size = int(request.GET.get('page_size', 20))
+    page_number = request.GET.get('page', 1)
+
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page_number)
+
+    # Serialize data
+    serializer = UserComplaintSerializer(page_obj, many=True)
+
+    return Response({
+        'complaints': serializer.data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'page_size': page_size
+        },
+        'filters': {
+            'current_filters': {
+                'status': status_filter,
+                'complaint_type': complaint_type,
+                'priority': priority,
+                'user_id': user_id,
+                'doctor_id': doctor_id,
+                'search': search
+            }
+        }
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminPermission])
+def admin_update_user_complaint(request, complaint_id):
+    """
+    Update user complaint status (admin only)
+
+    Request body:
+    {
+        "status": "resolved",
+        "resolution_notes": "Muammo hal qilindi..."
+    }
+    """
+    from .models import UserComplaint
+    from .serializers import UserComplaintSerializer, UserComplaintUpdateSerializer
+
+    try:
+        complaint = UserComplaint.objects.get(id=complaint_id)
+    except UserComplaint.DoesNotExist:
+        return Response({
+            'error': 'Shikoyat topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate and update
+    serializer = UserComplaintUpdateSerializer(data=request.data)
+
+    if serializer.is_valid():
+        # Update complaint
+        complaint.status = serializer.validated_data['status']
+
+        if 'resolution_notes' in serializer.validated_data:
+            complaint.resolution_notes = serializer.validated_data['resolution_notes']
+
+        # Set resolved_by if status is resolved or closed
+        if complaint.status in ['resolved', 'closed']:
+            complaint.resolved_by = request.user
+
+        complaint.save()
+
+        # Return updated complaint
+        response_serializer = UserComplaintSerializer(complaint)
+
+        return Response({
+            'success': True,
+            'message': 'Shikoyat holati yangilandi',
+            'complaint': response_serializer.data
+        })
+
+    return Response({
+        'success': False,
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def admin_user_complaint_statistics(request):
+    """
+    Get statistics for all user complaints (admin only)
+    """
+    from datetime import timedelta
+
+    from django.db.models import Count
+
+    from .models import UserComplaint
+    from .serializers import UserComplaintStatisticsSerializer
+
+    # Basic counts by status
+    status_counts = UserComplaint.objects.values('status').annotate(count=Count('id'))
+    status_dict = {item['status']: item['count'] for item in status_counts}
+
+    # Counts by type
+    type_counts = UserComplaint.objects.values('complaint_type').annotate(count=Count('id'))
+    type_dict = {item['complaint_type']: item['count'] for item in type_counts}
+
+    # Counts by priority
+    priority_counts = UserComplaint.objects.values('priority').annotate(count=Count('id'))
+    priority_dict = {item['priority']: item['count'] for item in priority_counts}
+
+    # Time-based statistics
+    now = timezone.now()
+    today = now.date()
+    this_week = now - timedelta(weeks=1)
+    this_month = now - timedelta(days=30)
+
+    complaints_today = UserComplaint.objects.filter(created_at__date=today).count()
+    complaints_this_week = UserComplaint.objects.filter(created_at__gte=this_week).count()
+    complaints_this_month = UserComplaint.objects.filter(created_at__gte=this_month).count()
+
+    # Average resolution time
+    resolved_complaints = UserComplaint.objects.filter(status='resolved', resolved_at__isnull=False)
+    avg_resolution_days = 0
+    if resolved_complaints.exists():
+        total_days = sum(
+            (complaint.resolved_at - complaint.created_at).days
+            for complaint in resolved_complaints
+        )
+        avg_resolution_days = total_days / resolved_complaints.count()
+
+    # Prepare statistics
+    stats = {
+        'total_complaints': UserComplaint.objects.count(),
+        'pending_complaints': status_dict.get('pending', 0),
+        'in_progress_complaints': status_dict.get('in_progress', 0),
+        'resolved_complaints': status_dict.get('resolved', 0),
+        'closed_complaints': status_dict.get('closed', 0),
+
+        'wrong_information_complaints': type_dict.get('wrong_information', 0),
+        'fake_credentials_complaints': type_dict.get('fake_credentials', 0),
+        'unprofessional_behavior_complaints': type_dict.get('unprofessional_behavior', 0),
+        'pricing_issue_complaints': type_dict.get('pricing_issue', 0),
+        'other_complaints': type_dict.get('other', 0),
+
+        'urgent_complaints': priority_dict.get('urgent', 0),
+        'high_complaints': priority_dict.get('high', 0),
+        'medium_complaints': priority_dict.get('medium', 0),
+        'low_complaints': priority_dict.get('low', 0),
+
+        'complaints_today': complaints_today,
+        'complaints_this_week': complaints_this_week,
+        'complaints_this_month': complaints_this_month,
+        'average_resolution_days': round(avg_resolution_days, 2)
+    }
+
+    serializer = UserComplaintStatisticsSerializer(stats)
     return Response(serializer.data)

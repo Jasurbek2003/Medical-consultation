@@ -47,4 +47,20 @@ urlpatterns = [
     path('doctors-statistics/<int:doctor_id>/', views.doctor_statistics_detail, name='doctor_statistics_detail'),
     path('doctors-statistics/summary/', views.doctors_statistics_summary, name='doctors_statistics_summary'),
 
+    # Doctor Service Name Management
+    path('doctor-service-names/', views.list_doctor_service_names, name='list_doctor_service_names'),
+    path('doctor-service-names/create/', views.create_doctor_service_name, name='create_doctor_service_name'),
+    path('doctor-service-names/<int:service_id>/', views.get_doctor_service_name_detail, name='get_doctor_service_name_detail'),
+    path('doctor-service-names/<int:service_id>/delete/', views.delete_doctor_service_name, name='delete_doctor_service_name'),
+
+    # User Complaint Management (Authenticated Users)
+    path('user-complaints/create/', views.create_user_complaint, name='create_user_complaint'),
+    path('user-complaints/my-complaints/', views.user_complaint_list, name='user_complaint_list'),
+    path('user-complaints/my-complaints/<int:complaint_id>/', views.user_complaint_detail, name='user_complaint_detail'),
+
+    # User Complaint Management (Admin Only)
+    path('user-complaints/admin/', views.admin_user_complaint_list, name='admin_user_complaint_list'),
+    path('user-complaints/admin/<int:complaint_id>/update/', views.admin_update_user_complaint, name='admin_update_user_complaint'),
+    path('user-complaints/admin/statistics/', views.admin_user_complaint_statistics, name='admin_user_complaint_statistics'),
+
 ]

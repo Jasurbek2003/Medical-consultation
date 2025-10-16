@@ -12,7 +12,8 @@
       "Bash(del test_schema.py)",
       "Bash(if exist test_schema.py del test_schema.py)",
       "Bash(if exist schema.yml del schema.yml)",
-      "Bash(del schema.yml)"
+      "Bash(del schema.yml)",
+      "Bash(del appsadmin_panelmigrations0003_usercomplaint_usercomplaintfile_and_more.py)"
     ],
     "deny": [],
     "ask": []

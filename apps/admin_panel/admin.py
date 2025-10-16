@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import DoctorComplaint, DoctorComplaintFile
 
 
@@ -15,7 +16,7 @@ class DoctorComplaintAdmin(admin.ModelAdmin):
     search_fields = ('subject', 'doctor__user__first_name', 'doctor__user__last_name', 'doctor__user__email')
     readonly_fields = ('created_at', 'updated_at')
     inlines = [DoctorComplaintFileInline]
-    
+
     fieldsets = (
         (None, {
             'fields': ('doctor', 'subject', 'description', 'resolution_notes')

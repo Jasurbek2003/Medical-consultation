@@ -403,7 +403,7 @@ class UserRegistrationAPIView(generics.CreateAPIView):
 
     POST /api/v1/users/register/
     """
-    serializer_class = UserRegistrationSerializer
+    serializer_class =  UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthenticationThrottle]
 

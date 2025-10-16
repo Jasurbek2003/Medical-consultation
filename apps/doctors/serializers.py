@@ -101,10 +101,9 @@ class DoctorSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
 
     translations = serializers.SerializerMethodField()
-
-    # NOTE: phone is intentionally excluded from main list for privacy
 
     def get_translations(self, obj):
         """Get translations for bio and achievements"""
@@ -135,8 +134,7 @@ class DoctorSerializer(serializers.ModelSerializer):
             'success_rate', 'avatar', 'region_name', 'hospital_id',
             'district_name', 'region_id', 'district_id', 'files', 'services',
             'work_start_time', 'work_end_time', 'work_days',
-            'first_name', 'last_name', 'middle_name', 'full_name', 'translations'
-            # NOTE: 'phone' is excluded from main list - use dedicated endpoint
+            'first_name', 'last_name', 'middle_name', 'full_name', 'phone', 'translations'
         ]
 
 
