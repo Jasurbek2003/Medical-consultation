@@ -83,8 +83,8 @@ class User(AbstractBaseUser, PermissionsMixin, models.Model):
     )
 
     # Personal information
-    first_name = models.CharField(max_length=50, verbose_name="Ism")
-    last_name = models.CharField(max_length=50, verbose_name="Familiya")
+    first_name = models.CharField(max_length=50, verbose_name="Ism", null=True, blank=True)
+    last_name = models.CharField(max_length=50, verbose_name="Familiya", null=True, blank=True)
     middle_name = models.CharField(max_length=50, blank=True, null=True, verbose_name="Otasining ismi")
     birth_date = models.DateField(blank=True, null=True, verbose_name="Tug'ilgan sana")
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True, verbose_name="Jins")
