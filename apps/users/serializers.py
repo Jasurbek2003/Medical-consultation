@@ -392,8 +392,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'language'
         ]
         extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
             'email': {'required': False},
         }
 
