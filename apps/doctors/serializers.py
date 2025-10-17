@@ -356,7 +356,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
 
     # Hospital information
     hospital_name = serializers.CharField(source='hospital.name', read_only=True, allow_null=True)
-    hospital_id = serializers.IntegerField(source='hospital.id', read_only=True)
+    hospital_id = serializers.CharField(source='hospital.id', read_only=True)
 
     # Related data
     schedules = DoctorScheduleSerializer(many=True, read_only=True)
