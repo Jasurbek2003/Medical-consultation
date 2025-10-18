@@ -130,10 +130,38 @@ def doctor_detail(request, doctor_id):
 
     serializer = DoctorSerializer(doctor)
 
+    # Get wallet information
+    wallet_data = None
+    if hasattr(doctor.user, 'wallet'):
+        wallet = doctor.user.wallet
+        wallet_data = {
+            'balance': wallet.balance,
+            'total_spent': wallet.total_spent,
+            'total_topped_up': wallet.total_topped_up,
+            'is_blocked': wallet.is_blocked,
+            'created_at': wallet.created_at,
+            'updated_at': wallet.updated_at,
+        }
+
+    # Get recent transactions
+    transactions_data = []
+    if hasattr(doctor.user, 'wallet'):
+        recent_transactions = WalletTransaction.objects.filter(
+            wallet=doctor.user.wallet
+        ).order_by('-created_at')[:20]
+        transactions_serializer = WalletTransactionSerializer(
+            recent_transactions,
+            many=True,
+            context={'request': request}
+        )
+        transactions_data = transactions_serializer.data
+
     context = {
         'doctor': serializer.data,
         'consultation_stats': consultation_stats,
         'recent_consultations': list(recent_consultations.values()),
+        'wallet': wallet_data,
+        'transactions': transactions_data,
     }
 
     return JsonResponse(context)
