@@ -538,6 +538,43 @@ class AdminDoctorViewSet(viewsets.ModelViewSet):
 
         return queryset.order_by('-created_at')
 
+    def retrieve(self, request, *args, **kwargs):
+        """Get doctor detail with wallet and transaction information"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        # Get wallet information
+        wallet_data = None
+        if hasattr(instance.user, 'wallet'):
+            wallet = instance.user.wallet
+            wallet_data = {
+                'balance': wallet.balance,
+                'total_spent': wallet.total_spent,
+                'total_topped_up': wallet.total_topped_up,
+                'is_blocked': wallet.is_blocked,
+                'created_at': wallet.created_at,
+                'updated_at': wallet.updated_at,
+            }
+
+        # Get recent transactions
+        transactions_data = []
+        if hasattr(instance.user, 'wallet'):
+            recent_transactions = WalletTransaction.objects.filter(
+                wallet=instance.user.wallet
+            ).order_by('-created_at')[:20]
+            transactions_serializer = WalletTransactionSerializer(
+                recent_transactions,
+                many=True,
+                context={'request': request}
+            )
+            transactions_data = transactions_serializer.data
+
+        return Response({
+            'doctor': serializer.data,
+            'wallet': wallet_data,
+            'transactions': transactions_data,
+        })
+
     def update(self, request, *args, **kwargs):
         """Update doctor information"""
         partial = kwargs.pop('partial', False)
