@@ -2749,6 +2749,79 @@ def admin_user_complaint_list(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAdminPermission])
+def admin_user_complaint_detail(request, complaint_id):
+    """
+    Get detailed information about a specific user complaint (admin only)
+
+    Returns:
+    - Full complaint details
+    - User information
+    - Doctor information
+    - All attached files
+    - Resolution information
+    - Complaint history
+    """
+    from .models import UserComplaint
+    from .serializers import UserComplaintSerializer
+
+    try:
+        complaint = UserComplaint.objects.select_related(
+            'user', 'user__region', 'user__district',
+            'doctor', 'doctor__user', 'doctor__hospital',
+            'resolved_by'
+        ).prefetch_related('files').get(id=complaint_id)
+    except UserComplaint.DoesNotExist:
+        return Response({
+            'error': 'Shikoyat topilmadi'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Serialize the complaint
+    serializer = UserComplaintSerializer(complaint)
+
+    # Add additional admin-specific information
+    complaint_data = serializer.data
+
+    # Add files information with full details
+    files_data = []
+    for file_obj in complaint.files.all():
+        files_data.append({
+            'id': file_obj.id,
+            'file_url': request.build_absolute_uri(file_obj.file.url) if file_obj.file else None,
+            'file_name': file_obj.file.name.split('/')[-1] if file_obj.file else None,
+            'uploaded_at': file_obj.uploaded_at
+        })
+
+    # Calculate time metrics
+    days_since_created = (timezone.now() - complaint.created_at).days
+
+    if complaint.resolved_at:
+        days_to_resolve = (complaint.resolved_at - complaint.created_at).days
+    else:
+        days_to_resolve = None
+
+    return Response({
+        'complaint': complaint_data,
+        'files': files_data,
+        'metadata': {
+            'days_since_created': days_since_created,
+            'days_to_resolve': days_to_resolve,
+            'can_update': complaint.status not in ['closed'],
+            'total_files': len(files_data)
+        },
+        'doctor_info': {
+            'id': complaint.doctor.id,
+            'name': complaint.doctor.user.get_full_name(),
+            'specialty': complaint.doctor.get_specialty_display(),
+            'phone': complaint.doctor.user.phone,
+            'hospital': complaint.doctor.hospital.name if complaint.doctor.hospital else None,
+            'is_available': complaint.doctor.is_available,
+            'verification_status': complaint.doctor.verification_status
+        }
+    })
+
+
 @api_view(['PATCH'])
 @permission_classes([IsAdminPermission])
 def admin_update_user_complaint(request, complaint_id):

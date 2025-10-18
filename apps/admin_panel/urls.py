@@ -60,6 +60,7 @@ urlpatterns = [
 
     # User Complaint Management (Admin Only)
     path('user-complaints/admin/', views.admin_user_complaint_list, name='admin_user_complaint_list'),
+    path('user-complaints/admin/<int:complaint_id>/', views.admin_user_complaint_detail, name='admin_user_complaint_detail'),
     path('user-complaints/admin/<int:complaint_id>/update/', views.admin_update_user_complaint, name='admin_update_user_complaint'),
     path('user-complaints/admin/statistics/', views.admin_user_complaint_statistics, name='admin_user_complaint_statistics'),
 
