@@ -226,4 +226,3 @@ class UserComplaintFile(models.Model):
         verbose_name_plural = "User Complaint Files"
         db_table = "user_complaint_file"
         ordering = ["-uploaded_at"]
-
