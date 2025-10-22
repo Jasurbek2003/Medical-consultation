@@ -362,7 +362,7 @@ class UserWalletAdmin(admin.ModelAdmin):
             f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
         )
 
-    add_bonus_10000.short_description = 'Add bonus to selected wallets'
+    add_bonus_10000.short_description = 'Add bonus to selected wallets. Amount: 10000 UZS'
 
     def add_bonus_50000(self, request, queryset):
         """Add bonus to selected wallets"""
@@ -378,7 +378,7 @@ class UserWalletAdmin(admin.ModelAdmin):
             f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
         )
 
-    add_bonus_50000.short_description = 'Add bonus to selected wallets'
+    add_bonus_50000.short_description = 'Add bonus to selected wallets. Amount: 50000 UZS'
 
     def add_bonus_100000(self, request, queryset):
         """Add bonus to selected wallets"""
@@ -394,7 +394,7 @@ class UserWalletAdmin(admin.ModelAdmin):
             f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
         )
 
-    add_bonus_100000.short_description = 'Add bonus to selected wallets'
+    add_bonus_100000.short_description = 'Add bonus to selected wallets. Amount: 100000 UZS'
 
     def add_bonus_500000(self, request, queryset):
         """Add bonus to selected wallets"""
@@ -410,7 +410,7 @@ class UserWalletAdmin(admin.ModelAdmin):
             f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
         )
 
-    add_bonus_500000.short_description = 'Add bonus to selected wallets'
+    add_bonus_500000.short_description = 'Add bonus to selected wallets. Amount: 500000 UZS'
 
     def export_wallet_report(self, request, queryset):
         """Export wallet report"""
