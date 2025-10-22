@@ -61,8 +61,8 @@ class UserWalletAdmin(admin.ModelAdmin):
     )
 
     actions = [
-        'block_wallets', 'unblock_wallets', 'unblock_doctors', 'add_bonus_10000', 'add_bonus_50000', 'add_bonus_100000', 'add_bonus_500000',
-        'export_wallet_report', 'reset_wallet_balance'
+        'block_wallets', 'unblock_wallets', 'unblock_doctors', 'add_bonus_10000', 'add_bonus_50000', 'add_bonus_100000',
+        'add_bonus_500000', 'add_bonus_200000', 'export_wallet_report', 'reset_wallet_balance'
     ]
 
     def user_info(self, obj):
@@ -395,6 +395,22 @@ class UserWalletAdmin(admin.ModelAdmin):
         )
 
     add_bonus_100000.short_description = 'Add bonus to selected wallets. Amount: 100000 UZS'
+
+    def add_bonus_200000(self, request, queryset):
+        """Add bonus to selected wallets"""
+        # In production, this would open a form to enter bonus amount
+        bonus_amount = Decimal('200000.00')  # Example fixed bonus
+        for wallet in queryset:
+            wallet.add_balance(
+                bonus_amount,
+                f'Admin bonus - Added by {request.user.username}. Amount: {bonus_amount} UZS'
+            )
+        self.message_user(
+            request,
+            f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
+        )
+
+    add_bonus_200000.short_description = 'Add bonus to selected wallets. Amount: 200000 UZS'
 
     def add_bonus_500000(self, request, queryset):
         """Add bonus to selected wallets"""
