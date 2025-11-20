@@ -44,7 +44,7 @@ class GeminiService:
                     temperature=0.3,
                     top_p=0.8,
                     top_k=40,
-                    max_output_tokens=1024,
+                    max_output_tokens=8192,
                     response_mime_type="text/plain"
                 )
 
