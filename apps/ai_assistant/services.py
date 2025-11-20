@@ -95,6 +95,8 @@ class GeminiService:
             # Prompt yaratish
             prompt = get_prompt('classification', language).format(user_message=user_message)
 
+            logger.info("Prompt tayyorlandi, AI'dan javob olinmoqda")
+
 
             # AI'dan javob olish
             response = self.model.generate_content(
