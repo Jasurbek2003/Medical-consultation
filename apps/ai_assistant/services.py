@@ -37,7 +37,7 @@ class GeminiService:
             try:
                 # Gemini sozlash
                 genai.configure(api_key=settings.GOOGLE_API_KEY)
-                self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                self.model = genai.GenerativeModel('gemini-2.5-flash')
 
                 # Generation config
                 self.generation_config = genai.GenerationConfig(
@@ -157,7 +157,7 @@ class GeminiService:
                 'advice': response.text,
                 'specialty': specialty,
                 'processing_time': processing_time,
-                'model_used': 'gemini-2.0-flash',
+                'model_used': 'gemini-2.5-flash',
                 'timestamp': time.time()
             }
 
@@ -290,7 +290,7 @@ class GeminiService:
             # Qo'shimcha ma'lumotlar
             result.update({
                 'processing_time': processing_time,
-                'model_used': 'gemini-2.0-flash',
+                'model_used': 'gemini-2.5-flash',
                 'original_message': original_message,
                 'timestamp': time.time(),
                 'symptoms_analysis': self.analyze_symptoms(original_message),
