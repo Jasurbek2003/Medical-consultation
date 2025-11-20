@@ -703,7 +703,7 @@ class DoctorViewChargeAdmin(admin.ModelAdmin):
         return format_html(
             '<a href="{}">{}</a>',
             url,
-            obj.doctor.get_full_name
+            obj.doctor.full_name()
         )
 
     doctor_link.short_description = 'Doctor'
