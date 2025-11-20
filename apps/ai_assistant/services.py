@@ -103,9 +103,11 @@ class GeminiService:
                 prompt,
                 generation_config=self.generation_config
             )
+            logger.info("AI javobi olindi")
 
             # Javobni qayta ishlash
             processing_time = time.time() - start_time
+            print("Processing time:", processing_time)
             result = self._process_classification_response(
                 response.text,
                 user_message,
