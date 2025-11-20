@@ -312,7 +312,7 @@ class DoctorViewCharge(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.doctor.get_short_name()} - {self.amount_charged} so'm"
+        return f"{self.user.get_full_name()} - {self.doctor.full_name()} - {self.amount_charged} so'm"
 
 
 class BillingSettings(models.Model):
