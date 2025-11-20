@@ -104,6 +104,7 @@ class GeminiService:
                 generation_config=self.generation_config
             )
             logger.info("AI javobi olindi")
+            logger.info(f"AI javobi: {response.text}")
 
             # Javobni qayta ishlash
             processing_time = time.time() - start_time
