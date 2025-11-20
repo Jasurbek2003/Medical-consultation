@@ -52,7 +52,7 @@ class UserWallet(models.Model):
         verbose_name_plural = "Foydalanuvchi hamyonlari"
 
     def __str__(self):
-        return f"{self.user.get_full_name} - {self.balance} so'm"
+        return f"{self.user.get_full_name()} - {self.balance} so'm"
 
     def has_sufficient_balance(self, amount):
         """Check if user has sufficient balance"""
@@ -312,7 +312,7 @@ class DoctorViewCharge(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.doctor.full_name()} - {self.amount_charged} so'm"
+        return f"{self.user.get_full_name()} - {self.doctor.full_name} - {self.amount_charged} so'm"
 
 
 class BillingSettings(models.Model):
