@@ -42,8 +42,9 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
     active_doctor_count = serializers.SerializerMethodField()
     total_consultations = serializers.SerializerMethodField()
 
-    district = serializers.SerializerMethodField()
-    region = serializers.SerializerMethodField()
+    # Read-only detailed fields for displaying region and district
+    region_detail = serializers.SerializerMethodField()
+    district_detail = serializers.SerializerMethodField()
 
     services = serializers.SerializerMethodField()
 
@@ -59,7 +60,7 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'address', 'phone', 'email',
             'hospital_type', 'hospital_type_display',
-            'region', 'district', 'website', 'description',
+            'region', 'district', 'region_detail', 'district_detail', 'website', 'description',
             'is_active',
             'doctor_count', 'active_doctor_count', 'total_consultations',
             'created_at', 'updated_at', 'services'
@@ -94,7 +95,7 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Bu email allaqachon ishlatilgan")
         return value
 
-    def get_region(self, obj):
+    def get_region_detail(self, obj):
         """Get region name"""
         data = {
             'id': obj.region.id,
@@ -105,7 +106,7 @@ class AdminHospitalSerializer(serializers.ModelSerializer):
         } if obj.region else None
         return data
 
-    def get_district(self, obj):
+    def get_district_detail(self, obj):
         """Get district name"""
         data = {
             'id': obj.district.id,
