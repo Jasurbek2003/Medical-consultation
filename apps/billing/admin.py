@@ -475,7 +475,7 @@ class UserWalletAdmin(admin.ModelAdmin):
             f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
         )
 
-    add_bonus_2000.short_description = 'Add bonus to selected wallets. Amount: 5000 UZS'
+    add_bonus_5000.short_description = 'Add bonus to selected wallets. Amount: 5000 UZS'
 
     def export_wallet_report(self, request, queryset):
         """Export wallet report"""
