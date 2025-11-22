@@ -61,7 +61,8 @@ class UserWalletAdmin(admin.ModelAdmin):
     )
 
     actions = [
-        'block_wallets', 'unblock_wallets', 'unblock_doctors', 'add_bonus_10000', 'add_bonus_50000', 'add_bonus_100000',
+        'block_wallets', 'unblock_wallets', 'unblock_doctors',  'add_bonus_1000', 'add_bonus_2000'
+        'add_bonus_10000', 'add_bonus_50000', 'add_bonus_100000',
         'add_bonus_500000', 'add_bonus_200000', 'export_wallet_report', 'reset_wallet_balance'
     ]
 
@@ -427,6 +428,38 @@ class UserWalletAdmin(admin.ModelAdmin):
         )
 
     add_bonus_500000.short_description = 'Add bonus to selected wallets. Amount: 500000 UZS'
+
+    def add_bonus_1000(self, request, queryset):
+        """Add bonus to selected wallets"""
+        # In production, this would open a form to enter bonus amount
+        bonus_amount = Decimal('1000.00')  # Example fixed bonus
+        for wallet in queryset:
+            wallet.add_balance(
+                bonus_amount,
+                f'Admin bonus - Added by {request.user.username}. Amount: {bonus_amount} UZS'
+            )
+        self.message_user(
+            request,
+            f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
+        )
+
+    add_bonus_1000.short_description = 'Add bonus to selected wallets. Amount: 1000 UZS'
+
+    def add_bonus_2000(self, request, queryset):
+        """Add bonus to selected wallets"""
+        # In production, this would open a form to enter bonus amount
+        bonus_amount = Decimal('2000.00')  # Example fixed bonus
+        for wallet in queryset:
+            wallet.add_balance(
+                bonus_amount,
+                f'Admin bonus - Added by {request.user.username}. Amount: {bonus_amount} UZS'
+            )
+        self.message_user(
+            request,
+            f'Added {bonus_amount} UZS bonus to {queryset.count()} wallet(s).'
+        )
+
+    add_bonus_2000.short_description = 'Add bonus to selected wallets. Amount: 2000 UZS'
 
     def export_wallet_report(self, request, queryset):
         """Export wallet report"""
